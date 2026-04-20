@@ -38,6 +38,11 @@ pub async fn cmd_save_pat(pat: String) -> Result<PatUser, String> {
     Ok(user)
 }
 
+#[tauri::command]
+pub async fn cmd_logout(account_id: String) -> Result<(), String> {
+    crate::auth::token_store::delete_token(&account_id).map_err(|e| e.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -55,5 +60,10 @@ mod tests {
     #[test]
     fn cmd_save_pat_accepts_string_returns_pat_user() {
         let _ = cmd_save_pat;
+    }
+
+    #[test]
+    fn cmd_logout_is_async_and_takes_account_id() {
+        let _: fn(String) -> _ = |s| cmd_logout(s);
     }
 }
