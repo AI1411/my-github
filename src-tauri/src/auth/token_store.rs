@@ -2,6 +2,7 @@ use keyring::Entry;
 use thiserror::Error;
 
 const SERVICE: &str = "pulse-github";
+const LAST_ACCOUNT_KEY: &str = "__last_account__";
 
 #[derive(Debug, Error)]
 pub enum TokenStoreError {
@@ -26,6 +27,17 @@ pub fn delete_token(account_id: &str) -> Result<(), TokenStoreError> {
     Ok(())
 }
 
+pub fn save_last_account_id(account_id: &str) -> Result<(), TokenStoreError> {
+    let entry = Entry::new(SERVICE, LAST_ACCOUNT_KEY)?;
+    entry.set_password(account_id)?;
+    Ok(())
+}
+
+pub fn load_last_account_id() -> Option<String> {
+    let entry = Entry::new(SERVICE, LAST_ACCOUNT_KEY).ok()?;
+    entry.get_password().ok()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -48,6 +60,22 @@ mod tests {
         keyring::set_default_credential_builder(keyring::mock::default_credential_builder());
         let loaded = load_token("nonexistent-account-xyz-99999");
         assert!(loaded.is_none());
+    }
+
+    #[test]
+    #[ignore = "requires OS keychain (keyring mock does not share state between Entry objects)"]
+    fn save_and_load_last_account_id() {
+        save_last_account_id("octocat").unwrap();
+        let id = load_last_account_id();
+        assert_eq!(id, Some("octocat".to_string()));
+        let _ = delete_token(LAST_ACCOUNT_KEY);
+    }
+
+    #[test]
+    fn load_last_account_id_returns_none_when_not_set() {
+        keyring::set_default_credential_builder(keyring::mock::default_credential_builder());
+        let id = load_last_account_id();
+        assert!(id.is_none());
     }
 
     #[test]
