@@ -1,0 +1,67 @@
+# https://taskfile.dev
+version: "3"
+
+tasks:
+  dev:
+    desc: Tauri 開発サーバーを起動
+    cmd: pnpm tauri dev
+
+  build:
+    desc: Tauri リリースビルドを実行
+    cmd: pnpm tauri build
+
+  frontend:dev:
+    desc: フロントエンド開発サーバーのみ起動
+    cmd: pnpm dev
+
+  frontend:build:
+    desc: フロントエンドビルドを実行
+    cmd: pnpm build
+
+  lint:
+    desc: oxlint でフロントエンドをチェック
+    cmd: pnpm lint
+
+  lint:fix:
+    desc: oxlint で自動修正
+    cmd: pnpm lint:fix
+
+  format:
+    desc: oxfmt でフロントエンドコードをフォーマット
+    cmd: pnpm format
+
+  format:check:
+    desc: oxfmt でフォーマットをチェック（変更なし）
+    cmd: pnpm format:check
+
+  typecheck:
+    desc: tsgo で型チェックを実行
+    cmd: pnpm typecheck
+
+  check:
+    desc: 全フロントエンドチェック（lint + format:check + typecheck）を実行
+    deps: [lint, format:check, typecheck]
+
+  rust:lint:
+    desc: cargo clippy で Rust コードをチェック
+    dir: src-tauri
+    cmd: cargo clippy -- -D warnings
+
+  rust:format:
+    desc: cargo fmt で Rust コードをフォーマット
+    dir: src-tauri
+    cmd: cargo fmt
+
+  rust:format:check:
+    desc: Rust フォーマットをチェック（変更なし）
+    dir: src-tauri
+    cmd: cargo fmt --check
+
+  rust:test:
+    desc: Rust テストを実行
+    dir: src-tauri
+    cmd: cargo test
+
+  ci:
+    desc: CI で実行する全チェック（frontend + rust）
+    deps: [check, rust:lint, rust:format:check]
