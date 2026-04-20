@@ -62,6 +62,43 @@ pub struct PullRequest {
     pub requested_reviewers: Vec<User>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PullRequestRef {
+    pub url: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Issue {
+    pub id: u64,
+    pub number: u32,
+    pub title: String,
+    pub state: String,
+    pub html_url: String,
+    pub user: User,
+    #[serde(default)]
+    pub body: Option<String>,
+    #[serde(default)]
+    pub labels: Vec<Label>,
+    pub created_at: String,
+    pub updated_at: String,
+    #[serde(default)]
+    pub closed_at: Option<String>,
+    #[serde(default)]
+    pub pull_request: Option<PullRequestRef>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Review {
+    pub id: u64,
+    pub user: User,
+    pub body: String,
+    pub state: String,
+    pub html_url: String,
+    #[serde(default)]
+    pub submitted_at: Option<String>,
+    pub commit_id: String,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -190,6 +227,99 @@ mod tests {
         assert_eq!(pr.merged_at, None);
         assert_eq!(pr.head.ref_name, "new-feature");
         assert_eq!(pr.requested_reviewers.len(), 0);
+    }
+
+    #[test]
+    fn deserialize_issue_from_json() {
+        let json = r#"{
+            "id": 1,
+            "number": 1347,
+            "title": "Found a bug",
+            "state": "open",
+            "html_url": "https://github.com/octocat/Hello-World/issues/1347",
+            "user": {
+                "id": 1,
+                "login": "octocat",
+                "avatar_url": "https://avatars.githubusercontent.com/u/1",
+                "html_url": "https://github.com/octocat"
+            },
+            "body": "I found a bug",
+            "labels": [{"id": 100, "name": "bug", "color": "d73a4a"}],
+            "created_at": "2011-01-26T19:00:00Z",
+            "updated_at": "2011-01-26T19:00:00Z",
+            "closed_at": null
+        }"#;
+        let issue: Issue = serde_json::from_str(json).unwrap();
+        assert_eq!(issue.number, 1347);
+        assert_eq!(issue.labels.len(), 1);
+        assert_eq!(issue.labels[0].name, "bug");
+        assert_eq!(issue.pull_request, None);
+    }
+
+    #[test]
+    fn issue_with_pull_request_field_is_distinguishable() {
+        let json = r#"{
+            "id": 2,
+            "number": 5,
+            "title": "PR as issue",
+            "state": "open",
+            "html_url": "https://github.com/octocat/Hello-World/issues/5",
+            "user": {
+                "id": 1,
+                "login": "octocat",
+                "avatar_url": "https://avatars.githubusercontent.com/u/1",
+                "html_url": "https://github.com/octocat"
+            },
+            "labels": [],
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:00:00Z",
+            "pull_request": {"url": "https://api.github.com/repos/octocat/Hello-World/pulls/5"}
+        }"#;
+        let issue: Issue = serde_json::from_str(json).unwrap();
+        assert!(issue.pull_request.is_some());
+    }
+
+    #[test]
+    fn deserialize_review_from_json() {
+        let json = r#"{
+            "id": 80,
+            "user": {
+                "id": 1,
+                "login": "octocat",
+                "avatar_url": "https://avatars.githubusercontent.com/u/1",
+                "html_url": "https://github.com/octocat"
+            },
+            "body": "LGTM",
+            "state": "APPROVED",
+            "html_url": "https://github.com/octocat/Hello-World/pull/12#pullrequestreview-80",
+            "submitted_at": "2019-08-05T14:20:28Z",
+            "commit_id": "ecdd80bb57125d7ba9641ffaa4d7d2c19d3f3091"
+        }"#;
+        let review: Review = serde_json::from_str(json).unwrap();
+        assert_eq!(review.id, 80);
+        assert_eq!(review.state, "APPROVED");
+        assert_eq!(review.submitted_at, Some("2019-08-05T14:20:28Z".to_string()));
+    }
+
+    #[test]
+    fn deserialize_review_without_submitted_at() {
+        let json = r#"{
+            "id": 81,
+            "user": {
+                "id": 2,
+                "login": "reviewer",
+                "avatar_url": "https://avatars.githubusercontent.com/u/2",
+                "html_url": "https://github.com/reviewer"
+            },
+            "body": "",
+            "state": "CHANGES_REQUESTED",
+            "html_url": "https://github.com/octocat/repo/pull/1#pullrequestreview-81",
+            "submitted_at": null,
+            "commit_id": "abc123"
+        }"#;
+        let review: Review = serde_json::from_str(json).unwrap();
+        assert_eq!(review.state, "CHANGES_REQUESTED");
+        assert_eq!(review.submitted_at, None);
     }
 
     #[test]
