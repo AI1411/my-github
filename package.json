@@ -1,5 +1,5 @@
 {
-  "name": "tauri-app",
+  "name": "pulse",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -10,17 +10,19 @@
     "tauri": "tauri"
   },
   "dependencies": {
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "@tauri-apps/api": "^2",
-    "@tauri-apps/plugin-opener": "^2"
+    "react": "19.2.5",
+    "react-dom": "19.2.5",
+    "@tauri-apps/api": "2.10.1",
+    "@tauri-apps/plugin-opener": "2.5.3"
   },
   "devDependencies": {
-    "@types/react": "^19.1.8",
-    "@types/react-dom": "^19.1.6",
-    "@vitejs/plugin-react": "^4.6.0",
-    "typescript": "~5.8.3",
-    "vite": "^7.0.4",
-    "@tauri-apps/cli": "^2"
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "4.7.0",
+    "@tauri-apps/cli": "2.10.1",
+    "tailwindcss": "4.2.2",
+    "@tailwindcss/vite": "4.2.2",
+    "typescript": "5.8.3",
+    "vite": "7.3.2"
   }
 }
