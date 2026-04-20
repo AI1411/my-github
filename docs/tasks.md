@@ -33,7 +33,7 @@ GitHub cross-repository dashboard (Tauri 2 + Rust + React + TypeScript).
 - [x] M1-009 `Cargo.toml` に OS keychain 依存追加: keyring (15m)
 - [x] M1-010 `tauri.conf.json`: ウィンドウサイズ (1280x800) / 最小サイズ (960x600) / タイトル設定 (15m)
 - [x] M1-011 `tauri.conf.json`: allowlist を最小化 (http=false, fs=一部のみ) (30m)
-- [ ] M1-012 `src/App.tsx` を空のダークテーマ画面に差し替え、起動確認 (15m)
+- [x] M1-012 `src/App.tsx` を空のダークテーマ画面に差し替え、起動確認 (15m)
 - [ ] M1-013 ESLint + Prettier 導入、import order ルール設定 (30m)
 - [ ] M1-014 `rustfmt.toml` + `clippy.toml` 追加、`cargo clippy` ゼロ警告状態に (30m)
 - [ ] M1-015 GitHub Actions: `ci.yml` で macOS/Windows/Linux の build matrix (1h)
