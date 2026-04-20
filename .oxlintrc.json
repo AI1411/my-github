@@ -1,11 +1,15 @@
 {
   "$schema": "https://raw.githubusercontent.com/oxc-project/oxc/main/npm/oxlint/configuration_schema.json",
+  "plugins": ["import"],
   "rules": {
     "no-unused-vars": "error",
     "no-console": "warn",
     "eqeqeq": "error",
     "no-var": "error",
-    "prefer-const": "error"
+    "prefer-const": "error",
+    "import/first": "error",
+    "import/no-duplicates": "error",
+    "import/no-cycle": "warn"
   },
   "env": {
     "browser": true,
