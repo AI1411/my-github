@@ -33,6 +33,8 @@ pub fn run() {
             commands::auth::cmd_logout,
             commands::auth::cmd_get_current_user,
             commands::sync::cmd_sync_now,
+            commands::pulls::cmd_list_pulls,
+            commands::pulls::cmd_get_pull_files,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
