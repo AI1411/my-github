@@ -18,6 +18,7 @@ pub fn run() {
             commands::auth::cmd_poll_device_flow,
             commands::auth::cmd_save_pat,
             commands::auth::cmd_logout,
+            commands::auth::cmd_get_current_user,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
