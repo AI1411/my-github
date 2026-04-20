@@ -19,6 +19,16 @@ pub enum DeviceFlowError {
     Api { error: String },
     #[error("missing required field: {field}")]
     MissingField { field: &'static str },
+    #[error("authorization pending")]
+    AuthorizationPending,
+    #[error("polling too fast, increase interval")]
+    SlowDown,
+    #[error("device code expired")]
+    ExpiredToken,
+    #[error("user denied access")]
+    AccessDenied,
+    #[error("polling timed out")]
+    Timeout,
 }
 
 #[derive(Debug, Deserialize)]
@@ -110,5 +120,35 @@ mod tests {
             error: raw.error.unwrap(),
         };
         assert_eq!(err.to_string(), "GitHub API error: access_denied");
+    }
+
+    #[test]
+    fn authorization_pending_error_variant_exists() {
+        let err = DeviceFlowError::AuthorizationPending;
+        assert_eq!(err.to_string(), "authorization pending");
+    }
+
+    #[test]
+    fn slow_down_error_variant_exists() {
+        let err = DeviceFlowError::SlowDown;
+        assert_eq!(err.to_string(), "polling too fast, increase interval");
+    }
+
+    #[test]
+    fn expired_token_error_variant_exists() {
+        let err = DeviceFlowError::ExpiredToken;
+        assert_eq!(err.to_string(), "device code expired");
+    }
+
+    #[test]
+    fn access_denied_error_variant_exists() {
+        let err = DeviceFlowError::AccessDenied;
+        assert_eq!(err.to_string(), "user denied access");
+    }
+
+    #[test]
+    fn timeout_error_variant_exists() {
+        let err = DeviceFlowError::Timeout;
+        assert_eq!(err.to_string(), "polling timed out");
     }
 }
