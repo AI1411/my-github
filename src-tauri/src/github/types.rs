@@ -17,6 +17,20 @@ pub struct Label {
     pub color: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Repository {
+    pub id: u64,
+    pub name: String,
+    pub full_name: String,
+    pub private: bool,
+    pub owner: User,
+    pub html_url: String,
+    #[serde(default)]
+    pub description: Option<String>,
+    pub fork: bool,
+    pub default_branch: String,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -55,5 +69,53 @@ mod tests {
         assert_eq!(label.id, 100);
         assert_eq!(label.name, "bug");
         assert_eq!(label.color, "d73a4a");
+    }
+
+    #[test]
+    fn deserialize_repository_from_json() {
+        let json = r#"{
+            "id": 1296269,
+            "name": "Hello-World",
+            "full_name": "octocat/Hello-World",
+            "private": false,
+            "owner": {
+                "id": 1,
+                "login": "octocat",
+                "avatar_url": "https://avatars.githubusercontent.com/u/1",
+                "html_url": "https://github.com/octocat"
+            },
+            "html_url": "https://github.com/octocat/Hello-World",
+            "description": "My first repo",
+            "fork": false,
+            "default_branch": "main"
+        }"#;
+        let repo: Repository = serde_json::from_str(json).unwrap();
+        assert_eq!(repo.id, 1296269);
+        assert_eq!(repo.full_name, "octocat/Hello-World");
+        assert!(!repo.private);
+        assert_eq!(repo.default_branch, "main");
+        assert_eq!(repo.description, Some("My first repo".to_string()));
+    }
+
+    #[test]
+    fn deserialize_repository_without_description() {
+        let json = r#"{
+            "id": 2,
+            "name": "repo2",
+            "full_name": "user/repo2",
+            "private": true,
+            "owner": {
+                "id": 1,
+                "login": "user",
+                "avatar_url": "https://avatars.githubusercontent.com/u/1",
+                "html_url": "https://github.com/user"
+            },
+            "html_url": "https://github.com/user/repo2",
+            "fork": false,
+            "default_branch": "master"
+        }"#;
+        let repo: Repository = serde_json::from_str(json).unwrap();
+        assert_eq!(repo.description, None);
+        assert!(repo.private);
     }
 }
