@@ -155,10 +155,8 @@ mod tests {
         let tick_count = Arc::new(AtomicUsize::new(0));
         let tick_clone = tick_count.clone();
 
-        let handle = spawn_rate_limited_poller(
-            Duration::from_secs(1),
-            emitter.clone(),
-            move || {
+        let handle =
+            spawn_rate_limited_poller(Duration::from_secs(1), emitter.clone(), move || {
                 let c = tick_clone.clone();
                 async move {
                     let n = c.fetch_add(1, Ordering::SeqCst);
@@ -171,8 +169,7 @@ mod tests {
                         PollOutcome::Ok
                     }
                 }
-            },
-        );
+            });
 
         tokio::task::yield_now().await;
         tokio::task::yield_now().await;
