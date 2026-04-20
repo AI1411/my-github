@@ -1,3 +1,4 @@
+pub mod auth;
 pub mod config;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
