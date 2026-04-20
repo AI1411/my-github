@@ -30,6 +30,26 @@ struct RawUser {
     avatar_url: Option<String>,
 }
 
+const REQUIRED_SCOPES: &[&str] = &["repo", "read:user", "notifications"];
+
+/// Checks that all required OAuth scopes are present.
+/// Returns Ok if scopes is empty (fine-grained PAT passes through).
+pub fn check_required_scopes(scopes: &[String]) -> Result<(), String> {
+    if scopes.is_empty() {
+        return Ok(());
+    }
+    let missing: Vec<&str> = REQUIRED_SCOPES
+        .iter()
+        .copied()
+        .filter(|&req| !scopes.iter().any(|s| s == req))
+        .collect();
+    if missing.is_empty() {
+        Ok(())
+    } else {
+        Err(format!("Missing required scopes: {}", missing.join(", ")))
+    }
+}
+
 /// Validates a GitHub Personal Access Token.
 ///
 /// Returns user information and the list of granted OAuth scopes.
@@ -118,5 +138,36 @@ mod tests {
         let raw: RawUser = serde_json::from_str(json).unwrap();
         assert_eq!(raw.login.unwrap(), "octocat");
         assert_eq!(raw.id.unwrap(), 1u64);
+    }
+
+    #[test]
+    fn check_required_scopes_fails_when_missing_repo() {
+        let scopes: Vec<String> = vec!["read:user".to_string(), "notifications".to_string()];
+        let err = check_required_scopes(&scopes).unwrap_err();
+        assert!(err.contains("repo"), "error should mention 'repo': {err}");
+    }
+
+    #[test]
+    fn check_required_scopes_fails_when_missing_multiple() {
+        let scopes: Vec<String> = vec!["read:user".to_string()];
+        let err = check_required_scopes(&scopes).unwrap_err();
+        assert!(err.contains("repo"));
+        assert!(err.contains("notifications"));
+    }
+
+    #[test]
+    fn check_required_scopes_passes_with_all_required() {
+        let scopes: Vec<String> = vec![
+            "repo".to_string(),
+            "read:user".to_string(),
+            "notifications".to_string(),
+            "workflow".to_string(),
+        ];
+        assert!(check_required_scopes(&scopes).is_ok());
+    }
+
+    #[test]
+    fn check_required_scopes_passes_when_empty() {
+        assert!(check_required_scopes(&[]).is_ok());
     }
 }

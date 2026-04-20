@@ -1,5 +1,5 @@
 use crate::auth::device_flow::{request_device_code, DeviceCodeResponse};
-use crate::auth::pat::{validate_pat, PatUser};
+use crate::auth::pat::{check_required_scopes, validate_pat, PatUser};
 use crate::auth::token_store::save_token;
 use crate::config;
 
@@ -31,9 +31,10 @@ pub async fn cmd_poll_device_flow(device_code: DeviceCodeResponse) -> Result<Pat
 #[tauri::command]
 pub async fn cmd_save_pat(pat: String) -> Result<PatUser, String> {
     let client = reqwest::Client::new();
-    let (user, _scopes) = validate_pat(&client, &pat)
+    let (user, scopes) = validate_pat(&client, &pat)
         .await
         .map_err(|e| e.to_string())?;
+    check_required_scopes(&scopes)?;
     save_token(&user.login, &pat).map_err(|e| e.to_string())?;
     Ok(user)
 }
