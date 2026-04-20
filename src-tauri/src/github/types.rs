@@ -361,7 +361,10 @@ mod tests {
         let review: Review = serde_json::from_str(json).unwrap();
         assert_eq!(review.id, 80);
         assert_eq!(review.state, "APPROVED");
-        assert_eq!(review.submitted_at, Some("2019-08-05T14:20:28Z".to_string()));
+        assert_eq!(
+            review.submitted_at,
+            Some("2019-08-05T14:20:28Z".to_string())
+        );
     }
 
     #[test]

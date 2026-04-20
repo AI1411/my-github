@@ -18,9 +18,10 @@ pub async fn cmd_start_device_flow() -> Result<DeviceCodeResponse, String> {
 #[tauri::command]
 pub async fn cmd_poll_device_flow(device_code: DeviceCodeResponse) -> Result<PatUser, String> {
     let client = reqwest::Client::new();
-    let token = crate::auth::device_flow::poll_device_flow(&client, config::CLIENT_ID, &device_code)
-        .await
-        .map_err(|e| e.to_string())?;
+    let token =
+        crate::auth::device_flow::poll_device_flow(&client, config::CLIENT_ID, &device_code)
+            .await
+            .map_err(|e| e.to_string())?;
     let (user, _scopes) = validate_pat(&client, &token)
         .await
         .map_err(|e| e.to_string())?;

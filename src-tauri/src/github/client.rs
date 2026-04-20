@@ -97,7 +97,12 @@ mod tests {
     fn get_builds_request_with_auth_header() {
         let client = GithubClient::new("gho_mytoken");
         let req = client.get("/user").build().unwrap();
-        let auth = req.headers().get("Authorization").unwrap().to_str().unwrap();
+        let auth = req
+            .headers()
+            .get("Authorization")
+            .unwrap()
+            .to_str()
+            .unwrap();
         assert_eq!(auth, "Bearer gho_mytoken");
         let ua = req.headers().get("User-Agent").unwrap().to_str().unwrap();
         assert_eq!(ua, "pulse-app/0.1");
@@ -141,19 +146,28 @@ mod tests {
 
     #[test]
     fn is_exhausted_returns_true_when_remaining_is_zero() {
-        let info = RateLimitInfo { remaining: 0, reset: 0 };
+        let info = RateLimitInfo {
+            remaining: 0,
+            reset: 0,
+        };
         assert!(info.is_exhausted());
     }
 
     #[test]
     fn is_low_returns_true_when_remaining_below_100() {
-        let info = RateLimitInfo { remaining: 99, reset: 0 };
+        let info = RateLimitInfo {
+            remaining: 99,
+            reset: 0,
+        };
         assert!(info.is_low());
     }
 
     #[test]
     fn is_low_returns_false_when_remaining_is_100() {
-        let info = RateLimitInfo { remaining: 100, reset: 0 };
+        let info = RateLimitInfo {
+            remaining: 100,
+            reset: 0,
+        };
         assert!(!info.is_low());
     }
 }

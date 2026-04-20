@@ -131,8 +131,16 @@ pub async fn poll_device_flow(
             }
             Some("expired_token") => return Err(DeviceFlowError::ExpiredToken),
             Some("access_denied") => return Err(DeviceFlowError::AccessDenied),
-            Some(other) => return Err(DeviceFlowError::Api { error: other.to_string() }),
-            None => return Err(DeviceFlowError::Api { error: "empty response".to_string() }),
+            Some(other) => {
+                return Err(DeviceFlowError::Api {
+                    error: other.to_string(),
+                })
+            }
+            None => {
+                return Err(DeviceFlowError::Api {
+                    error: "empty response".to_string(),
+                })
+            }
         }
     }
 }

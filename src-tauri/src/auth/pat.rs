@@ -67,7 +67,9 @@ pub async fn validate_pat(
 
     let status = resp.status();
     if status == reqwest::StatusCode::UNAUTHORIZED {
-        return Err(PatError::Unauthorized { status: status.as_u16() });
+        return Err(PatError::Unauthorized {
+            status: status.as_u16(),
+        });
     }
 
     let scopes = resp
@@ -84,7 +86,9 @@ pub async fn validate_pat(
         id: raw.id.ok_or(PatError::MissingField { field: "id" })?,
         name: raw.name,
         email: raw.email,
-        avatar_url: raw.avatar_url.ok_or(PatError::MissingField { field: "avatar_url" })?,
+        avatar_url: raw.avatar_url.ok_or(PatError::MissingField {
+            field: "avatar_url",
+        })?,
     };
 
     Ok((user, scopes))
