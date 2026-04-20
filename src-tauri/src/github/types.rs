@@ -31,6 +31,37 @@ pub struct Repository {
     pub default_branch: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PrRef {
+    pub label: String,
+    #[serde(rename = "ref")]
+    pub ref_name: String,
+    pub sha: String,
+    #[serde(default)]
+    pub repo: Option<Box<Repository>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PullRequest {
+    pub id: u64,
+    pub number: u32,
+    pub title: String,
+    pub state: String,
+    pub draft: bool,
+    pub html_url: String,
+    pub user: User,
+    #[serde(default)]
+    pub body: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+    #[serde(default)]
+    pub merged_at: Option<String>,
+    pub head: PrRef,
+    pub base: PrRef,
+    #[serde(default)]
+    pub requested_reviewers: Vec<User>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -117,5 +148,93 @@ mod tests {
         let repo: Repository = serde_json::from_str(json).unwrap();
         assert_eq!(repo.description, None);
         assert!(repo.private);
+    }
+
+    #[test]
+    fn deserialize_pull_request_from_json() {
+        let json = r#"{
+            "id": 1,
+            "number": 1347,
+            "title": "Amazing new feature",
+            "state": "open",
+            "draft": false,
+            "html_url": "https://github.com/octocat/Hello-World/pull/1347",
+            "user": {
+                "id": 1,
+                "login": "octocat",
+                "avatar_url": "https://avatars.githubusercontent.com/u/1",
+                "html_url": "https://github.com/octocat"
+            },
+            "body": "Please pull these changes",
+            "created_at": "2011-01-26T19:01:12Z",
+            "updated_at": "2011-01-26T19:01:12Z",
+            "merged_at": null,
+            "head": {
+                "label": "octocat:new-feature",
+                "ref": "new-feature",
+                "sha": "6dcb09b5b57875f334f61aebed695e2e4193db5e",
+                "repo": null
+            },
+            "base": {
+                "label": "octocat:master",
+                "ref": "master",
+                "sha": "6dcb09b5b57875f334f61aebed695e2e4193db5e",
+                "repo": null
+            },
+            "requested_reviewers": []
+        }"#;
+        let pr: PullRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(pr.number, 1347);
+        assert_eq!(pr.title, "Amazing new feature");
+        assert!(!pr.draft);
+        assert_eq!(pr.merged_at, None);
+        assert_eq!(pr.head.ref_name, "new-feature");
+        assert_eq!(pr.requested_reviewers.len(), 0);
+    }
+
+    #[test]
+    fn deserialize_pull_request_with_reviewer() {
+        let json = r#"{
+            "id": 2,
+            "number": 2,
+            "title": "Fix bug",
+            "state": "open",
+            "draft": true,
+            "html_url": "https://github.com/octocat/Hello-World/pull/2",
+            "user": {
+                "id": 1,
+                "login": "octocat",
+                "avatar_url": "https://avatars.githubusercontent.com/u/1",
+                "html_url": "https://github.com/octocat"
+            },
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:00:00Z",
+            "merged_at": "2024-01-02T00:00:00Z",
+            "head": {
+                "label": "octocat:fix",
+                "ref": "fix",
+                "sha": "abc123",
+                "repo": null
+            },
+            "base": {
+                "label": "octocat:main",
+                "ref": "main",
+                "sha": "def456",
+                "repo": null
+            },
+            "requested_reviewers": [
+                {
+                    "id": 3,
+                    "login": "reviewer",
+                    "avatar_url": "https://avatars.githubusercontent.com/u/3",
+                    "html_url": "https://github.com/reviewer"
+                }
+            ]
+        }"#;
+        let pr: PullRequest = serde_json::from_str(json).unwrap();
+        assert!(pr.draft);
+        assert_eq!(pr.merged_at, Some("2024-01-02T00:00:00Z".to_string()));
+        assert_eq!(pr.requested_reviewers.len(), 1);
+        assert_eq!(pr.requested_reviewers[0].login, "reviewer");
     }
 }
