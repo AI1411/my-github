@@ -40,7 +40,7 @@ pub async fn validate_pat(
     let resp = client
         .get("https://api.github.com/user")
         .header("Accept", "application/vnd.github+json")
-        .header("Authorization", format!("token {}", token))
+        .header("Authorization", format!("Bearer {}", token))
         .header("User-Agent", "pulse-app")
         .send()
         .await?;
