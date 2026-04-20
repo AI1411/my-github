@@ -1,43 +1,44 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useAuthStore, type AuthUser } from "./stores/authStore";
+import { useDataStore } from "./stores/dataStore";
 import LoginPage from "./pages/LoginPage";
-import Dashboard from "./pages/Dashboard";
-
-type Screen = "checking" | "login" | "dashboard";
-
-interface AuthUser {
-  login: string;
-  avatar_url: string;
-}
+import { AppRouter } from "./lib/router";
 
 function App() {
-  const [screen, setScreen] = useState<Screen>("checking");
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const status = useAuthStore((s) => s.status);
+  const user = useAuthStore((s) => s.user);
+  const setUser = useAuthStore((s) => s.setUser);
+  const setStatus = useAuthStore((s) => s.setStatus);
+  const reset = useAuthStore((s) => s.reset);
+  const resetData = useDataStore((s) => s.reset);
 
   useEffect(() => {
+    let cancelled = false;
     invoke<AuthUser | null>("cmd_get_current_user")
-      .then(u => {
-        if (u) {
-          setUser(u);
-          setScreen("dashboard");
-        } else {
-          setScreen("login");
-        }
+      .then((u) => {
+        if (cancelled) return;
+        if (u) setUser(u);
+        else setStatus("unauthenticated");
       })
-      .catch(() => setScreen("login"));
-  }, []);
+      .catch(() => {
+        if (!cancelled) setStatus("unauthenticated");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [setUser, setStatus]);
 
   const handleLoginSuccess = (u: AuthUser) => {
     setUser(u);
-    setScreen("dashboard");
   };
 
   const handleLogout = () => {
-    setUser(null);
-    setScreen("login");
+    resetData();
+    reset();
   };
 
-  if (screen === "checking") {
+  if (status === "checking") {
     return (
       <div
         className="min-h-screen flex items-center justify-center"
@@ -51,8 +52,8 @@ function App() {
     );
   }
 
-  if (screen === "dashboard" && user) {
-    return <Dashboard user={user} onLogout={handleLogout} />;
+  if (status === "authenticated" && user) {
+    return <AppRouter onSignOut={handleLogout} />;
   }
 
   return <LoginPage onSuccess={handleLoginSuccess} />;
