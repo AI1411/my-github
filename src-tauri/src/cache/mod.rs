@@ -7,6 +7,7 @@
 use thiserror::Error;
 
 pub mod issues;
+pub mod meta;
 pub mod pulls;
 
 #[derive(Debug, Error)]
