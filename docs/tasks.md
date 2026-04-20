@@ -63,9 +63,9 @@ GitHub cross-repository dashboard (Tauri 2 + Rust + React + TypeScript).
 
 ## M3: GitHubクライアント + キャッシュ層
 
-- [ ] M3-001 `src-tauri/src/github/client.rs`: reqwest ベースの HTTP client 構造体、User-Agent 設定 (30m)
-- [ ] M3-002 `client.rs`: Authorization ヘッダを token から自動付与するミドルウェア (30m)
-- [ ] M3-003 レート制限パーサ: `X-RateLimit-Remaining` / `X-RateLimit-Reset` を抽出 (30m)
+- [x] M3-001 `src-tauri/src/github/client.rs`: reqwest ベースの HTTP client 構造体、User-Agent 設定 (30m)
+- [x] M3-002 `client.rs`: Authorization ヘッダを token から自動付与するミドルウェア (30m)
+- [x] M3-003 レート制限パーサ: `X-RateLimit-Remaining` / `X-RateLimit-Reset` を抽出 (30m)
 - [ ] M3-004 `src-tauri/src/github/types.rs`: PullRequest / Issue / User / Repository / Review の最小 struct (1h)
 - [ ] M3-005 `src-tauri/src/github/rest.rs`: `list_repos_for_authenticated_user()` (30m)
 - [ ] M3-006 `rest.rs`: `list_pull_requests(owner, repo, state)` (ページング対応) (1h)
