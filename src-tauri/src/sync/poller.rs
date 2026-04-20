@@ -5,6 +5,8 @@ use std::time::Duration;
 use tokio::task::JoinHandle;
 use tokio::time::{interval, MissedTickBehavior};
 
+use crate::github::client::RateLimitInfo;
+
 /// Default Pulse polling interval when the app window is focused.
 pub const DEFAULT_POLL_INTERVAL: Duration = Duration::from_secs(60);
 
@@ -27,6 +29,51 @@ where
         loop {
             ticker.tick().await;
             (tick)().await;
+        }
+    })
+}
+
+/// Outcome returned by a tick of the rate-limit aware poller.
+#[derive(Debug, Clone)]
+pub enum PollOutcome {
+    Ok,
+    RateLimited(RateLimitInfo),
+}
+
+/// Abstraction over the host's event bus so the poller can emit UI events
+/// without depending on Tauri directly. Tauri's `AppHandle` implements this
+/// in `lib.rs`.
+pub trait EventEmitter: Send + Sync + 'static {
+    fn emit_rate_limit_hit(&self, info: &RateLimitInfo);
+}
+
+/// Spawn a polling loop that respects GitHub rate limits.
+///
+/// If the tick returns `PollOutcome::RateLimited(info)`, the emitter is
+/// notified via `emit_rate_limit_hit(&info)` and the next tick is awaited
+/// as normal (i.e. the current tick contributes no sync work).
+pub fn spawn_rate_limited_poller<E, F, Fut>(
+    period: Duration,
+    emitter: Arc<E>,
+    tick: F,
+) -> JoinHandle<()>
+where
+    E: EventEmitter,
+    F: Fn() -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = PollOutcome> + Send + 'static,
+{
+    let tick = Arc::new(tick);
+    tokio::spawn(async move {
+        let mut ticker = interval(period);
+        ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
+        loop {
+            ticker.tick().await;
+            match (tick)().await {
+                PollOutcome::Ok => {}
+                PollOutcome::RateLimited(info) => {
+                    emitter.emit_rate_limit_hit(&info);
+                }
+            }
         }
     })
 }
@@ -87,5 +134,55 @@ mod tests {
     #[test]
     fn default_poll_interval_is_60s() {
         assert_eq!(DEFAULT_POLL_INTERVAL, Duration::from_secs(60));
+    }
+
+    #[tokio::test(flavor = "current_thread", start_paused = true)]
+    async fn rate_limited_outcome_emits_event_and_skips() {
+        use crate::github::client::RateLimitInfo;
+        use std::sync::Mutex;
+
+        #[derive(Default)]
+        struct MockEmitter {
+            hits: Mutex<Vec<RateLimitInfo>>,
+        }
+        impl EventEmitter for MockEmitter {
+            fn emit_rate_limit_hit(&self, info: &RateLimitInfo) {
+                self.hits.lock().unwrap().push(info.clone());
+            }
+        }
+
+        let emitter = Arc::new(MockEmitter::default());
+        let tick_count = Arc::new(AtomicUsize::new(0));
+        let tick_clone = tick_count.clone();
+
+        let handle =
+            spawn_rate_limited_poller(Duration::from_secs(1), emitter.clone(), move || {
+                let c = tick_clone.clone();
+                async move {
+                    let n = c.fetch_add(1, Ordering::SeqCst);
+                    if n == 0 {
+                        PollOutcome::RateLimited(RateLimitInfo {
+                            remaining: 0,
+                            reset: 123,
+                        })
+                    } else {
+                        PollOutcome::Ok
+                    }
+                }
+            });
+
+        tokio::task::yield_now().await;
+        tokio::task::yield_now().await;
+        assert_eq!(tick_count.load(Ordering::SeqCst), 1);
+        assert_eq!(emitter.hits.lock().unwrap().len(), 1);
+        assert_eq!(emitter.hits.lock().unwrap()[0].remaining, 0);
+
+        tokio::time::advance(Duration::from_secs(1)).await;
+        tokio::task::yield_now().await;
+        tokio::task::yield_now().await;
+        assert_eq!(tick_count.load(Ordering::SeqCst), 2);
+        assert_eq!(emitter.hits.lock().unwrap().len(), 1);
+
+        handle.abort();
     }
 }

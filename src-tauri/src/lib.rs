@@ -32,7 +32,15 @@ pub fn run() {
             commands::auth::cmd_save_pat,
             commands::auth::cmd_logout,
             commands::auth::cmd_get_current_user,
+            commands::sync::cmd_sync_now,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+impl<R: tauri::Runtime> sync::poller::EventEmitter for tauri::AppHandle<R> {
+    fn emit_rate_limit_hit(&self, info: &github::client::RateLimitInfo) {
+        use tauri::Emitter;
+        let _ = self.emit("rate-limit-hit", info);
+    }
 }

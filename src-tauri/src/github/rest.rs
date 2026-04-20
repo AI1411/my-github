@@ -1,4 +1,4 @@
-use crate::github::client::{ClientError, GithubClient};
+use crate::github::client::{ClientError, GithubClient, RateLimitInfo};
 use crate::github::types::{
     CheckRunsResponse, Issue, Notification, PullRequest, PullRequestFile, Repository,
 };
@@ -222,6 +222,21 @@ pub async fn get_check_runs(
     Ok(resp.json().await?)
 }
 
+/// Fetch the authenticated user's current rate-limit status via
+/// `GET /rate_limit`. The call itself does not consume quota.
+pub async fn get_rate_limit(client: &GithubClient) -> Result<RateLimitInfo, ClientError> {
+    let resp = client.get("/rate_limit").send().await?;
+    let status = resp.status();
+    if !status.is_success() {
+        let message = resp.text().await.unwrap_or_default();
+        return Err(ClientError::Api {
+            status: status.as_u16(),
+            message,
+        });
+    }
+    Ok(RateLimitInfo::from_headers(resp.headers()))
+}
+
 pub async fn list_notifications(client: &GithubClient) -> Result<Vec<Notification>, ClientError> {
     let mut notifications: Vec<Notification> = Vec::new();
     let mut page = 1u32;
@@ -401,5 +416,12 @@ mod tests {
         let page = 1u32;
         let path = format!("/notifications?per_page=100&page={}", page);
         assert_eq!(path, "/notifications?per_page=100&page=1");
+    }
+
+    #[test]
+    fn get_rate_limit_is_async_function() {
+        // Type-check: simply referencing the function ensures it compiles
+        // with the expected signature.
+        let _ = get_rate_limit;
     }
 }
