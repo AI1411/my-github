@@ -1,13 +1,30 @@
 import { create } from "zustand";
 
+export interface ReviewerInfo {
+  login: string;
+  avatarUrl: string;
+}
+
 export interface PullSummary {
   id: number;
   number: number;
   title: string;
   repo: string;
-  author: string;
-  state: "open" | "closed" | "merged" | "draft";
-  updated_at: string;
+  author: string | null;
+  state: string;
+  isDraft: boolean;
+  headRef: string;
+  baseRef: string;
+  updatedAt: string;
+  htmlUrl: string | null;
+  ciState: string | null;
+  reviewState: string | null;
+  hasMention: boolean;
+  requestedReviewers: ReviewerInfo[];
+  mergedAt: string | null;
+  additions: number | null;
+  deletions: number | null;
+  changedFiles: number | null;
 }
 
 export interface IssueSummary {
