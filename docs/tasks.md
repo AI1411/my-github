@@ -42,7 +42,7 @@ GitHub cross-repository dashboard (Tauri 2 + Rust + React + TypeScript).
 
 ## M2: 認証 (OAuth Device Flow + PAT)
 
-- [ ] M2-001 GitHub OAuth App を dev 用に作成、`scopes: repo, read:org, read:user, notifications, workflow` 確認 (30m)
+- [x] M2-001 GitHub OAuth App を dev 用に作成、`scopes: repo, read:org, read:user, notifications, workflow` 確認 (30m)
 - [ ] M2-002 `src-tauri/src/auth/mod.rs` 作成、認証方式の enum 定義 (`Method::DeviceFlow`, `Method::Pat`) (15m)
 - [ ] M2-003 Device Flow: `POST /login/device/code` の型定義と呼び出し関数 (45m)
 - [ ] M2-004 Device Flow: ポーリング関数 (`POST /login/oauth/access_token`) を interval + expires_in対応で実装 (1h)
