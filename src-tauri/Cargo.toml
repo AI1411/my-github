@@ -28,4 +28,7 @@ thiserror = "2"
 anyhow = "1"
 octocrab = "0.41"
 graphql_client = { version = "0.14", features = ["reqwest"] }
+rusqlite = { version = "0.31", features = ["bundled"] }
+r2d2 = "0.8"
+r2d2_sqlite = "0.24"
 
