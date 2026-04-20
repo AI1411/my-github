@@ -145,6 +145,10 @@ mod tests {
                     color: "ffffff".into(),
                 })
                 .collect(),
+            assignees: vec![],
+            milestone: None,
+            comments: 0,
+            author_association: None,
             created_at: "2026-04-20T00:00:00Z".into(),
             updated_at: updated_at.into(),
             closed_at: None,

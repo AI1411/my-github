@@ -68,6 +68,20 @@ pub struct PullRequestRef {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Milestone {
+    pub id: u64,
+    pub number: u32,
+    pub title: String,
+    pub state: String,
+    #[serde(default)]
+    pub open_issues: u32,
+    #[serde(default)]
+    pub closed_issues: u32,
+    #[serde(default)]
+    pub due_on: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Issue {
     pub id: u64,
     pub number: u32,
@@ -79,6 +93,14 @@ pub struct Issue {
     pub body: Option<String>,
     #[serde(default)]
     pub labels: Vec<Label>,
+    #[serde(default)]
+    pub assignees: Vec<User>,
+    #[serde(default)]
+    pub milestone: Option<Milestone>,
+    #[serde(default)]
+    pub comments: u32,
+    #[serde(default)]
+    pub author_association: Option<String>,
     pub created_at: String,
     pub updated_at: String,
     #[serde(default)]
@@ -86,6 +108,7 @@ pub struct Issue {
     #[serde(default)]
     pub pull_request: Option<PullRequestRef>,
 }
+
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Review {
@@ -317,6 +340,59 @@ mod tests {
         assert_eq!(issue.labels.len(), 1);
         assert_eq!(issue.labels[0].name, "bug");
         assert_eq!(issue.pull_request, None);
+    }
+
+    #[test]
+    fn deserialize_issue_with_assignees_and_milestone() {
+        let json = r#"{
+            "id": 11,
+            "number": 7,
+            "title": "Improve docs",
+            "state": "open",
+            "html_url": "https://github.com/o/r/issues/7",
+            "user": {
+                "id": 1,
+                "login": "octocat",
+                "avatar_url": "https://a/1",
+                "html_url": "https://u/octocat"
+            },
+            "labels": [{"id": 1, "name": "docs", "color": "0075ca"}],
+            "assignees": [
+                {
+                    "id": 2,
+                    "login": "alice",
+                    "avatar_url": "https://a/2",
+                    "html_url": "https://u/alice"
+                },
+                {
+                    "id": 3,
+                    "login": "bob",
+                    "avatar_url": "https://a/3",
+                    "html_url": "https://u/bob"
+                }
+            ],
+            "milestone": {
+                "id": 100,
+                "number": 4,
+                "title": "v0.2",
+                "state": "open",
+                "open_issues": 3,
+                "closed_issues": 5,
+                "due_on": "2026-05-01T00:00:00Z"
+            },
+            "comments": 4,
+            "author_association": "OWNER",
+            "created_at": "2026-04-20T00:00:00Z",
+            "updated_at": "2026-04-21T00:00:00Z",
+            "closed_at": null
+        }"#;
+        let issue: Issue = serde_json::from_str(json).unwrap();
+        assert_eq!(issue.assignees.len(), 2);
+        assert_eq!(issue.assignees[0].login, "alice");
+        assert_eq!(issue.milestone.as_ref().unwrap().title, "v0.2");
+        assert_eq!(issue.milestone.as_ref().unwrap().open_issues, 3);
+        assert_eq!(issue.comments, 4);
+        assert_eq!(issue.author_association.as_deref(), Some("OWNER"));
     }
 
     #[test]
