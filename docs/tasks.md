@@ -83,8 +83,8 @@ GitHub cross-repository dashboard (Tauri 2 + Rust + React + TypeScript).
 - [ ] M3-018 `src-tauri/src/cache/issues.rs`: upsert_issue / list_issues_by_repo (45m)
 - [ ] M3-019 `src-tauri/src/cache/meta.rs`: 最終 fetch 時刻 / ETag 管理 (45m)
 - [ ] M3-020 `src-tauri/src/sync/poller.rs`: tokio::time::interval で 60s ポーリング (45m)
-- [ ] M3-021 `sync/poller.rs`: レート不足時は次回まで skip、UI にイベント emit (`rate-limit-hit`) (45m)
-- [ ] M3-022 Tauri command: `cmd_sync_now()` (手動同期、レート情報も返す) (30m)
+- [x] M3-021 `sync/poller.rs`: レート不足時は次回まで skip、UI にイベント emit (`rate-limit-hit`) (45m)
+- [x] M3-022 Tauri command: `cmd_sync_now()` (手動同期、レート情報も返す) (30m)
 
 ## M4: 共通UI + レイアウト + ルーティング
 
