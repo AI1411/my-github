@@ -6,6 +6,7 @@
 
 use thiserror::Error;
 
+pub mod issues;
 pub mod pulls;
 
 #[derive(Debug, Error)]
