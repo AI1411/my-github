@@ -1,3 +1,5 @@
+pub mod migrations;
+
 use std::path::{Path, PathBuf};
 
 use r2d2::Pool;
