@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { DeviceFlowTab } from "./components/DeviceFlowTab";
+import { PATTab } from "./components/PATTab";
 
 type Tab = "oauth" | "pat";
 
@@ -88,12 +89,7 @@ export default function LoginPage({ onSuccess }: LoginPageProps) {
           )}
           {activeTab === "pat" && (
             <div data-testid="pat-tab">
-              <p
-                className="text-sm text-center"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                Personal Access Token — coming in M2-017
-              </p>
+              <PATTab onSuccess={handleAuthSuccess} />
             </div>
           )}
         </div>
