@@ -71,6 +71,15 @@ impl GithubClient {
             .header("User-Agent", USER_AGENT)
             .header("Accept", "application/vnd.github+json")
     }
+
+    pub fn post(&self, path: &str) -> reqwest::RequestBuilder {
+        let url = format!("{}{}", GITHUB_API_BASE, path);
+        self.inner
+            .post(url)
+            .header("Authorization", format!("Bearer {}", self.token))
+            .header("User-Agent", USER_AGENT)
+            .header("Accept", "application/vnd.github+json")
+    }
 }
 
 #[cfg(test)]
@@ -91,6 +100,20 @@ mod tests {
     #[test]
     fn user_agent_contains_pulse() {
         assert!(GithubClient::user_agent().contains("pulse"));
+    }
+
+    #[test]
+    fn post_builds_request_with_auth_header() {
+        let client = GithubClient::new("gho_mytoken");
+        let req = client.post("/graphql").build().unwrap();
+        assert_eq!(req.method(), reqwest::Method::POST);
+        let auth = req
+            .headers()
+            .get("Authorization")
+            .unwrap()
+            .to_str()
+            .unwrap();
+        assert_eq!(auth, "Bearer gho_mytoken");
     }
 
     #[test]
