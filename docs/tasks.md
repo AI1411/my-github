@@ -28,7 +28,7 @@ GitHub cross-repository dashboard (Tauri 2 + Rust + React + TypeScript).
 - [x] M1-004 Tailwind CSS v4 導入、`index.css` に `@import "tailwindcss"` と design tokens (CSS variables) 定義 (45m)
 - [x] M1-005 `src/styles/tokens.css` にダークテーマ design tokens (--bg-primary, --accent-blue など全15色) を定義 (30m)
 - [x] M1-006 `Cargo.toml` にコア依存追加: tokio, reqwest, serde, serde_json, thiserror, anyhow (15m)
-- [ ] M1-007 `Cargo.toml` に GitHub API 依存追加: octocrab, graphql_client (30m)
+- [x] M1-007 `Cargo.toml` に GitHub API 依存追加: octocrab, graphql_client (30m)
 - [ ] M1-008 `Cargo.toml` にストレージ依存追加: rusqlite (bundled feature), r2d2, r2d2_sqlite (15m)
 - [ ] M1-009 `Cargo.toml` に OS keychain 依存追加: keyring (15m)
 - [ ] M1-010 `tauri.conf.json`: ウィンドウサイズ (1280x800) / 最小サイズ (960x600) / タイトル設定 (15m)
