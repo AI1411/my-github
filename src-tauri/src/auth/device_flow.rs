@@ -41,6 +41,12 @@ struct RawDeviceCodeResponse {
     error: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+struct RawTokenResponse {
+    access_token: Option<String>,
+    error: Option<String>,
+}
+
 pub async fn request_device_code(
     client: &Client,
     client_id: &str,
@@ -74,6 +80,61 @@ pub async fn request_device_code(
         expires_in: raw.expires_in.unwrap_or(900),
         interval: raw.interval.unwrap_or(5),
     })
+}
+
+/// Polls GitHub OAuth Device Flow endpoint for access token.
+///
+/// Blocks until token is granted, user denies access, or expires_in timeout.
+/// Respects GitHub's `slow_down` directive by increasing interval by 5 seconds.
+pub async fn poll_device_flow(
+    client: &Client,
+    client_id: &str,
+    device: &DeviceCodeResponse,
+) -> Result<String, DeviceFlowError> {
+    use tokio::time::{sleep, Duration, Instant};
+
+    let deadline = Instant::now() + Duration::from_secs(device.expires_in);
+    let mut interval_secs = device.interval;
+
+    loop {
+        if Instant::now() >= deadline {
+            return Err(DeviceFlowError::Timeout);
+        }
+
+        sleep(Duration::from_secs(interval_secs)).await;
+
+        let params = [
+            ("client_id", client_id),
+            ("device_code", device.device_code.as_str()),
+            ("grant_type", "urn:ietf:params:oauth:grant-type:device_code"),
+        ];
+
+        let raw: RawTokenResponse = client
+            .post("https://github.com/login/oauth/access_token")
+            .header("Accept", "application/json")
+            .form(&params)
+            .send()
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+
+        if let Some(token) = raw.access_token {
+            return Ok(token);
+        }
+
+        match raw.error.as_deref() {
+            Some("authorization_pending") => continue,
+            Some("slow_down") => {
+                interval_secs += 5;
+                continue;
+            }
+            Some("expired_token") => return Err(DeviceFlowError::ExpiredToken),
+            Some("access_denied") => return Err(DeviceFlowError::AccessDenied),
+            Some(other) => return Err(DeviceFlowError::Api { error: other.to_string() }),
+            None => return Err(DeviceFlowError::Api { error: "empty response".to_string() }),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -150,5 +211,35 @@ mod tests {
     fn timeout_error_variant_exists() {
         let err = DeviceFlowError::Timeout;
         assert_eq!(err.to_string(), "polling timed out");
+    }
+
+    #[test]
+    fn raw_token_response_with_access_token_parses() {
+        let json = r#"{"access_token":"gho_abc","token_type":"bearer","scope":"repo"}"#;
+        let raw: RawTokenResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(raw.access_token.unwrap(), "gho_abc");
+        assert!(raw.error.is_none());
+    }
+
+    #[test]
+    fn raw_token_response_authorization_pending_parses() {
+        let json = r#"{"error":"authorization_pending","error_description":"..."}"#;
+        let raw: RawTokenResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(raw.error.unwrap(), "authorization_pending");
+        assert!(raw.access_token.is_none());
+    }
+
+    #[test]
+    fn raw_token_response_slow_down_parses() {
+        let json = r#"{"error":"slow_down"}"#;
+        let raw: RawTokenResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(raw.error.unwrap(), "slow_down");
+    }
+
+    #[test]
+    fn raw_token_response_expired_token_parses() {
+        let json = r#"{"error":"expired_token"}"#;
+        let raw: RawTokenResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(raw.error.unwrap(), "expired_token");
     }
 }
