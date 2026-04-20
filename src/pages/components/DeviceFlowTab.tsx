@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 
 interface DeviceCodeResponse {
@@ -26,6 +26,30 @@ export function DeviceFlowTab({ onSuccess }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [codeCopied, setCodeCopied] = useState(false);
   const [urlCopied, setUrlCopied] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (state !== "waiting" || deviceCode === null) return;
+    setSecondsLeft(deviceCode.expires_in);
+    const id = setInterval(() => {
+      setSecondsLeft(prev => {
+        if (prev === null || prev <= 1) {
+          clearInterval(id);
+          setState("error");
+          setError("Code expired. Please start over.");
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [state, deviceCode]);
+
+  const formatTime = (seconds: number): string => {
+    const m = Math.floor(seconds / 60).toString().padStart(2, "0");
+    const s = (seconds % 60).toString().padStart(2, "0");
+    return `${m}:${s}`;
+  };
 
   const handleStart = async () => {
     setState("loading");
@@ -180,17 +204,29 @@ export function DeviceFlowTab({ onSuccess }: Props) {
       </div>
 
       <div
-        className="flex items-center gap-2 p-3 rounded-md text-sm"
+        className="flex items-center justify-between p-3 rounded-md text-sm"
         style={{
           backgroundColor: "var(--bg-secondary)",
           color: "var(--text-secondary)",
         }}
       >
-        <span
-          className="inline-block w-2 h-2 rounded-full animate-pulse flex-shrink-0"
-          style={{ backgroundColor: "var(--accent-blue)" }}
-        />
-        Waiting for authorization…
+        <div className="flex items-center gap-2">
+          <span
+            className="inline-block w-2 h-2 rounded-full animate-pulse flex-shrink-0"
+            style={{ backgroundColor: "var(--accent-blue)" }}
+          />
+          Waiting for authorization…
+        </div>
+        {secondsLeft !== null && secondsLeft > 0 && (
+          <span
+            className="text-xs font-mono"
+            style={{
+              color: secondsLeft < 60 ? "var(--accent-red)" : "var(--text-muted)",
+            }}
+          >
+            {formatTime(secondsLeft)}
+          </span>
+        )}
       </div>
     </div>
   );
