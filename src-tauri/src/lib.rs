@@ -36,3 +36,10 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+
+impl<R: tauri::Runtime> sync::poller::EventEmitter for tauri::AppHandle<R> {
+    fn emit_rate_limit_hit(&self, info: &github::client::RateLimitInfo) {
+        use tauri::Emitter;
+        let _ = self.emit("rate-limit-hit", info);
+    }
+}
