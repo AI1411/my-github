@@ -26,7 +26,7 @@ GitHub cross-repository dashboard (Tauri 2 + Rust + React + TypeScript).
 - [ ] M1-002 `cargo create-tauri-app` で Tauri 2 + React + TS + Vite 構成で初期化 (30m)
 - [x] M1-003 `package.json`: React 19 / TypeScript 5.x / Vite / Tailwind CSS v4 のバージョン固定 (15m)
 - [x] M1-004 Tailwind CSS v4 導入、`index.css` に `@import "tailwindcss"` と design tokens (CSS variables) 定義 (45m)
-- [ ] M1-005 `src/styles/tokens.css` にダークテーマ design tokens (--bg-primary, --accent-blue など全15色) を定義 (30m)
+- [x] M1-005 `src/styles/tokens.css` にダークテーマ design tokens (--bg-primary, --accent-blue など全15色) を定義 (30m)
 - [ ] M1-006 `Cargo.toml` にコア依存追加: tokio, reqwest, serde, serde_json, thiserror, anyhow (15m)
 - [ ] M1-007 `Cargo.toml` に GitHub API 依存追加: octocrab, graphql_client (30m)
 - [ ] M1-008 `Cargo.toml` にストレージ依存追加: rusqlite (bundled feature), r2d2, r2d2_sqlite (15m)
