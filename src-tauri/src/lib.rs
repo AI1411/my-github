@@ -35,6 +35,7 @@ pub fn run() {
             commands::sync::cmd_sync_now,
             commands::pulls::cmd_list_pulls,
             commands::pulls::cmd_get_pull_files,
+            commands::issues::cmd_list_issues,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

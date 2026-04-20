@@ -1,0 +1,492 @@
+use serde::{Deserialize, Serialize};
+use tauri::{AppHandle, Emitter, Manager, Runtime};
+
+use crate::auth::token_store::{load_last_account_id, load_token};
+use crate::cache::issues::upsert_issue;
+use crate::db::SqlitePool;
+use crate::github::client::GithubClient;
+use crate::github::rest::list_issues;
+use crate::github::types::Issue;
+use std::time::{SystemTime, UNIX_EPOCH};
+
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct IssueFilter {
+    /// "open" | "closed" | null
+    pub state: Option<String>,
+    pub repo_full_name: Option<String>,
+    pub assignee_login: Option<String>,
+    pub milestone_title: Option<String>,
+    #[serde(default)]
+    pub labels: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssigneeInfo {
+    pub login: String,
+    pub avatar_url: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LabelInfo {
+    pub name: String,
+    pub color: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IssueSummary {
+    pub id: i64,
+    pub number: i64,
+    pub title: String,
+    pub repo: String,
+    pub author: Option<String>,
+    pub state: String,
+    pub labels: Vec<LabelInfo>,
+    pub assignees: Vec<AssigneeInfo>,
+    pub milestone: Option<String>,
+    pub comments: u32,
+    pub updated_at: String,
+    pub html_url: Option<String>,
+    pub body: Option<String>,
+}
+
+fn now_iso() -> String {
+    let secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    format!("@{}", secs)
+}
+
+fn read_cached_issues(
+    pool: &SqlitePool,
+    filter: &IssueFilter,
+) -> Result<Vec<IssueSummary>, String> {
+    let conn = pool.get().map_err(|e| e.to_string())?;
+    let mut sql = String::from(
+        "SELECT i.number, i.title, i.state, i.author_login, i.raw_json,
+                i.updated_at, r.full_name
+         FROM issues i
+         JOIN repos r ON r.id = i.repo_id
+         WHERE 1=1",
+    );
+    let mut args: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+    if let Some(state) = &filter.state {
+        sql.push_str(" AND i.state = ?");
+        args.push(Box::new(state.clone()));
+    }
+    if let Some(repo) = &filter.repo_full_name {
+        sql.push_str(" AND r.full_name = ?");
+        args.push(Box::new(repo.clone()));
+    }
+    sql.push_str(" ORDER BY i.updated_at DESC");
+
+    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+    let params = rusqlite::params_from_iter(args.iter().map(|b| b.as_ref()));
+    let rows = stmt
+        .query_map(params, |row| {
+            let raw: String = row.get(4)?;
+            Ok(CachedRow {
+                number: row.get(0)?,
+                title: row.get(1)?,
+                state: row.get(2)?,
+                author_login: row.get(3)?,
+                raw_json: raw,
+                updated_at: row.get(5)?,
+                repo_full_name: row.get(6)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+
+    let mut out = Vec::new();
+    for r in rows {
+        let r = r.map_err(|e| e.to_string())?;
+        let summary = row_to_summary(r);
+        if !filter.labels.is_empty() {
+            let names: std::collections::HashSet<&str> =
+                summary.labels.iter().map(|l| l.name.as_str()).collect();
+            if !filter.labels.iter().all(|l| names.contains(l.as_str())) {
+                continue;
+            }
+        }
+        if let Some(a) = &filter.assignee_login {
+            if !summary.assignees.iter().any(|x| x.login == *a) {
+                continue;
+            }
+        }
+        if let Some(m) = &filter.milestone_title {
+            if summary.milestone.as_deref() != Some(m.as_str()) {
+                continue;
+            }
+        }
+        out.push(summary);
+    }
+    Ok(out)
+}
+
+struct CachedRow {
+    number: i64,
+    title: String,
+    state: String,
+    author_login: Option<String>,
+    raw_json: String,
+    updated_at: String,
+    repo_full_name: String,
+}
+
+fn row_to_summary(r: CachedRow) -> IssueSummary {
+    let parsed: Option<Issue> = serde_json::from_str(&r.raw_json).ok();
+    let (html_url, body, labels, assignees, milestone, comments) = match parsed.as_ref() {
+        Some(i) => (
+            Some(i.html_url.clone()),
+            i.body.clone(),
+            i.labels
+                .iter()
+                .map(|l| LabelInfo {
+                    name: l.name.clone(),
+                    color: l.color.clone(),
+                })
+                .collect(),
+            i.assignees
+                .iter()
+                .map(|u| AssigneeInfo {
+                    login: u.login.clone(),
+                    avatar_url: u.avatar_url.clone(),
+                })
+                .collect(),
+            i.milestone.as_ref().map(|m| m.title.clone()),
+            i.comments,
+        ),
+        None => (None, None, Vec::new(), Vec::new(), None, 0),
+    };
+    IssueSummary {
+        id: r.number,
+        number: r.number,
+        title: r.title,
+        repo: r.repo_full_name,
+        author: r.author_login,
+        state: r.state,
+        labels,
+        assignees,
+        milestone,
+        comments,
+        updated_at: r.updated_at,
+        html_url,
+        body,
+    }
+}
+
+/// List cached issues immediately, then spawn a background refresh task.
+/// Emits `issues-updated` after a successful refresh.
+#[tauri::command]
+pub async fn cmd_list_issues<R: Runtime>(
+    app: AppHandle<R>,
+    filter: IssueFilter,
+) -> Result<Vec<IssueSummary>, String> {
+    let pool = app
+        .try_state::<SqlitePool>()
+        .ok_or_else(|| "sqlite pool not initialized".to_string())?;
+    let cached = read_cached_issues(pool.inner(), &filter)?;
+
+    let handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        if let Err(e) = refresh_issues(&handle).await {
+            let _ = handle.emit("issues-refresh-error", e.to_string());
+        } else {
+            let _ = handle.emit("issues-updated", ());
+        }
+    });
+
+    Ok(cached)
+}
+
+async fn refresh_issues<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
+    let pool = app
+        .try_state::<SqlitePool>()
+        .ok_or_else(|| "sqlite pool not initialized".to_string())?;
+    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
+    let token = load_token(&account_id).ok_or_else(|| "no token for account".to_string())?;
+    let client = GithubClient::new(token);
+
+    let watched = {
+        let conn = pool.get().map_err(|e| e.to_string())?;
+        let mut stmt = conn
+            .prepare("SELECT id, full_name FROM repos WHERE is_watched = 1")
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([], |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)))
+            .map_err(|e| e.to_string())?;
+        let mut out = Vec::new();
+        for r in rows {
+            out.push(r.map_err(|e| e.to_string())?);
+        }
+        out
+    };
+
+    for (repo_id, full_name) in watched {
+        let (owner, name) = match full_name.split_once('/') {
+            Some(t) => t,
+            None => continue,
+        };
+        match list_issues(&client, owner, name, "open", &[]).await {
+            Ok(issues) => {
+                let now = now_iso();
+                for issue in issues {
+                    let _ = upsert_issue(pool.inner(), repo_id, &issue, &now);
+                }
+            }
+            Err(e) => return Err(e.to_string()),
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cache::issues::upsert_issue;
+    use crate::db::{init_pool, run_migrations};
+    use crate::github::types::{Issue, Label, Milestone, User};
+    use std::path::Path;
+
+    fn user(login: &str) -> User {
+        User {
+            id: 1,
+            login: login.into(),
+            avatar_url: format!("https://a/{login}"),
+            html_url: format!("https://u/{login}"),
+            name: None,
+        }
+    }
+
+    fn sample_issue(
+        number: u32,
+        state: &str,
+        labels: Vec<&str>,
+        assignees: Vec<&str>,
+        milestone: Option<&str>,
+        updated_at: &str,
+    ) -> Issue {
+        Issue {
+            id: number as u64,
+            number,
+            title: format!("issue {number}"),
+            state: state.into(),
+            html_url: format!("https://github.com/o/r/issues/{number}"),
+            user: user("octocat"),
+            body: None,
+            labels: labels
+                .into_iter()
+                .enumerate()
+                .map(|(i, n)| Label {
+                    id: i as u64,
+                    name: n.into(),
+                    color: "ff0000".into(),
+                })
+                .collect(),
+            assignees: assignees.into_iter().map(user).collect(),
+            milestone: milestone.map(|t| Milestone {
+                id: 1,
+                number: 1,
+                title: t.into(),
+                state: "open".into(),
+                open_issues: 0,
+                closed_issues: 0,
+                due_on: None,
+            }),
+            comments: 0,
+            author_association: Some("OWNER".into()),
+            created_at: "2026-04-20T00:00:00Z".into(),
+            updated_at: updated_at.into(),
+            closed_at: None,
+            pull_request: None,
+        }
+    }
+
+    fn seed_pool() -> SqlitePool {
+        let pool = init_pool(Path::new(":memory:")).unwrap();
+        run_migrations(&pool).unwrap();
+        let conn = pool.get().unwrap();
+        conn.execute(
+            "INSERT INTO accounts (id, login, host, is_active, created_at)
+             VALUES (1, 'octocat', 'github.com', 1, '2026-04-21T00:00:00Z')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO repos (id, account_id, full_name, is_watched)
+             VALUES (1, 1, 'octocat/alpha', 1)",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO repos (id, account_id, full_name, is_watched)
+             VALUES (2, 1, 'octocat/beta', 1)",
+            [],
+        )
+        .unwrap();
+        drop(conn);
+        pool
+    }
+
+    #[test]
+    fn read_cached_issues_returns_all_without_filter() {
+        let pool = seed_pool();
+        upsert_issue(
+            &pool,
+            1,
+            &sample_issue(1, "open", vec![], vec![], None, "2026-04-21"),
+            "now",
+        )
+        .unwrap();
+        upsert_issue(
+            &pool,
+            2,
+            &sample_issue(2, "open", vec![], vec![], None, "2026-04-21"),
+            "now",
+        )
+        .unwrap();
+        let got = read_cached_issues(&pool, &IssueFilter::default()).unwrap();
+        assert_eq!(got.len(), 2);
+    }
+
+    #[test]
+    fn read_cached_issues_filters_by_state() {
+        let pool = seed_pool();
+        upsert_issue(
+            &pool,
+            1,
+            &sample_issue(1, "open", vec![], vec![], None, "2026-04-21"),
+            "now",
+        )
+        .unwrap();
+        upsert_issue(
+            &pool,
+            1,
+            &sample_issue(2, "closed", vec![], vec![], None, "2026-04-21"),
+            "now",
+        )
+        .unwrap();
+        let f = IssueFilter {
+            state: Some("open".into()),
+            ..Default::default()
+        };
+        let got = read_cached_issues(&pool, &f).unwrap();
+        assert_eq!(got.len(), 1);
+        assert_eq!(got[0].state, "open");
+    }
+
+    #[test]
+    fn read_cached_issues_filters_by_repo() {
+        let pool = seed_pool();
+        upsert_issue(
+            &pool,
+            1,
+            &sample_issue(1, "open", vec![], vec![], None, "2026-04-21"),
+            "now",
+        )
+        .unwrap();
+        upsert_issue(
+            &pool,
+            2,
+            &sample_issue(2, "open", vec![], vec![], None, "2026-04-21"),
+            "now",
+        )
+        .unwrap();
+        let f = IssueFilter {
+            repo_full_name: Some("octocat/alpha".into()),
+            ..Default::default()
+        };
+        let got = read_cached_issues(&pool, &f).unwrap();
+        assert_eq!(got.len(), 1);
+        assert_eq!(got[0].repo, "octocat/alpha");
+    }
+
+    #[test]
+    fn read_cached_issues_filters_by_labels_all_must_match() {
+        let pool = seed_pool();
+        upsert_issue(
+            &pool,
+            1,
+            &sample_issue(1, "open", vec!["bug"], vec![], None, "2026-04-21"),
+            "now",
+        )
+        .unwrap();
+        upsert_issue(
+            &pool,
+            1,
+            &sample_issue(2, "open", vec!["bug", "p0"], vec![], None, "2026-04-21"),
+            "now",
+        )
+        .unwrap();
+        let f = IssueFilter {
+            labels: vec!["bug".into(), "p0".into()],
+            ..Default::default()
+        };
+        let got = read_cached_issues(&pool, &f).unwrap();
+        assert_eq!(got.len(), 1);
+        assert_eq!(got[0].number, 2);
+    }
+
+    #[test]
+    fn read_cached_issues_filters_by_assignee() {
+        let pool = seed_pool();
+        upsert_issue(
+            &pool,
+            1,
+            &sample_issue(1, "open", vec![], vec!["alice"], None, "2026-04-21"),
+            "now",
+        )
+        .unwrap();
+        upsert_issue(
+            &pool,
+            1,
+            &sample_issue(2, "open", vec![], vec!["bob"], None, "2026-04-21"),
+            "now",
+        )
+        .unwrap();
+        let f = IssueFilter {
+            assignee_login: Some("bob".into()),
+            ..Default::default()
+        };
+        let got = read_cached_issues(&pool, &f).unwrap();
+        assert_eq!(got.len(), 1);
+        assert_eq!(got[0].number, 2);
+    }
+
+    #[test]
+    fn read_cached_issues_filters_by_milestone() {
+        let pool = seed_pool();
+        upsert_issue(
+            &pool,
+            1,
+            &sample_issue(1, "open", vec![], vec![], Some("v0.1"), "2026-04-21"),
+            "now",
+        )
+        .unwrap();
+        upsert_issue(
+            &pool,
+            1,
+            &sample_issue(2, "open", vec![], vec![], Some("v0.2"), "2026-04-21"),
+            "now",
+        )
+        .unwrap();
+        let f = IssueFilter {
+            milestone_title: Some("v0.2".into()),
+            ..Default::default()
+        };
+        let got = read_cached_issues(&pool, &f).unwrap();
+        assert_eq!(got.len(), 1);
+        assert_eq!(got[0].milestone.as_deref(), Some("v0.2"));
+    }
+
+    #[test]
+    fn issue_filter_default_has_empty_labels() {
+        let f = IssueFilter::default();
+        assert!(f.labels.is_empty());
+        assert!(f.state.is_none());
+    }
+}
