@@ -1,0 +1,105 @@
+query InboxQuery($first: Int = 50) {
+  reviewRequests: search(
+    type: ISSUE
+    first: $first
+    query: "is:open is:pr review-requested:@me archived:false"
+  ) {
+    issueCount
+    nodes {
+      __typename
+      ... on PullRequest {
+        id
+        number
+        title
+        url
+        createdAt
+        updatedAt
+        isDraft
+        state
+        repository {
+          nameWithOwner
+        }
+        author {
+          login
+          avatarUrl
+        }
+      }
+    }
+  }
+
+  mentions: search(
+    type: ISSUE
+    first: $first
+    query: "is:open mentions:@me archived:false"
+  ) {
+    issueCount
+    nodes {
+      __typename
+      ... on Issue {
+        id
+        number
+        title
+        url
+        createdAt
+        updatedAt
+        repository {
+          nameWithOwner
+        }
+        author {
+          login
+          avatarUrl
+        }
+      }
+      ... on PullRequest {
+        id
+        number
+        title
+        url
+        createdAt
+        updatedAt
+        isDraft
+        state
+        repository {
+          nameWithOwner
+        }
+        author {
+          login
+          avatarUrl
+        }
+      }
+    }
+  }
+
+  assignedIssues: search(
+    type: ISSUE
+    first: $first
+    query: "is:open is:issue assignee:@me archived:false"
+  ) {
+    issueCount
+    nodes {
+      __typename
+      ... on Issue {
+        id
+        number
+        title
+        url
+        createdAt
+        updatedAt
+        repository {
+          nameWithOwner
+        }
+        author {
+          login
+          avatarUrl
+        }
+      }
+    }
+  }
+
+  rateLimit {
+    limit
+    cost
+    remaining
+    resetAt
+  }
+}
