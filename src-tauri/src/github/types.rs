@@ -99,6 +99,69 @@ pub struct Review {
     pub commit_id: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PullRequestFile {
+    pub sha: String,
+    pub filename: String,
+    pub status: String,
+    pub additions: u32,
+    pub deletions: u32,
+    pub changes: u32,
+    pub blob_url: String,
+    pub raw_url: String,
+    #[serde(default)]
+    pub patch: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CheckApp {
+    pub id: u64,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CheckRun {
+    pub id: u64,
+    pub name: String,
+    pub status: String,
+    #[serde(default)]
+    pub conclusion: Option<String>,
+    #[serde(default)]
+    pub started_at: Option<String>,
+    #[serde(default)]
+    pub completed_at: Option<String>,
+    pub html_url: String,
+    pub app: CheckApp,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CheckRunsResponse {
+    pub total_count: u32,
+    pub check_runs: Vec<CheckRun>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct NotificationSubject {
+    pub title: String,
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(default)]
+    pub latest_comment_url: Option<String>,
+    #[serde(rename = "type")]
+    pub subject_type: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Notification {
+    pub id: String,
+    pub unread: bool,
+    pub reason: String,
+    pub updated_at: String,
+    pub url: String,
+    pub subject: NotificationSubject,
+    pub repository: Repository,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -299,6 +362,137 @@ mod tests {
         assert_eq!(review.id, 80);
         assert_eq!(review.state, "APPROVED");
         assert_eq!(review.submitted_at, Some("2019-08-05T14:20:28Z".to_string()));
+    }
+
+    #[test]
+    fn deserialize_pull_request_file_from_json() {
+        let json = r#"{
+            "sha": "abc123",
+            "filename": "src/main.rs",
+            "status": "modified",
+            "additions": 10,
+            "deletions": 2,
+            "changes": 12,
+            "blob_url": "https://github.com/octocat/repo/blob/abc123/src/main.rs",
+            "raw_url": "https://github.com/octocat/repo/raw/abc123/src/main.rs",
+            "patch": "@@ -1,2 +1,2 @@"
+        }"#;
+        let file: PullRequestFile = serde_json::from_str(json).unwrap();
+        assert_eq!(file.filename, "src/main.rs");
+        assert_eq!(file.additions, 10);
+        assert_eq!(file.deletions, 2);
+        assert_eq!(file.patch, Some("@@ -1,2 +1,2 @@".to_string()));
+    }
+
+    #[test]
+    fn deserialize_pull_request_file_without_patch() {
+        let json = r#"{
+            "sha": "def456",
+            "filename": "image.png",
+            "status": "added",
+            "additions": 0,
+            "deletions": 0,
+            "changes": 0,
+            "blob_url": "https://github.com/octocat/repo/blob/def456/image.png",
+            "raw_url": "https://github.com/octocat/repo/raw/def456/image.png"
+        }"#;
+        let file: PullRequestFile = serde_json::from_str(json).unwrap();
+        assert_eq!(file.patch, None);
+    }
+
+    #[test]
+    fn deserialize_check_run_from_json() {
+        let json = r#"{
+            "id": 1234,
+            "name": "CI / test",
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2024-01-01T00:00:00Z",
+            "completed_at": "2024-01-01T00:05:00Z",
+            "html_url": "https://github.com/octocat/repo/actions/runs/1234",
+            "app": {"id": 100, "name": "GitHub Actions"}
+        }"#;
+        let run: CheckRun = serde_json::from_str(json).unwrap();
+        assert_eq!(run.id, 1234);
+        assert_eq!(run.name, "CI / test");
+        assert_eq!(run.conclusion, Some("success".to_string()));
+        assert_eq!(run.app.name, "GitHub Actions");
+    }
+
+    #[test]
+    fn deserialize_check_run_in_progress() {
+        let json = r#"{
+            "id": 5678,
+            "name": "CI / build",
+            "status": "in_progress",
+            "conclusion": null,
+            "started_at": "2024-01-01T00:00:00Z",
+            "completed_at": null,
+            "html_url": "https://github.com/octocat/repo/actions/runs/5678",
+            "app": {"id": 100, "name": "GitHub Actions"}
+        }"#;
+        let run: CheckRun = serde_json::from_str(json).unwrap();
+        assert_eq!(run.status, "in_progress");
+        assert_eq!(run.conclusion, None);
+        assert_eq!(run.completed_at, None);
+    }
+
+    #[test]
+    fn deserialize_check_runs_response() {
+        let json = r#"{
+            "total_count": 1,
+            "check_runs": [{
+                "id": 1,
+                "name": "test",
+                "status": "completed",
+                "conclusion": "failure",
+                "started_at": "2024-01-01T00:00:00Z",
+                "completed_at": "2024-01-01T00:01:00Z",
+                "html_url": "https://github.com/octocat/repo/actions/runs/1",
+                "app": {"id": 1, "name": "Actions"}
+            }]
+        }"#;
+        let resp: CheckRunsResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(resp.total_count, 1);
+        assert_eq!(resp.check_runs.len(), 1);
+    }
+
+    #[test]
+    fn deserialize_notification_from_json() {
+        let json = r#"{
+            "id": "1",
+            "unread": true,
+            "reason": "review_requested",
+            "updated_at": "2024-01-01T00:00:00Z",
+            "url": "https://api.github.com/notifications/threads/1",
+            "subject": {
+                "title": "Fix bug",
+                "url": "https://api.github.com/repos/octocat/Hello-World/pulls/1",
+                "latest_comment_url": null,
+                "type": "PullRequest"
+            },
+            "repository": {
+                "id": 1296269,
+                "name": "Hello-World",
+                "full_name": "octocat/Hello-World",
+                "private": false,
+                "owner": {
+                    "id": 1,
+                    "login": "octocat",
+                    "avatar_url": "https://avatars.githubusercontent.com/u/1",
+                    "html_url": "https://github.com/octocat"
+                },
+                "html_url": "https://github.com/octocat/Hello-World",
+                "fork": false,
+                "default_branch": "main"
+            }
+        }"#;
+        let notif: Notification = serde_json::from_str(json).unwrap();
+        assert_eq!(notif.id, "1");
+        assert!(notif.unread);
+        assert_eq!(notif.reason, "review_requested");
+        assert_eq!(notif.subject.subject_type, "PullRequest");
+        assert_eq!(notif.subject.title, "Fix bug");
     }
 
     #[test]
