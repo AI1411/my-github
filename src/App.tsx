@@ -1,5 +1,7 @@
+import LoginPage from "./pages/LoginPage";
+
 function App() {
-  return <div className="min-h-screen" style={{ backgroundColor: "var(--bg-primary)" }} />;
+  return <LoginPage />;
 }
 
 export default App;
