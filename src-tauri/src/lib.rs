@@ -14,6 +14,15 @@ fn greet(name: &str) -> String {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .setup(|app| {
+            use tauri::Manager;
+            let handle = app.handle().clone();
+            let db_path = db::pulse_db_path(&handle)?;
+            let pool = db::init_pool(&db_path)?;
+            db::run_migrations(&pool)?;
+            app.manage(pool);
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             greet,
             commands::auth::cmd_start_device_flow,
