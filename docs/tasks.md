@@ -38,7 +38,7 @@ GitHub cross-repository dashboard (Tauri 2 + Rust + React + TypeScript).
 - [x] M1-014 `rustfmt.toml` + `clippy.toml` 追加、`cargo clippy` ゼロ警告状態に (30m)
 - [ ] M1-015 GitHub Actions: `ci.yml` で macOS/Windows/Linux の build matrix (1h)
 - [ ] M1-016 GitHub Actions: `fmt` / `clippy` / `tsc --noEmit` / `pnpm lint` の lint job 追加 (45m)
-- [ ] M1-017 `README.md` のスタブ作成 (スクリーンショット・開発手順) (30m)
+- [x] M1-017 `README.md` のスタブ作成 (スクリーンショット・開発手順) (30m)
 
 ## M2: 認証 (OAuth Device Flow + PAT)
 
