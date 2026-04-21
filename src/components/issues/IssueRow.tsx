@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import type { IssueSummary } from "../../stores/dataStore";
 import { LabelPill } from "../common/LabelPill";
 import { formatRelativeTime } from "../../lib/relativeTime";
+import { AvatarStack } from "./AvatarStack";
 
 export interface IssueRowProps {
   issue: IssueSummary;
@@ -13,7 +14,7 @@ export interface IssueRowProps {
 
 const GRID: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "20px 56px minmax(0,1fr) 64px 100px",
+  gridTemplateColumns: "20px 56px minmax(0,1fr) 96px 64px 100px",
   alignItems: "center",
   gap: 12,
 };
@@ -89,6 +90,9 @@ export function IssueRow({
           {issue.repo}
           {issue.author && ` · opened by ${issue.author}`}
         </span>
+      </div>
+      <div className="flex items-center justify-end">
+        <AvatarStack users={issue.assignees} max={3} />
       </div>
       <div
         className="text-xs tabular-nums text-right"

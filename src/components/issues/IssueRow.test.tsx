@@ -50,4 +50,20 @@ describe("IssueRow", () => {
     rerender(<IssueRow issue={sample} selected={true} />);
     expect(row.style.backgroundColor).not.toBe(unselectedBg);
   });
+
+  it("renders assignee avatar stack", () => {
+    render(
+      <IssueRow
+        issue={{
+          ...sample,
+          assignees: [
+            { login: "alice", avatarUrl: "" },
+            { login: "bob", avatarUrl: "" },
+          ],
+        }}
+      />,
+    );
+    expect(screen.getByTitle("alice")).toBeInTheDocument();
+    expect(screen.getByTitle("bob")).toBeInTheDocument();
+  });
 });
