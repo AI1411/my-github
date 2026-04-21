@@ -5,6 +5,7 @@ export interface UiState {
   selectedItemId: string | null;
   sidebarCollapsed: boolean;
   commandPaletteOpen: boolean;
+  workspaceSwitcherOpen: boolean;
   issueFilters: IssueFilter;
   setSelectedItemId: (id: string | null) => void;
   toggleSidebar: () => void;
@@ -12,6 +13,8 @@ export interface UiState {
   openCommandPalette: () => void;
   closeCommandPalette: () => void;
   toggleCommandPalette: () => void;
+  openWorkspaceSwitcher: () => void;
+  closeWorkspaceSwitcher: () => void;
   setIssueFilters: (filter: IssueFilter) => void;
 }
 
@@ -19,6 +22,7 @@ export const useUiStore = create<UiState>((set) => ({
   selectedItemId: null,
   sidebarCollapsed: false,
   commandPaletteOpen: false,
+  workspaceSwitcherOpen: false,
   issueFilters: { labels: [] },
   setSelectedItemId: (id) => set({ selectedItemId: id }),
   toggleSidebar: () =>
@@ -28,5 +32,7 @@ export const useUiStore = create<UiState>((set) => ({
   closeCommandPalette: () => set({ commandPaletteOpen: false }),
   toggleCommandPalette: () =>
     set((s) => ({ commandPaletteOpen: !s.commandPaletteOpen })),
+  openWorkspaceSwitcher: () => set({ workspaceSwitcherOpen: true }),
+  closeWorkspaceSwitcher: () => set({ workspaceSwitcherOpen: false }),
   setIssueFilters: (filter) => set({ issueFilters: filter }),
 }));

@@ -57,9 +57,41 @@ export interface NotificationSummary {
   id: string;
   reason: string;
   repo: string;
-  subject_title: string;
+  subjectTitle: string;
+  subjectType: string;
+  htmlUrl: string | null;
   unread: boolean;
-  updated_at: string;
+  updatedAt: string;
+}
+
+export interface InboxItem {
+  id: string;
+  kind: string;
+  repo: string;
+  number: number | null;
+  title: string;
+  htmlUrl: string | null;
+  updatedAt: string;
+  unread: boolean;
+}
+
+export interface InboxData {
+  reviewRequests: InboxItem[];
+  ciFailures: InboxItem[];
+  mentions: InboxItem[];
+}
+
+export interface WorkflowRunSummary {
+  id: number;
+  name: string;
+  status: string;
+  conclusion: string | null;
+  headBranch: string | null;
+  runNumber: number;
+  runStartedAt: string | null;
+  updatedAt: string;
+  htmlUrl: string;
+  repo: string;
 }
 
 export interface DataState {

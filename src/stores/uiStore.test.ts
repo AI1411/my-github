@@ -18,3 +18,24 @@ describe("uiStore.issueFilters", () => {
     });
   });
 });
+
+describe("uiStore.workspaceSwitcher", () => {
+  beforeEach(() => {
+    useUiStore.setState({ workspaceSwitcherOpen: false });
+  });
+
+  it("default workspaceSwitcherOpen is false", () => {
+    expect(useUiStore.getState().workspaceSwitcherOpen).toBe(false);
+  });
+
+  it("openWorkspaceSwitcher sets to true", () => {
+    useUiStore.getState().openWorkspaceSwitcher();
+    expect(useUiStore.getState().workspaceSwitcherOpen).toBe(true);
+  });
+
+  it("closeWorkspaceSwitcher sets to false", () => {
+    useUiStore.setState({ workspaceSwitcherOpen: true });
+    useUiStore.getState().closeWorkspaceSwitcher();
+    expect(useUiStore.getState().workspaceSwitcherOpen).toBe(false);
+  });
+});
