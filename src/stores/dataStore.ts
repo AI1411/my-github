@@ -27,14 +27,30 @@ export interface PullSummary {
   changedFiles: number | null;
 }
 
+export interface IssueLabelInfo {
+  name: string;
+  color: string;
+}
+
+export interface IssueAssigneeInfo {
+  login: string;
+  avatarUrl: string;
+}
+
 export interface IssueSummary {
   id: number;
   number: number;
   title: string;
   repo: string;
-  author: string;
-  state: "open" | "closed";
-  updated_at: string;
+  author: string | null;
+  state: string;
+  labels: IssueLabelInfo[];
+  assignees: IssueAssigneeInfo[];
+  milestone: string | null;
+  comments: number;
+  updatedAt: string;
+  htmlUrl: string | null;
+  body: string | null;
 }
 
 export interface NotificationSummary {
