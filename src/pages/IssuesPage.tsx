@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Toolbar } from "../components/common/Toolbar";
 import { useIssuesQuery } from "../features/issues/useIssuesQuery";
 import { useUiStore } from "../stores/uiStore";
@@ -7,11 +8,14 @@ import {
   type AvailableLabel,
 } from "../components/issues/FilterSidebar";
 import { AppliedFilters } from "../components/issues/AppliedFilters";
+import { IssueRow } from "../components/issues/IssueRow";
+import { useListNavigation } from "../hooks/useListNavigation";
 
 export default function IssuesPage() {
   const filter = useUiStore((s) => s.issueFilters);
   const setFilter = useUiStore((s) => s.setIssueFilters);
   const { issues, refreshing } = useIssuesQuery(filter);
+  const navigate = useNavigate();
 
   const availableLabels = useMemo<AvailableLabel[]>(() => {
     const map = new Map<string, AvailableLabel>();
@@ -40,13 +44,23 @@ export default function IssuesPage() {
     () =>
       Array.from(
         new Set(
-          issues
-            .map((i) => i.milestone)
-            .filter((m): m is string => !!m),
+          issues.map((i) => i.milestone).filter((m): m is string => !!m),
         ),
       ),
     [issues],
   );
+
+  const openIssue = (i: (typeof issues)[number]) => {
+    const [owner, repo] = i.repo.split("/");
+    navigate(`/issues/${owner}/${repo}/${i.number}`);
+  };
+
+  const { activeIndex, setActiveId } = useListNavigation({
+    items: issues,
+    getId: (i) => String(i.id),
+    onOpen: openIssue,
+    enabled: issues.length > 0,
+  });
 
   return (
     <div className="flex flex-col h-full">
@@ -86,7 +100,17 @@ export default function IssuesPage() {
           >
             <AppliedFilters filter={filter} onChange={setFilter} />
           </div>
-          <div data-testid="issues-list" className="flex-1 overflow-auto" />
+          <div data-testid="issues-list" className="flex-1 overflow-auto">
+            {issues.map((issue, idx) => (
+              <IssueRow
+                key={issue.id}
+                issue={issue}
+                selected={activeIndex === idx}
+                onSelect={() => setActiveId(String(issue.id))}
+                onOpen={() => openIssue(issue)}
+              />
+            ))}
+          </div>
         </section>
       </div>
     </div>

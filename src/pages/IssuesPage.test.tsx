@@ -55,4 +55,49 @@ describe("IssuesPage", () => {
     );
     expect(screen.getByText("State: open")).toBeInTheDocument();
   });
+
+  it("renders one IssueRow per fetched issue", async () => {
+    const { invoke } = await import("@tauri-apps/api/core");
+    (invoke as unknown as ReturnType<typeof vi.fn>).mockResolvedValue([
+      {
+        id: 1,
+        number: 1,
+        title: "first",
+        repo: "o/r",
+        author: "a",
+        state: "open",
+        labels: [],
+        assignees: [],
+        milestone: null,
+        comments: 0,
+        updatedAt: new Date().toISOString(),
+        htmlUrl: null,
+        body: null,
+      },
+      {
+        id: 2,
+        number: 2,
+        title: "second",
+        repo: "o/r",
+        author: "a",
+        state: "open",
+        labels: [],
+        assignees: [],
+        milestone: null,
+        comments: 0,
+        updatedAt: new Date().toISOString(),
+        htmlUrl: null,
+        body: null,
+      },
+    ]);
+    const { useUiStore } = await import("../stores/uiStore");
+    useUiStore.setState({ issueFilters: { labels: [] } });
+    const { findByText } = render(
+      <MemoryRouter>
+        <IssuesPage />
+      </MemoryRouter>,
+    );
+    expect(await findByText("first")).toBeInTheDocument();
+    expect(await findByText("second")).toBeInTheDocument();
+  });
 });
