@@ -93,9 +93,9 @@ export default function ActivityPage() {
         }
       />
       <Tabs
-        tabs={TABS.map((t) => ({ key: t.key, label: t.label }))}
-        activeTab={activeTab}
-        onTabChange={(k) => setActiveTab(k as TabKey)}
+        items={TABS.map((t) => ({ id: t.key, label: t.label }))}
+        activeId={activeTab}
+        onChange={(k) => setActiveTab(k as TabKey)}
       />
       <div
         className="px-4 py-2 flex gap-2 border-b overflow-x-auto flex-shrink-0"
