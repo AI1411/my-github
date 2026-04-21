@@ -197,6 +197,46 @@ pub struct Notification {
     pub repository: Repository,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WorkflowRun {
+    pub id: u64,
+    pub name: String,
+    pub status: String,
+    #[serde(default)]
+    pub conclusion: Option<String>,
+    #[serde(default)]
+    pub head_branch: Option<String>,
+    pub run_number: u32,
+    #[serde(default)]
+    pub run_started_at: Option<String>,
+    pub updated_at: String,
+    pub html_url: String,
+    pub workflow_id: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct WorkflowRunsResponse {
+    pub total_count: u32,
+    pub workflow_runs: Vec<WorkflowRun>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SearchIssueItem {
+    pub id: u64,
+    pub number: u32,
+    pub title: String,
+    pub state: String,
+    pub html_url: String,
+    pub repository_url: String,
+    pub user: User,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct SearchIssuesResponse {
+    pub total_count: u32,
+    pub items: Vec<SearchIssueItem>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -674,5 +714,88 @@ mod tests {
         assert_eq!(pr.merged_at, Some("2024-01-02T00:00:00Z".to_string()));
         assert_eq!(pr.requested_reviewers.len(), 1);
         assert_eq!(pr.requested_reviewers[0].login, "reviewer");
+    }
+
+    #[test]
+    fn deserialize_workflow_run_from_json() {
+        let json = r#"{
+            "id": 9000,
+            "name": "CI",
+            "status": "completed",
+            "conclusion": "failure",
+            "head_branch": "main",
+            "run_number": 42,
+            "run_started_at": "2026-04-21T00:00:00Z",
+            "updated_at": "2026-04-21T00:05:00Z",
+            "html_url": "https://github.com/octocat/hello/actions/runs/9000",
+            "workflow_id": 100
+        }"#;
+        let run: WorkflowRun = serde_json::from_str(json).unwrap();
+        assert_eq!(run.id, 9000);
+        assert_eq!(run.name, "CI");
+        assert_eq!(run.conclusion, Some("failure".to_string()));
+        assert_eq!(run.head_branch, Some("main".to_string()));
+        assert_eq!(run.run_number, 42);
+    }
+
+    #[test]
+    fn deserialize_workflow_run_in_progress() {
+        let json = r#"{
+            "id": 9001,
+            "name": "Test",
+            "status": "in_progress",
+            "conclusion": null,
+            "run_number": 5,
+            "updated_at": "2026-04-21T00:01:00Z",
+            "html_url": "https://github.com/o/r/actions/runs/9001",
+            "workflow_id": 200
+        }"#;
+        let run: WorkflowRun = serde_json::from_str(json).unwrap();
+        assert_eq!(run.status, "in_progress");
+        assert_eq!(run.conclusion, None);
+        assert_eq!(run.head_branch, None);
+        assert_eq!(run.run_started_at, None);
+    }
+
+    #[test]
+    fn deserialize_workflow_runs_response() {
+        let json = r#"{
+            "total_count": 1,
+            "workflow_runs": [{
+                "id": 1,
+                "name": "build",
+                "status": "completed",
+                "conclusion": "success",
+                "run_number": 1,
+                "updated_at": "2026-04-21T00:00:00Z",
+                "html_url": "https://github.com/o/r/actions/runs/1",
+                "workflow_id": 10
+            }]
+        }"#;
+        let resp: WorkflowRunsResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(resp.total_count, 1);
+        assert_eq!(resp.workflow_runs.len(), 1);
+    }
+
+    #[test]
+    fn deserialize_search_issue_item() {
+        let json = r#"{
+            "id": 500,
+            "number": 7,
+            "title": "Fix the thing",
+            "state": "open",
+            "html_url": "https://github.com/octocat/hello/issues/7",
+            "repository_url": "https://api.github.com/repos/octocat/hello",
+            "user": {
+                "id": 1,
+                "login": "octocat",
+                "avatar_url": "https://a/1",
+                "html_url": "https://github.com/octocat"
+            }
+        }"#;
+        let item: SearchIssueItem = serde_json::from_str(json).unwrap();
+        assert_eq!(item.id, 500);
+        assert_eq!(item.number, 7);
+        assert_eq!(item.title, "Fix the thing");
     }
 }

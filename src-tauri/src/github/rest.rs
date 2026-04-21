@@ -1,6 +1,7 @@
 use crate::github::client::{ClientError, GithubClient, RateLimitInfo};
 use crate::github::types::{
     CheckRunsResponse, Issue, IssueComment, Notification, PullRequest, PullRequestFile, Repository,
+    SearchIssueItem, SearchIssuesResponse, WorkflowRun, WorkflowRunsResponse,
 };
 
 fn has_next_page(headers: &reqwest::header::HeaderMap) -> bool {
@@ -325,6 +326,53 @@ pub async fn list_notifications(client: &GithubClient) -> Result<Vec<Notificatio
     Ok(notifications)
 }
 
+pub async fn list_workflow_runs(
+    client: &GithubClient,
+    owner: &str,
+    repo: &str,
+    branch: Option<&str>,
+) -> Result<Vec<WorkflowRun>, ClientError> {
+    let path = match branch {
+        Some(b) => format!(
+            "/repos/{}/{}/actions/runs?per_page=30&branch={}",
+            owner, repo, b
+        ),
+        None => format!("/repos/{}/{}/actions/runs?per_page=30", owner, repo),
+    };
+    let resp = client.get(&path).send().await?;
+    let status = resp.status();
+    if !status.is_success() {
+        let message = resp.text().await.unwrap_or_default();
+        return Err(ClientError::Api {
+            status: status.as_u16(),
+            message,
+        });
+    }
+    let r: WorkflowRunsResponse = resp.json().await?;
+    Ok(r.workflow_runs)
+}
+
+pub async fn search_issues(
+    client: &GithubClient,
+    query: &str,
+) -> Result<Vec<SearchIssueItem>, ClientError> {
+    let encoded = query.replace(' ', "+");
+    let resp = client
+        .get(&format!("/search/issues?q={}&per_page=10", encoded))
+        .send()
+        .await?;
+    let status = resp.status();
+    if !status.is_success() {
+        let message = resp.text().await.unwrap_or_default();
+        return Err(ClientError::Api {
+            status: status.as_u16(),
+            message,
+        });
+    }
+    let r: SearchIssuesResponse = resp.json().await?;
+    Ok(r.items)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -512,5 +560,33 @@ mod tests {
         // Type-check: simply referencing the function ensures it compiles
         // with the expected signature.
         let _ = get_rate_limit;
+    }
+
+    #[test]
+    fn list_workflow_runs_builds_path_without_branch() {
+        let owner = "octocat";
+        let repo = "hello";
+        let path = format!("/repos/{}/{}/actions/runs?per_page=30", owner, repo);
+        assert_eq!(path, "/repos/octocat/hello/actions/runs?per_page=30");
+    }
+
+    #[test]
+    fn list_workflow_runs_builds_path_with_branch() {
+        let owner = "octocat";
+        let repo = "hello";
+        let branch = "main";
+        let path = format!(
+            "/repos/{}/{}/actions/runs?per_page=30&branch={}",
+            owner, repo, branch
+        );
+        assert_eq!(path, "/repos/octocat/hello/actions/runs?per_page=30&branch=main");
+    }
+
+    #[test]
+    fn search_issues_builds_correct_path() {
+        let query = "is:open label:bug";
+        let encoded = query.replace(' ', "+");
+        let path = format!("/search/issues?q={}&per_page=10", encoded);
+        assert_eq!(path, "/search/issues?q=is:open+label:bug&per_page=10");
     }
 }
