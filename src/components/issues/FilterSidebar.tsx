@@ -1,5 +1,8 @@
 import type { ReactNode } from "react";
-import type { IssueFilter } from "../../features/issues/issueFilter";
+import {
+  type IssueFilter,
+  toggleLabel,
+} from "../../features/issues/issueFilter";
 
 export interface AvailableLabel {
   name: string;
@@ -90,8 +93,32 @@ export function FilterSidebar({
           <p className="text-xs" style={{ color: "var(--text-muted)" }}>
             None
           </p>
-        ) : null}
-        {/* checkbox items in Task 9 */}
+        ) : (
+          availableLabels.map((l) => {
+            const checked = filter.labels.includes(l.name);
+            return (
+              <label
+                key={l.name}
+                className="flex items-center gap-2 px-2 py-1 rounded cursor-pointer text-xs"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => onChange(toggleLabel(filter, l.name))}
+                  aria-label={l.name}
+                />
+                <span
+                  className="inline-block w-2 h-2 rounded-full"
+                  style={{ backgroundColor: `#${l.color}` }}
+                  aria-hidden
+                />
+                <span className="flex-1 truncate">{l.name}</span>
+                <span style={{ color: "var(--text-muted)" }}>{l.count}</span>
+              </label>
+            );
+          })
+        )}
       </Section>
 
       <Section title="Assignee">
