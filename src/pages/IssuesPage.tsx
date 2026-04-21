@@ -6,6 +6,7 @@ import {
   FilterSidebar,
   type AvailableLabel,
 } from "../components/issues/FilterSidebar";
+import { AppliedFilters } from "../components/issues/AppliedFilters";
 
 export default function IssuesPage() {
   const filter = useUiStore((s) => s.issueFilters);
@@ -80,9 +81,11 @@ export default function IssuesPage() {
         <section className="flex flex-col min-w-0">
           <div
             data-testid="issues-filters"
-            className="border-b px-4 py-2"
+            className="border-b px-4 py-2 min-h-[40px]"
             style={{ borderColor: "var(--border-subtle)" }}
-          />
+          >
+            <AppliedFilters filter={filter} onChange={setFilter} />
+          </div>
           <div data-testid="issues-list" className="flex-1 overflow-auto" />
         </section>
       </div>

@@ -44,4 +44,15 @@ describe("IssuesPage", () => {
     const closedRow = screen.getByRole("button", { name: "Closed" });
     expect(closedRow.style.backgroundColor).not.toBe("transparent");
   });
+
+  it("renders applied filter chips when state is set", async () => {
+    const { useUiStore } = await import("../stores/uiStore");
+    useUiStore.setState({ issueFilters: { labels: [], state: "open" } });
+    render(
+      <MemoryRouter>
+        <IssuesPage />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText("State: open")).toBeInTheDocument();
+  });
 });
