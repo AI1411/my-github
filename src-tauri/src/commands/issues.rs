@@ -179,6 +179,38 @@ fn row_to_summary(r: CachedRow) -> IssueSummary {
     }
 }
 
+fn issue_to_summary(issue: &Issue, repo_full_name: &str) -> IssueSummary {
+    IssueSummary {
+        id: issue.number as i64,
+        number: issue.number as i64,
+        title: issue.title.clone(),
+        repo: repo_full_name.to_string(),
+        author: Some(issue.user.login.clone()),
+        state: issue.state.clone(),
+        labels: issue
+            .labels
+            .iter()
+            .map(|l| LabelInfo {
+                name: l.name.clone(),
+                color: l.color.clone(),
+            })
+            .collect(),
+        assignees: issue
+            .assignees
+            .iter()
+            .map(|u| AssigneeInfo {
+                login: u.login.clone(),
+                avatar_url: u.avatar_url.clone(),
+            })
+            .collect(),
+        milestone: issue.milestone.as_ref().map(|m| m.title.clone()),
+        comments: issue.comments,
+        updated_at: issue.updated_at.clone(),
+        html_url: Some(issue.html_url.clone()),
+        body: issue.body.clone(),
+    }
+}
+
 /// List cached issues immediately, then spawn a background refresh task.
 /// Emits `issues-updated` after a successful refresh.
 #[tauri::command]
@@ -201,6 +233,40 @@ pub async fn cmd_list_issues<R: Runtime>(
     });
 
     Ok(cached)
+}
+
+/// Fetch a single issue from GitHub. Updates cache opportunistically.
+#[tauri::command]
+pub async fn cmd_get_issue<R: Runtime>(
+    app: AppHandle<R>,
+    owner: String,
+    repo: String,
+    number: u32,
+) -> Result<IssueSummary, String> {
+    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
+    let token = load_token(&account_id).ok_or_else(|| "no token for account".to_string())?;
+    let client = GithubClient::new(token);
+    let issue = crate::github::rest::get_issue(&client, &owner, &repo, number)
+        .await
+        .map_err(|e| e.to_string())?;
+    let full_name = format!("{}/{}", owner, repo);
+
+    if let Some(pool) = app.try_state::<SqlitePool>() {
+        let conn = pool.inner().get().map_err(|e| e.to_string())?;
+        let mut stmt = conn
+            .prepare("SELECT id FROM repos WHERE full_name = ?1")
+            .map_err(|e| e.to_string())?;
+        let repo_id: Option<i64> = stmt
+            .query_row(rusqlite::params![full_name], |row| row.get(0))
+            .ok();
+        drop(stmt);
+        drop(conn);
+        if let Some(rid) = repo_id {
+            let _ = upsert_issue(pool.inner(), rid, &issue, &now_iso());
+        }
+    }
+
+    Ok(issue_to_summary(&issue, &full_name))
 }
 
 async fn refresh_issues<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
@@ -488,5 +554,26 @@ mod tests {
         let f = IssueFilter::default();
         assert!(f.labels.is_empty());
         assert!(f.state.is_none());
+    }
+
+    #[test]
+    fn issue_to_summary_maps_all_fields() {
+        let issue = sample_issue(
+            9,
+            "open",
+            vec!["bug", "p0"],
+            vec!["alice", "bob"],
+            Some("v0.1"),
+            "2026-04-21T00:00:00Z",
+        );
+        let s = issue_to_summary(&issue, "octocat/alpha");
+        assert_eq!(s.number, 9);
+        assert_eq!(s.repo, "octocat/alpha");
+        assert_eq!(s.labels.len(), 2);
+        assert_eq!(s.labels[0].name, "bug");
+        assert_eq!(s.assignees.len(), 2);
+        assert_eq!(s.assignees[1].login, "bob");
+        assert_eq!(s.milestone.as_deref(), Some("v0.1"));
+        assert_eq!(s.author.as_deref(), Some("octocat"));
     }
 }

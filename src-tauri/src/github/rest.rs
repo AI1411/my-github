@@ -196,6 +196,27 @@ pub async fn get_pull_request_files(
     Ok(files)
 }
 
+pub async fn get_issue(
+    client: &GithubClient,
+    owner: &str,
+    repo: &str,
+    number: u32,
+) -> Result<Issue, ClientError> {
+    let resp = client
+        .get(&format!("/repos/{}/{}/issues/{}", owner, repo, number))
+        .send()
+        .await?;
+    let status = resp.status();
+    if !status.is_success() {
+        let message = resp.text().await.unwrap_or_default();
+        return Err(ClientError::Api {
+            status: status.as_u16(),
+            message,
+        });
+    }
+    Ok(resp.json().await?)
+}
+
 pub async fn get_check_runs(
     client: &GithubClient,
     owner: &str,
@@ -402,6 +423,15 @@ mod tests {
             path,
             "/repos/octocat/Hello-World/pulls/1347/files?per_page=100"
         );
+    }
+
+    #[test]
+    fn get_issue_builds_correct_path() {
+        let owner = "octocat";
+        let repo = "Hello-World";
+        let number = 42u32;
+        let path = format!("/repos/{}/{}/issues/{}", owner, repo, number);
+        assert_eq!(path, "/repos/octocat/Hello-World/issues/42");
     }
 
     #[test]
