@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { useUiStore } from "../../stores/uiStore";
+import { CommandPalette } from "../command/CommandPalette";
 
 export interface AppShellProps {
   sidebar: ReactNode;
@@ -19,33 +20,36 @@ export function AppShell({ sidebar, main, secondary }: AppShellProps) {
       : "220px 1fr";
 
   return (
-    <div
-      className="min-h-screen h-screen w-screen grid overflow-hidden"
-      style={{
-        gridTemplateColumns: gridCols,
-        backgroundColor: "var(--bg-primary)",
-        color: "var(--text-primary)",
-      }}
-    >
-      <aside
-        className="h-full overflow-y-auto border-r"
+    <>
+      <div
+        className="min-h-screen h-screen w-screen grid overflow-hidden"
         style={{
-          borderColor: "var(--border-default)",
-          backgroundColor: "var(--bg-secondary)",
-          visibility: sidebarCollapsed ? "hidden" : "visible",
+          gridTemplateColumns: gridCols,
+          backgroundColor: "var(--bg-primary)",
+          color: "var(--text-primary)",
         }}
       >
-        {sidebar}
-      </aside>
-      <main className="h-full overflow-y-auto">{main}</main>
-      {secondary && (
         <aside
-          className="h-full overflow-y-auto border-l"
-          style={{ borderColor: "var(--border-default)" }}
+          className="h-full overflow-y-auto border-r"
+          style={{
+            borderColor: "var(--border-default)",
+            backgroundColor: "var(--bg-secondary)",
+            visibility: sidebarCollapsed ? "hidden" : "visible",
+          }}
         >
-          {secondary}
+          {sidebar}
         </aside>
-      )}
-    </div>
+        <main className="h-full overflow-y-auto">{main}</main>
+        {secondary && (
+          <aside
+            className="h-full overflow-y-auto border-l"
+            style={{ borderColor: "var(--border-default)" }}
+          >
+            {secondary}
+          </aside>
+        )}
+      </div>
+      <CommandPalette />
+    </>
   );
 }
