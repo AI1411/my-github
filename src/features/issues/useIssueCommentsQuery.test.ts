@@ -1,12 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
+import { invoke } from "@tauri-apps/api/core";
+import { useIssueCommentsQuery } from "./useIssueCommentsQuery";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
 }));
-
-import { invoke } from "@tauri-apps/api/core";
-import { useIssueCommentsQuery } from "./useIssueCommentsQuery";
 
 describe("useIssueCommentsQuery", () => {
   beforeEach(() => vi.clearAllMocks());

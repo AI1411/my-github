@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
+import { invoke } from "@tauri-apps/api/core";
 import { useIssuesQuery } from "./useIssuesQuery";
 import { useDataStore } from "../../stores/dataStore";
 
@@ -9,8 +10,6 @@ vi.mock("@tauri-apps/api/core", () => ({
 vi.mock("@tauri-apps/api/event", () => ({
   listen: vi.fn().mockResolvedValue(() => {}),
 }));
-
-import { invoke } from "@tauri-apps/api/core";
 
 describe("useIssuesQuery", () => {
   beforeEach(() => {
