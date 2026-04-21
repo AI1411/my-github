@@ -8,6 +8,7 @@ use thiserror::Error;
 
 pub mod issues;
 pub mod meta;
+pub mod notifications;
 pub mod pulls;
 
 #[derive(Debug, Error)]
