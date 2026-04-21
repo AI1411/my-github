@@ -111,6 +111,18 @@ pub struct Issue {
 
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct IssueComment {
+    pub id: u64,
+    pub user: User,
+    pub body: String,
+    pub created_at: String,
+    pub updated_at: String,
+    pub html_url: String,
+    #[serde(default)]
+    pub author_association: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Review {
     pub id: u64,
     pub user: User,
@@ -416,6 +428,29 @@ mod tests {
         }"#;
         let issue: Issue = serde_json::from_str(json).unwrap();
         assert!(issue.pull_request.is_some());
+    }
+
+    #[test]
+    fn deserialize_issue_comment_from_json() {
+        let json = r#"{
+            "id": 1,
+            "user": {
+                "id": 2,
+                "login": "alice",
+                "avatar_url": "https://a/2",
+                "html_url": "https://u/alice"
+            },
+            "body": "Looks good!",
+            "created_at": "2026-04-20T00:00:00Z",
+            "updated_at": "2026-04-20T01:00:00Z",
+            "html_url": "https://github.com/o/r/issues/1#issuecomment-1",
+            "author_association": "MEMBER"
+        }"#;
+        let c: IssueComment = serde_json::from_str(json).unwrap();
+        assert_eq!(c.id, 1);
+        assert_eq!(c.user.login, "alice");
+        assert_eq!(c.body, "Looks good!");
+        assert_eq!(c.author_association.as_deref(), Some("MEMBER"));
     }
 
     #[test]

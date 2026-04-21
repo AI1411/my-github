@@ -6,7 +6,7 @@ use crate::cache::issues::upsert_issue;
 use crate::db::SqlitePool;
 use crate::github::client::GithubClient;
 use crate::github::rest::list_issues;
-use crate::github::types::Issue;
+use crate::github::types::{Issue, IssueComment};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -33,6 +33,33 @@ pub struct AssigneeInfo {
 pub struct LabelInfo {
     pub name: String,
     pub color: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CommentSummary {
+    pub id: u64,
+    pub author: AssigneeInfo,
+    pub body: String,
+    pub created_at: String,
+    pub updated_at: String,
+    pub html_url: String,
+    pub author_association: Option<String>,
+}
+
+fn comment_to_summary(c: &IssueComment) -> CommentSummary {
+    CommentSummary {
+        id: c.id,
+        author: AssigneeInfo {
+            login: c.user.login.clone(),
+            avatar_url: c.user.avatar_url.clone(),
+        },
+        body: c.body.clone(),
+        created_at: c.created_at.clone(),
+        updated_at: c.updated_at.clone(),
+        html_url: c.html_url.clone(),
+        author_association: c.author_association.clone(),
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -267,6 +294,22 @@ pub async fn cmd_get_issue<R: Runtime>(
     }
 
     Ok(issue_to_summary(&issue, &full_name))
+}
+
+/// Fetch all comments on an issue.
+#[tauri::command]
+pub async fn cmd_list_issue_comments(
+    owner: String,
+    repo: String,
+    number: u32,
+) -> Result<Vec<CommentSummary>, String> {
+    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
+    let token = load_token(&account_id).ok_or_else(|| "no token for account".to_string())?;
+    let client = GithubClient::new(token);
+    let comments = crate::github::rest::list_issue_comments(&client, &owner, &repo, number)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(comments.iter().map(comment_to_summary).collect())
 }
 
 async fn refresh_issues<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
@@ -554,6 +597,25 @@ mod tests {
         let f = IssueFilter::default();
         assert!(f.labels.is_empty());
         assert!(f.state.is_none());
+    }
+
+    #[test]
+    fn comment_to_summary_preserves_fields() {
+        let user = user("alice");
+        let c = crate::github::types::IssueComment {
+            id: 99,
+            user,
+            body: "hi".into(),
+            created_at: "2026-04-21T01:00:00Z".into(),
+            updated_at: "2026-04-21T01:00:00Z".into(),
+            html_url: "https://github.com/o/r/issues/1#c99".into(),
+            author_association: Some("OWNER".into()),
+        };
+        let s = comment_to_summary(&c);
+        assert_eq!(s.id, 99);
+        assert_eq!(s.author.login, "alice");
+        assert_eq!(s.body, "hi");
+        assert_eq!(s.author_association.as_deref(), Some("OWNER"));
     }
 
     #[test]

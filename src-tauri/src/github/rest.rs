@@ -1,6 +1,6 @@
 use crate::github::client::{ClientError, GithubClient, RateLimitInfo};
 use crate::github::types::{
-    CheckRunsResponse, Issue, Notification, PullRequest, PullRequestFile, Repository,
+    CheckRunsResponse, Issue, IssueComment, Notification, PullRequest, PullRequestFile, Repository,
 };
 
 fn has_next_page(headers: &reqwest::header::HeaderMap) -> bool {
@@ -217,6 +217,41 @@ pub async fn get_issue(
     Ok(resp.json().await?)
 }
 
+pub async fn list_issue_comments(
+    client: &GithubClient,
+    owner: &str,
+    repo: &str,
+    number: u32,
+) -> Result<Vec<IssueComment>, ClientError> {
+    let mut comments: Vec<IssueComment> = Vec::new();
+    let mut page = 1u32;
+    loop {
+        let resp = client
+            .get(&format!(
+                "/repos/{}/{}/issues/{}/comments?per_page=100&page={}",
+                owner, repo, number, page
+            ))
+            .send()
+            .await?;
+        let status = resp.status();
+        if !status.is_success() {
+            let message = resp.text().await.unwrap_or_default();
+            return Err(ClientError::Api {
+                status: status.as_u16(),
+                message,
+            });
+        }
+        let has_next = has_next_page(resp.headers());
+        let page_comments: Vec<IssueComment> = resp.json().await?;
+        comments.extend(page_comments);
+        if !has_next {
+            break;
+        }
+        page += 1;
+    }
+    Ok(comments)
+}
+
 pub async fn get_check_runs(
     client: &GithubClient,
     owner: &str,
@@ -422,6 +457,22 @@ mod tests {
         assert_eq!(
             path,
             "/repos/octocat/Hello-World/pulls/1347/files?per_page=100"
+        );
+    }
+
+    #[test]
+    fn list_issue_comments_builds_correct_path() {
+        let owner = "octocat";
+        let repo = "Hello-World";
+        let number = 1u32;
+        let page = 1u32;
+        let path = format!(
+            "/repos/{}/{}/issues/{}/comments?per_page=100&page={}",
+            owner, repo, number, page
+        );
+        assert_eq!(
+            path,
+            "/repos/octocat/Hello-World/issues/1/comments?per_page=100&page=1"
         );
     }
 
