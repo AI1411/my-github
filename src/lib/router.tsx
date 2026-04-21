@@ -13,6 +13,7 @@ import ActivityPage from "../pages/ActivityPage";
 import SettingsPage from "../pages/SettingsPage";
 import PullDetailPage from "../pages/PullDetailPage";
 import IssueDetailPage from "../pages/IssueDetailPage";
+import CiStatusPage from "../pages/CiStatusPage";
 import NotFoundPage from "../pages/NotFoundPage";
 
 interface ShellLayoutProps {
@@ -38,6 +39,7 @@ export function createAppRouter(onSignOut: () => void) {
         { path: "issues", element: <IssuesPage /> },
         { path: "issues/:owner/:repo/:number", element: <IssueDetailPage /> },
         { path: "activity", element: <ActivityPage /> },
+        { path: "ci", element: <CiStatusPage /> },
         { path: "settings", element: <SettingsPage /> },
         { path: "*", element: <NotFoundPage /> },
       ],
