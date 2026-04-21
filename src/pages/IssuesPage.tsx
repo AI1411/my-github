@@ -1,11 +1,51 @@
-import { useState } from "react";
+import { useMemo } from "react";
 import { Toolbar } from "../components/common/Toolbar";
 import { useIssuesQuery } from "../features/issues/useIssuesQuery";
-import type { IssueFilter } from "../features/issues/issueFilter";
+import { useUiStore } from "../stores/uiStore";
+import {
+  FilterSidebar,
+  type AvailableLabel,
+} from "../components/issues/FilterSidebar";
 
 export default function IssuesPage() {
-  const [filter] = useState<IssueFilter>({ labels: [], state: "open" });
-  const { refreshing } = useIssuesQuery(filter);
+  const filter = useUiStore((s) => s.issueFilters);
+  const setFilter = useUiStore((s) => s.setIssueFilters);
+  const { issues, refreshing } = useIssuesQuery(filter);
+
+  const availableLabels = useMemo<AvailableLabel[]>(() => {
+    const map = new Map<string, AvailableLabel>();
+    for (const i of issues) {
+      for (const l of i.labels) {
+        const cur = map.get(l.name);
+        if (cur) cur.count += 1;
+        else map.set(l.name, { name: l.name, color: l.color, count: 1 });
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => b.count - a.count);
+  }, [issues]);
+
+  const availableAssignees = useMemo(
+    () =>
+      Array.from(
+        new Set(issues.flatMap((i) => i.assignees.map((a) => a.login))),
+      ),
+    [issues],
+  );
+  const availableRepos = useMemo(
+    () => Array.from(new Set(issues.map((i) => i.repo))),
+    [issues],
+  );
+  const availableMilestones = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          issues
+            .map((i) => i.milestone)
+            .filter((m): m is string => !!m),
+        ),
+      ),
+    [issues],
+  );
 
   return (
     <div className="flex flex-col h-full">
@@ -28,19 +68,22 @@ export default function IssuesPage() {
           className="border-r overflow-y-auto"
           style={{ borderColor: "var(--border-subtle)" }}
         >
-          {/* FilterSidebar comes in Task 8 */}
+          <FilterSidebar
+            filter={filter}
+            onChange={setFilter}
+            availableLabels={availableLabels}
+            availableAssignees={availableAssignees}
+            availableRepos={availableRepos}
+            availableMilestones={availableMilestones}
+          />
         </aside>
         <section className="flex flex-col min-w-0">
           <div
             data-testid="issues-filters"
             className="border-b px-4 py-2"
             style={{ borderColor: "var(--border-subtle)" }}
-          >
-            {/* AppliedFilters comes in Task 11 */}
-          </div>
-          <div data-testid="issues-list" className="flex-1 overflow-auto">
-            {/* IssueRow list comes in Task 6 */}
-          </div>
+          />
+          <div data-testid="issues-list" className="flex-1 overflow-auto" />
         </section>
       </div>
     </div>

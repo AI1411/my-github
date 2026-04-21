@@ -31,4 +31,17 @@ describe("IssuesPage", () => {
     const root = screen.getByTestId("issues-page-root");
     expect(root).toHaveStyle({ display: "grid" });
   });
+
+  it("wires the FilterSidebar to uiStore.issueFilters", async () => {
+    const { useUiStore } = await import("../stores/uiStore");
+    useUiStore.setState({ issueFilters: { labels: [], state: "closed" } });
+    render(
+      <MemoryRouter>
+        <IssuesPage />
+      </MemoryRouter>,
+    );
+    // The "Closed" State row should be active (button color/bg)
+    const closedRow = screen.getByRole("button", { name: "Closed" });
+    expect(closedRow.style.backgroundColor).not.toBe("transparent");
+  });
 });
