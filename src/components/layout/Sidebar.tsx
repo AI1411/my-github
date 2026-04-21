@@ -1,7 +1,9 @@
 import { NavLink } from "react-router-dom";
 import { useAuthStore } from "../../stores/authStore";
 import { useDataStore } from "../../stores/dataStore";
+import { useUiStore } from "../../stores/uiStore";
 import { Avatar } from "../common/Avatar";
+import { WorkspaceSwitcher } from "../workspace/WorkspaceSwitcher";
 
 interface NavItem {
   to: string;
@@ -18,6 +20,7 @@ export function Sidebar({ onSignOut }: SidebarProps) {
   const pulls = useDataStore((s) => s.pulls);
   const issues = useDataStore((s) => s.issues);
   const notifications = useDataStore((s) => s.notifications);
+  const openSwitcher = useUiStore((s) => s.openWorkspaceSwitcher);
 
   const unreadCount = notifications.filter((n) => n.unread).length;
 
@@ -31,10 +34,12 @@ export function Sidebar({ onSignOut }: SidebarProps) {
   ];
 
   return (
+    <>
     <div className="flex flex-col h-full">
-      <div
-        className="px-4 py-4 border-b"
-        style={{ borderColor: "var(--border-default)" }}
+      <button
+        className="px-4 py-4 border-b text-left w-full"
+        style={{ borderColor: "var(--border-default)", background: "none", cursor: "pointer" }}
+        onClick={openSwitcher}
       >
         <p
           className="text-[11px] uppercase tracking-wider font-semibold"
@@ -48,7 +53,7 @@ export function Sidebar({ onSignOut }: SidebarProps) {
         >
           Pulse
         </p>
-      </div>
+      </button>
 
       <nav className="flex-1 overflow-y-auto py-2" aria-label="Primary">
         <ul className="flex flex-col gap-0.5 px-2">
@@ -115,5 +120,7 @@ export function Sidebar({ onSignOut }: SidebarProps) {
         )}
       </div>
     </div>
+    <WorkspaceSwitcher onSignOut={onSignOut} />
+    </>
   );
 }
