@@ -168,7 +168,7 @@ mod tests {
         let count: i64 = conn
             .query_row("SELECT COUNT(*) FROM schema_migrations", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(count, 2);
+        assert_eq!(count, 3);
     }
 
     #[test]
@@ -180,7 +180,7 @@ mod tests {
         let count: i64 = conn
             .query_row("SELECT COUNT(*) FROM schema_migrations", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(count, 2, "all migrations should be recorded exactly once");
+        assert_eq!(count, 3, "all migrations should be recorded exactly once");
     }
 
     #[test]
@@ -212,6 +212,7 @@ mod tests {
             "checks",
             "notifications",
             "sync_meta",
+            "error_logs",
         ] {
             let count: i64 = conn
                 .query_row(

@@ -6,6 +6,7 @@ export interface UiState {
   sidebarCollapsed: boolean;
   commandPaletteOpen: boolean;
   workspaceSwitcherOpen: boolean;
+  offline: boolean;
   issueFilters: IssueFilter;
   setSelectedItemId: (id: string | null) => void;
   toggleSidebar: () => void;
@@ -15,6 +16,7 @@ export interface UiState {
   toggleCommandPalette: () => void;
   openWorkspaceSwitcher: () => void;
   closeWorkspaceSwitcher: () => void;
+  setOffline: (offline: boolean) => void;
   setIssueFilters: (filter: IssueFilter) => void;
 }
 
@@ -23,6 +25,7 @@ export const useUiStore = create<UiState>((set) => ({
   sidebarCollapsed: false,
   commandPaletteOpen: false,
   workspaceSwitcherOpen: false,
+  offline: false,
   issueFilters: { labels: [] },
   setSelectedItemId: (id) => set({ selectedItemId: id }),
   toggleSidebar: () =>
@@ -34,5 +37,6 @@ export const useUiStore = create<UiState>((set) => ({
     set((s) => ({ commandPaletteOpen: !s.commandPaletteOpen })),
   openWorkspaceSwitcher: () => set({ workspaceSwitcherOpen: true }),
   closeWorkspaceSwitcher: () => set({ workspaceSwitcherOpen: false }),
+  setOffline: (offline) => set({ offline }),
   setIssueFilters: (filter) => set({ issueFilters: filter }),
 }));

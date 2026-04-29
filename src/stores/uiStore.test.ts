@@ -39,3 +39,19 @@ describe("uiStore.workspaceSwitcher", () => {
     expect(useUiStore.getState().workspaceSwitcherOpen).toBe(false);
   });
 });
+
+describe("uiStore.offline", () => {
+  beforeEach(() => {
+    useUiStore.setState({ offline: false });
+  });
+
+  it("defaults offline to false", () => {
+    expect(useUiStore.getState().offline).toBe(false);
+  });
+
+  it("setOffline updates offline state", () => {
+    useUiStore.getState().setOffline(true);
+
+    expect(useUiStore.getState().offline).toBe(true);
+  });
+});
