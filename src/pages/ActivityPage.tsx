@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useNavigate } from "react-router-dom";
 import { Toolbar } from "../components/common/Toolbar";
 import { Tabs } from "../components/common/Tabs";
 import { Spinner } from "../components/common/Spinner";
@@ -45,10 +46,35 @@ const TYPE_SUBJECT: Partial<Record<TypeFilter, string[]>> = {
 
 const GROUP_ORDER = ["Today", "Yesterday", "This Week", "Older"] as const;
 
+function notificationRoute(htmlUrl: string | null): string | null {
+  if (!htmlUrl) return null;
+  const match = htmlUrl.match(/^https:\/\/github\.com\/([^/]+)\/([^/]+)\/(pull|issues)\/(\d+)/);
+  if (!match) return null;
+  const [, owner, repo, type, number] = match;
+  return type === "pull"
+    ? `/pulls/${owner}/${repo}/${number}`
+    : `/issues/${owner}/${repo}/${number}`;
+}
+
 export default function ActivityPage() {
-  const { notifications, loading, error } = useNotificationsQuery();
+  const { notifications, loading, error, refetch } = useNotificationsQuery();
   const [activeTab, setActiveTab] = useState<TabKey>("all");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
+  const navigate = useNavigate();
+
+  const handleMarkAllRead = async () => {
+    await invoke("cmd_mark_all_notifications_read");
+    refetch();
+  };
+
+  const handleSelectNotification = async (notification: NotificationSummary) => {
+    if (notification.unread) {
+      await invoke("cmd_mark_notification_read", { threadId: notification.id });
+      refetch();
+    }
+    const route = notificationRoute(notification.htmlUrl);
+    if (route) navigate(route);
+  };
 
   const filtered = useMemo(() => {
     let result = notifications;
@@ -79,7 +105,7 @@ export default function ActivityPage() {
         title="Activity"
         actions={
           <button
-            onClick={() => void invoke("cmd_mark_all_notifications_read")}
+            onClick={() => void handleMarkAllRead()}
             className="text-xs px-2 py-1 rounded-md"
             style={{
               backgroundColor: "var(--bg-tertiary)",
@@ -107,8 +133,7 @@ export default function ActivityPage() {
             onClick={() => setTypeFilter(f.key)}
             className="text-xs px-2 py-1 rounded-md flex-shrink-0"
             style={{
-              backgroundColor:
-                typeFilter === f.key ? "var(--accent-blue)" : "var(--bg-tertiary)",
+              backgroundColor: typeFilter === f.key ? "var(--accent-blue)" : "var(--bg-tertiary)",
               color: typeFilter === f.key ? "#fff" : "var(--text-secondary)",
               border: "none",
               cursor: "pointer",
@@ -141,7 +166,11 @@ export default function ActivityPage() {
               {group}
             </div>
             {groups.get(group)!.map((n) => (
-              <ActivityRow key={n.id} notification={n} />
+              <ActivityRow
+                key={n.id}
+                notification={n}
+                onSelect={() => void handleSelectNotification(n)}
+              />
             ))}
           </div>
         ))}

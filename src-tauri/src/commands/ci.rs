@@ -3,7 +3,9 @@ use tauri::{AppHandle, Runtime};
 
 use crate::auth::token_store::{load_last_account_id, load_token};
 use crate::github::client::GithubClient;
-use crate::github::rest::list_workflow_runs as rest_list_workflow_runs;
+use crate::github::rest::{
+    get_workflow_run_logs_url, list_workflow_runs as rest_list_workflow_runs,
+};
 use crate::github::types::WorkflowRun;
 
 #[derive(Debug, Clone, Serialize)]
@@ -56,11 +58,28 @@ pub async fn cmd_get_workflow_runs<R: Runtime>(
 #[tauri::command]
 pub async fn cmd_open_run_logs<R: Runtime>(
     app: AppHandle<R>,
-    html_url: String,
+    owner: Option<String>,
+    repo: Option<String>,
+    run_id: Option<u64>,
+    html_url: Option<String>,
 ) -> Result<(), String> {
     use tauri_plugin_opener::OpenerExt;
+    let logs_url = if let Some(url) = html_url {
+        url
+    } else {
+        let owner = owner.ok_or_else(|| "owner is required".to_string())?;
+        let repo = repo.ok_or_else(|| "repo is required".to_string())?;
+        let run_id = run_id.ok_or_else(|| "run id is required".to_string())?;
+        let account_id =
+            load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
+        let token = load_token(&account_id).ok_or_else(|| "no token".to_string())?;
+        let client = GithubClient::new(token);
+        get_workflow_run_logs_url(&client, &owner, &repo, run_id)
+            .await
+            .map_err(|e| e.to_string())?
+    };
     app.opener()
-        .open_url(&html_url, None::<String>)
+        .open_url(&logs_url, None::<String>)
         .map_err(|e| e.to_string())
 }
 
@@ -109,5 +128,10 @@ mod tests {
         let s = run_to_summary(&run, "o/r");
         assert_eq!(s.conclusion, None);
         assert_eq!(s.status, "in_progress");
+    }
+
+    #[test]
+    fn cmd_open_run_logs_exists() {
+        let _ = cmd_open_run_logs::<tauri::Wry>;
     }
 }

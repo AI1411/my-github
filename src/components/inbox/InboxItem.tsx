@@ -13,7 +13,9 @@ export function InboxItemRow({ item, selected, onSelect }: InboxItemRowProps) {
       role="row"
       tabIndex={0}
       onClick={onSelect}
-      onKeyDown={(e) => { if (e.key === "Enter") onSelect?.(); }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") onSelect?.();
+      }}
       className="px-4 py-3 flex items-start gap-3 cursor-pointer border-b outline-none"
       style={{
         backgroundColor: selected ? "var(--bg-overlay)" : "transparent",
@@ -35,7 +37,7 @@ export function InboxItemRow({ item, selected, onSelect }: InboxItemRowProps) {
         </p>
         <p className="text-xs mt-0.5 truncate" style={{ color: "var(--text-muted)" }}>
           {item.repo}
-          {item.number != null && ` #${item.number}`}
+          {item.number !== null && ` #${item.number}`}
           {" · "}
           {formatRelativeTime(item.updatedAt)}
         </p>

@@ -31,6 +31,7 @@ pub fn run() {
             commands::auth::cmd_poll_device_flow,
             commands::auth::cmd_save_pat,
             commands::auth::cmd_logout,
+            commands::auth::cmd_switch_account,
             commands::auth::cmd_get_current_user,
             commands::sync::cmd_sync_now,
             commands::pulls::cmd_list_pulls,
