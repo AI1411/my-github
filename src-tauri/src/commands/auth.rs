@@ -48,6 +48,18 @@ pub async fn cmd_logout(account_id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub async fn cmd_switch_account(account_id: String) -> Result<PatUser, String> {
+    let token = crate::auth::token_store::load_token(&account_id)
+        .ok_or_else(|| "no token for account".to_string())?;
+    crate::auth::token_store::save_last_account_id(&account_id).map_err(|e| e.to_string())?;
+    let client = reqwest::Client::new();
+    let (user, _) = validate_pat(&client, &token)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(user)
+}
+
+#[tauri::command]
 pub async fn cmd_get_current_user() -> Option<PatUser> {
     let account_id = crate::auth::token_store::load_last_account_id()?;
     let token = crate::auth::token_store::load_token(&account_id)?;
@@ -78,6 +90,11 @@ mod tests {
     #[test]
     fn cmd_logout_is_async_and_takes_account_id() {
         let _: fn(String) -> _ = |s| cmd_logout(s);
+    }
+
+    #[test]
+    fn cmd_switch_account_accepts_account_id() {
+        let _ = cmd_switch_account;
     }
 
     #[test]
