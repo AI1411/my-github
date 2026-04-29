@@ -15,6 +15,7 @@ fn greet(name: &str) -> String {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             use tauri::Manager;
@@ -46,6 +47,8 @@ pub fn run() {
             commands::ci::cmd_get_workflow_runs,
             commands::ci::cmd_open_run_logs,
             commands::search::cmd_search_github,
+            commands::system::cmd_log_frontend_error,
+            commands::system::cmd_ping,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

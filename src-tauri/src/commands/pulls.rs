@@ -61,10 +61,7 @@ fn now_iso() -> String {
     format!("@{}", secs)
 }
 
-fn read_cached_pulls(
-    pool: &SqlitePool,
-    filter: &PullFilter,
-) -> Result<Vec<PullSummary>, String> {
+fn read_cached_pulls(pool: &SqlitePool, filter: &PullFilter) -> Result<Vec<PullSummary>, String> {
     let conn = pool.get().map_err(|e| e.to_string())?;
     let mut sql = String::from(
         "SELECT p.number, p.title, p.state, p.is_draft, p.author_login,

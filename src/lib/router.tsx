@@ -6,6 +6,7 @@ import {
 } from "react-router-dom";
 import { AppShell } from "../components/layout/AppShell";
 import { Sidebar } from "../components/layout/Sidebar";
+import { ErrorBoundary } from "../components/common/ErrorBoundary";
 import InboxPage from "../pages/InboxPage";
 import PullsPage from "../pages/PullsPage";
 import IssuesPage from "../pages/IssuesPage";
@@ -22,7 +23,14 @@ interface ShellLayoutProps {
 
 function ShellLayout({ onSignOut }: ShellLayoutProps) {
   return (
-    <AppShell sidebar={<Sidebar onSignOut={onSignOut} />} main={<Outlet />} />
+    <AppShell
+      sidebar={<Sidebar onSignOut={onSignOut} />}
+      main={
+        <ErrorBoundary>
+          <Outlet />
+        </ErrorBoundary>
+      }
+    />
   );
 }
 

@@ -2,7 +2,7 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Pulse",
   "version": "0.1.0",
-  "identifier": "com.pulse.app",
+  "identifier": "dev.ai1411.pulse",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1430",
@@ -25,13 +25,23 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["dmg", "msi", "nsis"],
+    "publisher": "AI1411",
+    "copyright": "Copyright (c) 2026 AI1411",
+    "license": "MIT",
+    "category": "DeveloperTool",
+    "shortDescription": "GitHub cross-repository dashboard",
+    "longDescription": "Pulse is a keyboard-driven GitHub dashboard for reviewing pull requests, issues, CI, and notifications across repositories.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "macOS": {
+      "hardenedRuntime": true,
+      "minimumSystemVersion": "10.13"
+    }
   }
 }

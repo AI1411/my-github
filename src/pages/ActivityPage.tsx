@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useNavigate } from "react-router-dom";
 import { Toolbar } from "../components/common/Toolbar";
@@ -8,6 +8,7 @@ import { EmptyState } from "../components/common/EmptyState";
 import { ActivityRow } from "../components/activity/ActivityRow";
 import { useNotificationsQuery } from "../features/activity/useNotificationsQuery";
 import { getTimeGroup } from "../lib/timeGroup";
+import { registerPulseNotificationClickHandler } from "../lib/notifications";
 import type { NotificationSummary } from "../stores/dataStore";
 
 type TabKey = "all" | "unread" | "participating" | "mentions" | "review";
@@ -61,6 +62,10 @@ export default function ActivityPage() {
   const [activeTab, setActiveTab] = useState<TabKey>("all");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const navigate = useNavigate();
+
+  useEffect(() => {
+    void registerPulseNotificationClickHandler((route) => navigate(route));
+  }, [navigate]);
 
   const handleMarkAllRead = async () => {
     await invoke("cmd_mark_all_notifications_read");

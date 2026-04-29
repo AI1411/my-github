@@ -28,8 +28,15 @@ pub const V2_NOTIFICATIONS_REPO: Migration = Migration {
     sql: include_str!("sql/v2_notifications_repo.sql"),
 };
 
+/// v3: persist frontend error boundary reports for diagnostics.
+pub const V3_ERROR_LOGS: Migration = Migration {
+    version: 3,
+    name: "v3_error_logs",
+    sql: include_str!("sql/v3_error_logs.sql"),
+};
+
 /// All migrations known to the application, ordered by version.
-pub const MIGRATIONS: &[Migration] = &[V1_INITIAL, V2_NOTIFICATIONS_REPO];
+pub const MIGRATIONS: &[Migration] = &[V1_INITIAL, V2_NOTIFICATIONS_REPO, V3_ERROR_LOGS];
 
 #[cfg(test)]
 mod tests {
@@ -129,7 +136,37 @@ mod tests {
 
     #[test]
     fn migrations_include_v2() {
-        assert_eq!(MIGRATIONS.len(), 2);
-        assert_eq!(MIGRATIONS[1].version, 2);
+        assert!(MIGRATIONS.iter().any(|migration| migration.version == 2));
+    }
+
+    #[test]
+    fn v3_error_logs_applies_after_v2() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(V1_INITIAL.sql).unwrap();
+        conn.execute_batch(V2_NOTIFICATIONS_REPO.sql).unwrap();
+        conn.execute_batch(V3_ERROR_LOGS.sql)
+            .expect("v3 should apply after v2");
+    }
+
+    #[test]
+    fn v3_creates_error_logs_table() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(V1_INITIAL.sql).unwrap();
+        conn.execute_batch(V2_NOTIFICATIONS_REPO.sql).unwrap();
+        conn.execute_batch(V3_ERROR_LOGS.sql).unwrap();
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='error_logs'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 1, "error_logs table should exist after v3");
+    }
+
+    #[test]
+    fn migrations_include_v3() {
+        assert_eq!(MIGRATIONS.len(), 3);
+        assert_eq!(MIGRATIONS[2].version, 3);
     }
 }

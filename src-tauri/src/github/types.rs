@@ -109,7 +109,6 @@ pub struct Issue {
     pub pull_request: Option<PullRequestRef>,
 }
 
-
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct IssueComment {
     pub id: u64,
