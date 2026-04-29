@@ -42,10 +42,7 @@ pub fn mark_notification_read(pool: &SqlitePool, thread_id: &str) -> Result<(), 
     Ok(())
 }
 
-pub fn mark_all_notifications_read(
-    pool: &SqlitePool,
-    account_id: i64,
-) -> Result<(), CacheError> {
+pub fn mark_all_notifications_read(pool: &SqlitePool, account_id: i64) -> Result<(), CacheError> {
     let conn = pool.get()?;
     conn.execute(
         "UPDATE notifications SET is_read = 1 WHERE account_id = ?1",
@@ -192,8 +189,12 @@ mod tests {
     fn mark_all_notifications_read_marks_all() {
         let pool = test_pool();
         upsert_notification(&pool, 1, &sample_notification("t1", "mention", true)).unwrap();
-        upsert_notification(&pool, 1, &sample_notification("t2", "review_requested", true))
-            .unwrap();
+        upsert_notification(
+            &pool,
+            1,
+            &sample_notification("t2", "review_requested", true),
+        )
+        .unwrap();
         mark_all_notifications_read(&pool, 1).unwrap();
         let rows = list_notifications_for_account(&pool, 1).unwrap();
         assert!(rows.iter().all(|r| r.is_read));

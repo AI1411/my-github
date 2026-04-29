@@ -326,7 +326,9 @@ async fn refresh_issues<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
             .prepare("SELECT id, full_name FROM repos WHERE is_watched = 1")
             .map_err(|e| e.to_string())?;
         let rows = stmt
-            .query_map([], |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)))
+            .query_map([], |row| {
+                Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+            })
             .map_err(|e| e.to_string())?;
         let mut out = Vec::new();
         for r in rows {
