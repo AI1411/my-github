@@ -31,7 +31,7 @@ graphql_client = { version = "0.14", features = ["reqwest"] }
 rusqlite = { version = "0.31", features = ["bundled"] }
 r2d2 = "0.8"
 r2d2_sqlite = "0.24"
-keyring = "3"
+keyring = { version = "3", features = ["apple-native", "windows-native"] }
 tauri-plugin-notification = "2.3.3"
 
 [dev-dependencies]
