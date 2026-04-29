@@ -27,7 +27,7 @@ export function InboxDetailPanel({ item }: InboxDetailPanelProps) {
     <div className="p-4 h-full overflow-y-auto">
       <p className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>
         {item.repo}
-        {item.number != null && ` #${item.number}`}
+        {item.number !== null && ` #${item.number}`}
       </p>
       <h2 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
         {item.title}

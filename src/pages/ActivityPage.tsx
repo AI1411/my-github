@@ -48,9 +48,7 @@ const GROUP_ORDER = ["Today", "Yesterday", "This Week", "Older"] as const;
 
 function notificationRoute(htmlUrl: string | null): string | null {
   if (!htmlUrl) return null;
-  const match = htmlUrl.match(
-    /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/(pull|issues)\/(\d+)/,
-  );
+  const match = htmlUrl.match(/^https:\/\/github\.com\/([^/]+)\/([^/]+)\/(pull|issues)\/(\d+)/);
   if (!match) return null;
   const [, owner, repo, type, number] = match;
   return type === "pull"
@@ -135,8 +133,7 @@ export default function ActivityPage() {
             onClick={() => setTypeFilter(f.key)}
             className="text-xs px-2 py-1 rounded-md flex-shrink-0"
             style={{
-              backgroundColor:
-                typeFilter === f.key ? "var(--accent-blue)" : "var(--bg-tertiary)",
+              backgroundColor: typeFilter === f.key ? "var(--accent-blue)" : "var(--bg-tertiary)",
               color: typeFilter === f.key ? "#fff" : "var(--text-secondary)",
               border: "none",
               cursor: "pointer",

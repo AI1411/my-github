@@ -28,11 +28,7 @@ export default function CiStatusPage() {
     ? (selectedRepo.split("/") as [string, string])
     : [null, null];
 
-  const { runs, loading, error } = useWorkflowRunsQuery(
-    owner,
-    repoName,
-    branch || null,
-  );
+  const { runs, loading, error } = useWorkflowRunsQuery(owner, repoName, branch || null);
 
   const handleOpenLogs = (run: WorkflowRunSummary) => {
     const [runOwner, runRepo] = run.repo.split("/");
@@ -46,10 +42,7 @@ export default function CiStatusPage() {
 
   return (
     <div className="h-full flex flex-col">
-      <Toolbar
-        title="CI Status"
-        subtitle="Workflow runs for watched repos"
-      />
+      <Toolbar title="CI Status" subtitle="Workflow runs for watched repos" />
       <div
         className="px-4 py-2 flex items-center gap-2 border-b flex-shrink-0"
         style={{ borderColor: "var(--border-default)" }}
@@ -96,25 +89,16 @@ export default function CiStatusPage() {
           <Spinner />
         </div>
       )}
-      {selectedRepo && error && (
-        <EmptyState title="Failed to load CI runs" subtitle={error} />
-      )}
+      {selectedRepo && error && <EmptyState title="Failed to load CI runs" subtitle={error} />}
       {selectedRepo && !loading && !error && runs.length === 0 && (
-        <EmptyState
-          title="No workflow runs"
-          subtitle={`No runs found for ${selectedRepo}`}
-        />
+        <EmptyState title="No workflow runs" subtitle={`No runs found for ${selectedRepo}`} />
       )}
       <div className="flex-1 overflow-y-auto">
         {runs.map((run) => (
           <WorkflowRunRow
             key={run.id}
             run={run}
-            onOpenLogs={
-              run.conclusion === "failure"
-                ? () => handleOpenLogs(run)
-                : undefined
-            }
+            onOpenLogs={run.conclusion === "failure" ? () => handleOpenLogs(run) : undefined}
           />
         ))}
       </div>

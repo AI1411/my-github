@@ -612,7 +612,10 @@ mod tests {
             "/repos/{}/{}/actions/runs?per_page=30&branch={}",
             owner, repo, branch
         );
-        assert_eq!(path, "/repos/octocat/hello/actions/runs?per_page=30&branch=main");
+        assert_eq!(
+            path,
+            "/repos/octocat/hello/actions/runs?per_page=30&branch=main"
+        );
     }
 
     #[test]

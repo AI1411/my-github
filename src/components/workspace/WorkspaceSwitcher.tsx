@@ -30,10 +30,9 @@ export function WorkspaceSwitcher({ onSignOut }: WorkspaceSwitcherProps) {
   ).slice(0, 6);
 
   const handleSwitchAccount = async (accountId: string) => {
-    const nextUser = await invoke<{ login: string; avatar_url: string }>(
-      "cmd_switch_account",
-      { accountId },
-    );
+    const nextUser = await invoke<{ login: string; avatar_url: string }>("cmd_switch_account", {
+      accountId,
+    });
     resetData();
     setUser(nextUser);
     await invoke("cmd_sync_now");
@@ -50,9 +49,15 @@ export function WorkspaceSwitcher({ onSignOut }: WorkspaceSwitcherProps) {
 
   return (
     <div
+      role="presentation"
       className="fixed inset-0 z-50 flex items-end justify-start"
       style={{ backgroundColor: "rgba(0,0,0,0.3)" }}
-      onClick={close}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) close();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") close();
+      }}
     >
       <div
         className="m-3 w-64 rounded-xl shadow-xl overflow-hidden"
@@ -60,12 +65,8 @@ export function WorkspaceSwitcher({ onSignOut }: WorkspaceSwitcherProps) {
           backgroundColor: "var(--bg-primary)",
           border: "1px solid var(--border-default)",
         }}
-        onClick={(e) => e.stopPropagation()}
       >
-        <div
-          className="px-4 py-2.5 border-b"
-          style={{ borderColor: "var(--border-subtle)" }}
-        >
+        <div className="px-4 py-2.5 border-b" style={{ borderColor: "var(--border-subtle)" }}>
           <p className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
             Accounts
           </p>
@@ -83,10 +84,7 @@ export function WorkspaceSwitcher({ onSignOut }: WorkspaceSwitcherProps) {
           >
             <Avatar login={user.login} src={user.avatar_url} size="sm" />
             <div className="flex-1 min-w-0">
-              <p
-                className="text-sm font-medium truncate"
-                style={{ color: "var(--text-primary)" }}
-              >
+              <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>
                 {user.login}
               </p>
               <p className="text-xs" style={{ color: "var(--accent-green)" }}>
@@ -95,10 +93,7 @@ export function WorkspaceSwitcher({ onSignOut }: WorkspaceSwitcherProps) {
             </div>
           </button>
         )}
-        <div
-          className="px-4 py-2.5 border-t"
-          style={{ borderColor: "var(--border-subtle)" }}
-        >
+        <div className="px-4 py-2.5 border-t" style={{ borderColor: "var(--border-subtle)" }}>
           <p className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
             Recent workspaces
           </p>
@@ -120,10 +115,7 @@ export function WorkspaceSwitcher({ onSignOut }: WorkspaceSwitcherProps) {
             </div>
           )}
         </div>
-        <div
-          className="border-t p-2"
-          style={{ borderColor: "var(--border-subtle)" }}
-        >
+        <div className="border-t p-2" style={{ borderColor: "var(--border-subtle)" }}>
           <button
             onClick={() => void handleSignOut()}
             className="w-full text-left text-sm px-3 py-2 rounded-md"
