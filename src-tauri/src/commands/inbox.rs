@@ -4,6 +4,7 @@ use tauri::{AppHandle, Manager, Runtime};
 use crate::auth::token_store::{load_last_account_id, load_token};
 use crate::db::SqlitePool;
 use crate::github::client::GithubClient;
+use crate::github::graphql::{fetch_inbox, inbox_query};
 use crate::github::rest::list_notifications;
 use crate::github::types::Notification;
 
@@ -46,6 +47,7 @@ fn api_url_to_html(url: &str) -> String {
         .replace("/pulls/", "/pull/")
 }
 
+#[cfg(test)]
 fn notification_to_inbox_item(n: &Notification) -> InboxItem {
     let html_url = n.subject.url.as_deref().map(api_url_to_html);
     InboxItem {
@@ -72,6 +74,70 @@ fn notification_to_item(n: &Notification) -> NotificationItem {
         unread: n.unread,
         updated_at: n.updated_at.clone(),
     }
+}
+
+fn review_requests_from_graphql(data: &inbox_query::ResponseData) -> Vec<InboxItem> {
+    data.review_requests
+        .nodes
+        .as_ref()
+        .map(|nodes| {
+            nodes
+                .iter()
+                .filter_map(|node| match node {
+                    Some(inbox_query::InboxQueryReviewRequestsNodes::PullRequest(pr)) => {
+                        Some(InboxItem {
+                            id: pr.id.clone(),
+                            kind: "review_requested".to_string(),
+                            repo: pr.repository.name_with_owner.clone(),
+                            number: Some(pr.number),
+                            title: pr.title.clone(),
+                            html_url: Some(pr.url.clone()),
+                            updated_at: pr.updated_at.clone(),
+                            unread: true,
+                        })
+                    }
+                    _ => None,
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn mentions_from_graphql(data: &inbox_query::ResponseData) -> Vec<InboxItem> {
+    data.mentions
+        .nodes
+        .as_ref()
+        .map(|nodes| {
+            nodes
+                .iter()
+                .filter_map(|node| match node {
+                    Some(inbox_query::InboxQueryMentionsNodes::Issue(issue)) => Some(InboxItem {
+                        id: issue.id.clone(),
+                        kind: "mention".to_string(),
+                        repo: issue.repository.name_with_owner.clone(),
+                        number: Some(issue.number),
+                        title: issue.title.clone(),
+                        html_url: Some(issue.url.clone()),
+                        updated_at: issue.updated_at.clone(),
+                        unread: true,
+                    }),
+                    Some(inbox_query::InboxQueryMentionsNodes::PullRequest(pr)) => {
+                        Some(InboxItem {
+                            id: pr.id.clone(),
+                            kind: "mention".to_string(),
+                            repo: pr.repository.name_with_owner.clone(),
+                            number: Some(pr.number),
+                            title: pr.title.clone(),
+                            html_url: Some(pr.url.clone()),
+                            updated_at: pr.updated_at.clone(),
+                            unread: true,
+                        })
+                    }
+                    _ => None,
+                })
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 fn read_ci_failures(pool: &SqlitePool) -> Result<Vec<InboxItem>, String> {
@@ -135,24 +201,9 @@ pub async fn cmd_get_inbox<R: Runtime>(app: AppHandle<R>) -> Result<InboxData, S
     let pool = app
         .try_state::<SqlitePool>()
         .ok_or_else(|| "db not initialized".to_string())?;
-    let notifs = list_notifications(&client)
-        .await
-        .map_err(|e| e.to_string())?;
-    if let Some(acct_id) = get_active_account_db_id(pool.inner()) {
-        for n in &notifs {
-            let _ = crate::cache::notifications::upsert_notification(pool.inner(), acct_id, n);
-        }
-    }
-    let mut review_requests = Vec::new();
-    let mut mentions = Vec::new();
-    for n in &notifs {
-        let item = notification_to_inbox_item(n);
-        match n.reason.as_str() {
-            "review_requested" => review_requests.push(item),
-            "mention" => mentions.push(item),
-            _ => {}
-        }
-    }
+    let inbox = fetch_inbox(&client, 50).await.map_err(|e| e.to_string())?;
+    let review_requests = review_requests_from_graphql(&inbox);
+    let mentions = mentions_from_graphql(&inbox);
     let ci_failures = read_ci_failures(pool.inner()).unwrap_or_default();
     Ok(InboxData {
         review_requests,
@@ -195,14 +246,12 @@ pub async fn cmd_mark_notification_read<R: Runtime>(
 }
 
 #[tauri::command]
-pub async fn cmd_mark_all_notifications_read<R: Runtime>(
-    app: AppHandle<R>,
-) -> Result<(), String> {
+pub async fn cmd_mark_all_notifications_read<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
     let pool = app
         .try_state::<SqlitePool>()
         .ok_or_else(|| "db not initialized".to_string())?;
-    let account_db_id = get_active_account_db_id(pool.inner())
-        .ok_or_else(|| "no active account".to_string())?;
+    let account_db_id =
+        get_active_account_db_id(pool.inner()).ok_or_else(|| "no active account".to_string())?;
     crate::cache::notifications::mark_all_notifications_read(pool.inner(), account_db_id)
         .map_err(|e| e.to_string())
 }
@@ -263,6 +312,118 @@ mod tests {
             Some("https://github.com/octocat/hello/pull/5")
         );
         assert!(item.unread);
+    }
+
+    #[test]
+    fn graphql_review_request_node_maps_to_inbox_item() {
+        let data = serde_json::json!({
+            "reviewRequests": {
+                "issueCount": 1,
+                "nodes": [{
+                    "__typename": "PullRequest",
+                    "id": "PR_kw1",
+                    "number": 42,
+                    "title": "Review this",
+                    "url": "https://github.com/octocat/hello/pull/42",
+                    "createdAt": "2026-04-21T00:00:00Z",
+                    "updatedAt": "2026-04-22T00:00:00Z",
+                    "isDraft": false,
+                    "state": "OPEN",
+                    "repository": { "nameWithOwner": "octocat/hello" },
+                    "author": {
+                        "__typename": "User",
+                        "login": "alice",
+                        "avatarUrl": "https://example.test/a.png"
+                    }
+                }]
+            },
+            "mentions": { "issueCount": 0, "nodes": [] },
+            "assignedIssues": { "issueCount": 0, "nodes": [] },
+            "rateLimit": null
+        });
+        let parsed: crate::github::graphql::inbox_query::ResponseData =
+            serde_json::from_value(data).unwrap();
+
+        let items = review_requests_from_graphql(&parsed);
+
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].id, "PR_kw1");
+        assert_eq!(items[0].kind, "review_requested");
+        assert_eq!(items[0].repo, "octocat/hello");
+        assert_eq!(items[0].number, Some(42));
+        assert_eq!(items[0].title, "Review this");
+        assert_eq!(
+            items[0].html_url.as_deref(),
+            Some("https://github.com/octocat/hello/pull/42")
+        );
+        assert_eq!(items[0].updated_at, "2026-04-22T00:00:00Z");
+        assert!(items[0].unread);
+    }
+
+    #[test]
+    fn graphql_mentions_map_issue_and_pull_request_nodes() {
+        let data = serde_json::json!({
+            "reviewRequests": { "issueCount": 0, "nodes": [] },
+            "mentions": {
+                "issueCount": 2,
+                "nodes": [
+                    {
+                        "__typename": "Issue",
+                        "id": "I_kw1",
+                        "number": 7,
+                        "title": "Mentioned issue",
+                        "url": "https://github.com/octocat/hello/issues/7",
+                        "createdAt": "2026-04-20T00:00:00Z",
+                        "updatedAt": "2026-04-21T00:00:00Z",
+                        "repository": { "nameWithOwner": "octocat/hello" },
+                        "author": {
+                            "__typename": "User",
+                            "login": "bob",
+                            "avatarUrl": "https://example.test/b.png"
+                        }
+                    },
+                    {
+                        "__typename": "PullRequest",
+                        "id": "PR_kw2",
+                        "number": 8,
+                        "title": "Mentioned PR",
+                        "url": "https://github.com/octocat/hello/pull/8",
+                        "createdAt": "2026-04-20T00:00:00Z",
+                        "updatedAt": "2026-04-22T00:00:00Z",
+                        "isDraft": false,
+                        "state": "OPEN",
+                        "repository": { "nameWithOwner": "octocat/hello" },
+                        "author": {
+                            "__typename": "User",
+                            "login": "carol",
+                            "avatarUrl": "https://example.test/c.png"
+                        }
+                    }
+                ]
+            },
+            "assignedIssues": { "issueCount": 0, "nodes": [] },
+            "rateLimit": null
+        });
+        let parsed: crate::github::graphql::inbox_query::ResponseData =
+            serde_json::from_value(data).unwrap();
+
+        let items = mentions_from_graphql(&parsed);
+
+        assert_eq!(items.len(), 2);
+        assert_eq!(items[0].id, "I_kw1");
+        assert_eq!(items[0].kind, "mention");
+        assert_eq!(items[0].number, Some(7));
+        assert_eq!(
+            items[0].html_url.as_deref(),
+            Some("https://github.com/octocat/hello/issues/7")
+        );
+        assert_eq!(items[1].id, "PR_kw2");
+        assert_eq!(items[1].kind, "mention");
+        assert_eq!(items[1].number, Some(8));
+        assert_eq!(
+            items[1].html_url.as_deref(),
+            Some("https://github.com/octocat/hello/pull/8")
+        );
     }
 
     #[test]
