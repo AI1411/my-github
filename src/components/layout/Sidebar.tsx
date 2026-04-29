@@ -1,6 +1,9 @@
+import { useEffect } from "react";
 import { NavLink } from "react-router-dom";
+import { updateUnreadBadge } from "../../lib/badge";
 import { useAuthStore } from "../../stores/authStore";
 import { useDataStore } from "../../stores/dataStore";
+import { useSettingsStore } from "../../stores/settingsStore";
 import { useUiStore } from "../../stores/uiStore";
 import { Avatar } from "../common/Avatar";
 import { WorkspaceSwitcher } from "../workspace/WorkspaceSwitcher";
@@ -20,9 +23,14 @@ export function Sidebar({ onSignOut }: SidebarProps) {
   const pulls = useDataStore((s) => s.pulls);
   const issues = useDataStore((s) => s.issues);
   const notifications = useDataStore((s) => s.notifications);
+  const dockBadgeEnabled = useSettingsStore((s) => s.dockBadgeEnabled);
   const openSwitcher = useUiStore((s) => s.openWorkspaceSwitcher);
 
   const unreadCount = notifications.filter((n) => n.unread).length;
+
+  useEffect(() => {
+    void updateUnreadBadge(unreadCount, dockBadgeEnabled);
+  }, [unreadCount, dockBadgeEnabled]);
 
   const navItems: NavItem[] = [
     { to: "/inbox", label: "Inbox", count: unreadCount || undefined },

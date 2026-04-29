@@ -9,6 +9,7 @@
     "core:path:default",
     "core:app:default",
     "core:webview:default",
+    "notification:default",
     "opener:default"
   ]
 }

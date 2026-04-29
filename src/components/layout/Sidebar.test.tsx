@@ -1,0 +1,83 @@
+import { render, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { updateUnreadBadge } from "../../lib/badge";
+import { useAuthStore } from "../../stores/authStore";
+import { useDataStore } from "../../stores/dataStore";
+import {
+  DEFAULT_SHORTCUTS,
+  useSettingsStore,
+} from "../../stores/settingsStore";
+import { useUiStore } from "../../stores/uiStore";
+import { Sidebar } from "./Sidebar";
+
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: vi.fn().mockResolvedValue(null),
+}));
+vi.mock("../../lib/badge", () => ({
+  updateUnreadBadge: vi.fn().mockResolvedValue(undefined),
+}));
+
+describe("Sidebar badge integration", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useAuthStore.setState({
+      user: { login: "octocat", avatar_url: "" },
+      token: null,
+      status: "authenticated",
+    });
+    useUiStore.setState({ workspaceSwitcherOpen: false });
+    useSettingsStore.setState({
+      watchedRepositories: [],
+      notificationSettings: {
+        enabled: true,
+        ciFailures: true,
+        reviewRequests: true,
+        mentions: true,
+      },
+      pollingInterval: "60s",
+      dockBadgeEnabled: true,
+      density: "comfortable",
+      shortcuts: DEFAULT_SHORTCUTS,
+    });
+    useDataStore.setState({
+      pulls: [],
+      issues: [],
+      notifications: [
+        {
+          id: "unread",
+          reason: "mention",
+          repo: "o/r",
+          subjectTitle: "Unread",
+          subjectType: "Issue",
+          htmlUrl: null,
+          unread: true,
+          updatedAt: "2026-04-29T00:00:00Z",
+        },
+        {
+          id: "read",
+          reason: "mention",
+          repo: "o/r",
+          subjectTitle: "Read",
+          subjectType: "Issue",
+          htmlUrl: null,
+          unread: false,
+          updatedAt: "2026-04-29T00:00:00Z",
+        },
+      ],
+      lastSyncedAt: null,
+    });
+  });
+
+  it("updates the app badge with unread notification count", async () => {
+    render(
+      <MemoryRouter>
+        <Sidebar />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(updateUnreadBadge).toHaveBeenCalledWith(1, true);
+    });
+  });
+});
