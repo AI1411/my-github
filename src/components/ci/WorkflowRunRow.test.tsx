@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { WorkflowRunRow } from "./WorkflowRunRow";
 import type { WorkflowRunSummary } from "../../stores/dataStore";
 
@@ -41,6 +41,13 @@ describe("WorkflowRunRow", () => {
     const handler = vi.fn();
     render(<WorkflowRunRow run={run} onOpenLogs={handler} />);
     expect(screen.getByText("Logs")).toBeInTheDocument();
+  });
+
+  it("calls onOpenLogs when Logs button is clicked", () => {
+    const handler = vi.fn();
+    render(<WorkflowRunRow run={run} onOpenLogs={handler} />);
+    fireEvent.click(screen.getByText("Logs"));
+    expect(handler).toHaveBeenCalledTimes(1);
   });
 
   it("does not render Logs button without onOpenLogs", () => {

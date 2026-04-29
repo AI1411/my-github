@@ -352,6 +352,31 @@ pub async fn list_workflow_runs(
     Ok(r.workflow_runs)
 }
 
+pub fn workflow_run_logs_path(owner: &str, repo: &str, run_id: u64) -> String {
+    format!("/repos/{}/{}/actions/runs/{}/logs", owner, repo, run_id)
+}
+
+pub async fn get_workflow_run_logs_url(
+    client: &GithubClient,
+    owner: &str,
+    repo: &str,
+    run_id: u64,
+) -> Result<String, ClientError> {
+    let resp = client
+        .get(&workflow_run_logs_path(owner, repo, run_id))
+        .send()
+        .await?;
+    let status = resp.status();
+    if !status.is_success() {
+        let message = resp.text().await.unwrap_or_default();
+        return Err(ClientError::Api {
+            status: status.as_u16(),
+            message,
+        });
+    }
+    Ok(resp.url().to_string())
+}
+
 pub async fn search_issues(
     client: &GithubClient,
     query: &str,
@@ -553,6 +578,14 @@ mod tests {
         let page = 1u32;
         let path = format!("/notifications?per_page=100&page={}", page);
         assert_eq!(path, "/notifications?per_page=100&page=1");
+    }
+
+    #[test]
+    fn workflow_run_logs_path_is_correct() {
+        assert_eq!(
+            workflow_run_logs_path("octocat", "hello", 100),
+            "/repos/octocat/hello/actions/runs/100/logs"
+        );
     }
 
     #[test]

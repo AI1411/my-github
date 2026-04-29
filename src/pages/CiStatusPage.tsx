@@ -35,7 +35,13 @@ export default function CiStatusPage() {
   );
 
   const handleOpenLogs = (run: WorkflowRunSummary) => {
-    void invoke("cmd_open_run_logs", { htmlUrl: run.htmlUrl });
+    const [runOwner, runRepo] = run.repo.split("/");
+    if (!runOwner || !runRepo) return;
+    void invoke("cmd_open_run_logs", {
+      owner: runOwner,
+      repo: runRepo,
+      runId: run.id,
+    });
   };
 
   return (
