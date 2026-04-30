@@ -59,8 +59,21 @@ pub fn record_issue_result(
             Err(err) => upsert_failures.push(err.to_string()),
         }
     }
-    if let Some(first_error) = upsert_failures.first() {
-        errors.push(SyncErrorSummary {
+    let delete_error = delete_issues_not_in_numbers(pool, repo.id, &numbers)
+        .err()
+        .map(|err| err.to_string());
+    match (upsert_failures.first(), delete_error) {
+        (Some(first_error), Some(delete_error)) => errors.push(SyncErrorSummary {
+            repo: Some(repo.full_name.clone()),
+            operation: "persist_issue_cache".to_string(),
+            message: format!(
+                "{} issue upsert(s) failed; first error: {}; delete error: {}",
+                upsert_failures.len(),
+                first_error,
+                delete_error
+            ),
+        }),
+        (Some(first_error), None) => errors.push(SyncErrorSummary {
             repo: Some(repo.full_name.clone()),
             operation: "upsert_issue".to_string(),
             message: format!(
@@ -68,14 +81,13 @@ pub fn record_issue_result(
                 upsert_failures.len(),
                 first_error
             ),
-        });
-    }
-    if let Err(err) = delete_issues_not_in_numbers(pool, repo.id, &numbers) {
-        errors.push(SyncErrorSummary {
+        }),
+        (None, Some(delete_error)) => errors.push(SyncErrorSummary {
             repo: Some(repo.full_name.clone()),
             operation: "delete_issues_not_in_numbers".to_string(),
-            message: err.to_string(),
-        });
+            message: delete_error,
+        }),
+        (None, None) => {}
     }
     written
 }
@@ -277,6 +289,74 @@ mod tests {
         assert!(report.errors[0]
             .message
             .contains("2 issue upsert(s) failed"));
+    }
+
+    #[test]
+    fn issue_report_is_partial_when_one_repo_has_upsert_and_delete_failures() {
+        let pool = test_pool();
+        let conn = pool.get().unwrap();
+        conn.execute(
+            "INSERT INTO repos (id, account_id, full_name, is_watched)
+             VALUES (2, 1, 'octocat/failing', 1)",
+            [],
+        )
+        .unwrap();
+        drop(conn);
+        upsert_issue(&pool, 2, &sample_issue(99, "stale"), "t0").unwrap();
+        let conn = pool.get().unwrap();
+        conn.execute(
+            "CREATE TRIGGER fail_all_issue_inserts BEFORE INSERT ON issues
+             BEGIN
+                SELECT RAISE(FAIL, 'forced issue insert failure');
+             END",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "CREATE TRIGGER fail_all_issue_deletes BEFORE DELETE ON issues
+             BEGIN
+                SELECT RAISE(FAIL, 'forced issue delete failure');
+             END",
+            [],
+        )
+        .unwrap();
+        drop(conn);
+
+        let ok_repo = WatchedRepo {
+            id: 1,
+            full_name: "octocat/empty".into(),
+        };
+        let failing_repo = WatchedRepo {
+            id: 2,
+            full_name: "octocat/failing".into(),
+        };
+        let mut errors = Vec::new();
+        let written = record_issue_result(
+            &pool,
+            &ok_repo,
+            Ok(vec![]),
+            "2026-04-30T01:00:00Z",
+            &mut errors,
+        ) + record_issue_result(
+            &pool,
+            &failing_repo,
+            Ok(vec![sample_issue(1, "first"), sample_issue(2, "second")]),
+            "2026-04-30T01:00:00Z",
+            &mut errors,
+        );
+
+        let report = issue_report(2, written, errors);
+
+        assert_eq!(report.status, SyncStepStatus::Partial);
+        assert_eq!(report.errors.len(), 1);
+        assert_eq!(report.errors[0].operation, "persist_issue_cache");
+        assert!(report.errors[0]
+            .message
+            .contains("2 issue upsert(s) failed"));
+        assert!(report.errors[0].message.contains("delete error:"));
+        assert!(report.errors[0]
+            .message
+            .contains("forced issue delete failure"));
     }
 
     #[tokio::test(flavor = "current_thread")]
