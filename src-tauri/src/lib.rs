@@ -35,6 +35,7 @@ pub fn run() {
             commands::auth::cmd_switch_account,
             commands::auth::cmd_get_current_user,
             commands::sync::cmd_sync_now,
+            commands::sync::cmd_get_sync_status,
             commands::pulls::cmd_list_pulls,
             commands::pulls::cmd_get_pull_files,
             commands::issues::cmd_list_issues,
