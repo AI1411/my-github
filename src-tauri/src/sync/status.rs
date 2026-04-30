@@ -1,4 +1,4 @@
-use rusqlite::{params, OptionalExtension};
+use rusqlite::{params, OptionalExtension, Transaction};
 
 use crate::cache::CacheError;
 use crate::db::SqlitePool;
@@ -12,23 +12,27 @@ const LAST_REPORT_JSON: &str = "sync:last_report_json";
 const LAST_RATE_LIMIT_JSON: &str = "sync:last_rate_limit_json";
 
 pub fn persist_sync_report(pool: &SqlitePool, report: &SyncReport) -> Result<(), CacheError> {
-    set_meta(pool, LAST_STARTED_AT, &report.started_at_epoch.to_string())?;
-    set_meta(pool, LAST_FINISHED_AT, &report.finished_at_epoch.to_string())?;
-    set_meta(pool, LAST_STATUS, report_status(report))?;
-    set_meta(pool, LAST_REPORT_JSON, &serde_json::to_string(report)?)?;
+    let mut conn = pool.get()?;
+    let tx = conn.transaction()?;
+
+    set_meta(&tx, LAST_STARTED_AT, &report.started_at_epoch.to_string())?;
+    set_meta(&tx, LAST_FINISHED_AT, &report.finished_at_epoch.to_string())?;
+    set_meta(&tx, LAST_STATUS, report_status(report))?;
+    set_meta(&tx, LAST_REPORT_JSON, &serde_json::to_string(report)?)?;
     if let Some(rate_limit) = &report.rate_limit {
-        set_meta(pool, LAST_RATE_LIMIT_JSON, &serde_json::to_string(rate_limit)?)?;
+        set_meta(&tx, LAST_RATE_LIMIT_JSON, &serde_json::to_string(rate_limit)?)?;
+    } else {
+        delete_meta(&tx, LAST_RATE_LIMIT_JSON)?;
     }
+    tx.commit()?;
     Ok(())
 }
 
 pub fn get_sync_status(pool: &SqlitePool) -> Result<SyncStatus, CacheError> {
     let last_report = get_meta(pool, LAST_REPORT_JSON)?
-        .map(|raw| serde_json::from_str::<SyncReport>(&raw))
-        .transpose()?;
+        .and_then(|raw| serde_json::from_str::<SyncReport>(&raw).ok());
     let last_rate_limit = get_meta(pool, LAST_RATE_LIMIT_JSON)?
-        .map(|raw| serde_json::from_str::<RateLimitInfo>(&raw))
-        .transpose()?;
+        .and_then(|raw| serde_json::from_str::<RateLimitInfo>(&raw).ok());
 
     Ok(SyncStatus {
         is_running: false,
@@ -58,9 +62,8 @@ fn report_status(report: &SyncReport) -> &'static str {
     }
 }
 
-fn set_meta(pool: &SqlitePool, key: &str, value: &str) -> Result<(), CacheError> {
-    let conn = pool.get()?;
-    conn.execute(
+fn set_meta(tx: &Transaction<'_>, key: &str, value: &str) -> Result<(), CacheError> {
+    tx.execute(
         "INSERT INTO sync_meta (key, value, updated_at)
          VALUES (?1, ?2, ?3)
          ON CONFLICT(key) DO UPDATE SET
@@ -68,6 +71,11 @@ fn set_meta(pool: &SqlitePool, key: &str, value: &str) -> Result<(), CacheError>
             updated_at = excluded.updated_at",
         params![key, value, report_time_value()],
     )?;
+    Ok(())
+}
+
+fn delete_meta(tx: &Transaction<'_>, key: &str) -> Result<(), CacheError> {
+    tx.execute("DELETE FROM sync_meta WHERE key = ?1", params![key])?;
     Ok(())
 }
 
@@ -135,5 +143,73 @@ mod tests {
         assert_eq!(status.last_status.as_deref(), Some("success"));
         assert_eq!(status.last_report.unwrap().steps[0].items_written, 2);
         assert_eq!(status.last_rate_limit.unwrap().remaining, 4999);
+    }
+
+    #[test]
+    fn persist_report_without_rate_limit_clears_previous_rate_limit() {
+        let pool = pool();
+        let report_with_rate_limit = SyncReport {
+            started_at_epoch: 10,
+            finished_at_epoch: 20,
+            rate_limit: Some(RateLimitInfo {
+                remaining: 4999,
+                reset: 1700000000,
+            }),
+            steps: vec![SyncStepReport::success(SyncScope::Repositories, 2, 2)],
+        };
+        let report_without_rate_limit = SyncReport {
+            started_at_epoch: 30,
+            finished_at_epoch: 40,
+            rate_limit: None,
+            steps: vec![SyncStepReport::success(SyncScope::Repositories, 3, 3)],
+        };
+
+        persist_sync_report(&pool, &report_with_rate_limit).unwrap();
+        persist_sync_report(&pool, &report_without_rate_limit).unwrap();
+        let status = get_sync_status(&pool).unwrap();
+
+        assert!(status.last_rate_limit.is_none());
+        assert!(status.last_report.unwrap().rate_limit.is_none());
+    }
+
+    #[test]
+    fn get_sync_status_ignores_corrupt_json_fields() {
+        let pool = pool();
+        {
+            let conn = pool.get().unwrap();
+            conn.execute(
+                "INSERT INTO sync_meta (key, value, updated_at) VALUES (?1, ?2, ?3)",
+                params![LAST_STARTED_AT, "10", "1"],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO sync_meta (key, value, updated_at) VALUES (?1, ?2, ?3)",
+                params![LAST_FINISHED_AT, "20", "1"],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO sync_meta (key, value, updated_at) VALUES (?1, ?2, ?3)",
+                params![LAST_STATUS, "success", "1"],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO sync_meta (key, value, updated_at) VALUES (?1, ?2, ?3)",
+                params![LAST_REPORT_JSON, "{not json", "1"],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO sync_meta (key, value, updated_at) VALUES (?1, ?2, ?3)",
+                params![LAST_RATE_LIMIT_JSON, "{not json", "1"],
+            )
+            .unwrap();
+        }
+
+        let status = get_sync_status(&pool).unwrap();
+
+        assert_eq!(status.last_started_at_epoch, Some(10));
+        assert_eq!(status.last_finished_at_epoch, Some(20));
+        assert_eq!(status.last_status.as_deref(), Some("success"));
+        assert!(status.last_report.is_none());
+        assert!(status.last_rate_limit.is_none());
     }
 }
