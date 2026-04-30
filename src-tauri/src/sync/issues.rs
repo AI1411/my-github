@@ -1,4 +1,4 @@
-use crate::cache::issues::upsert_issue;
+use crate::cache::issues::{delete_issues_not_in_numbers, upsert_issue};
 use crate::cache::repos::WatchedRepo;
 use crate::db::SqlitePool;
 use crate::github::client::GithubClient;
@@ -47,16 +47,35 @@ pub fn record_issue_result(
         }
     };
 
+    let numbers = issues
+        .iter()
+        .map(|issue| issue.number as i64)
+        .collect::<Vec<_>>();
     let mut written = 0usize;
+    let mut upsert_failures = Vec::new();
     for issue in issues {
         match upsert_issue(pool, repo.id, &issue, now) {
             Ok(()) => written += 1,
-            Err(err) => errors.push(SyncErrorSummary {
-                repo: Some(repo.full_name.clone()),
-                operation: "upsert_issue".to_string(),
-                message: err.to_string(),
-            }),
+            Err(err) => upsert_failures.push(err.to_string()),
         }
+    }
+    if let Some(first_error) = upsert_failures.first() {
+        errors.push(SyncErrorSummary {
+            repo: Some(repo.full_name.clone()),
+            operation: "upsert_issue".to_string(),
+            message: format!(
+                "{} issue upsert(s) failed; first error: {}",
+                upsert_failures.len(),
+                first_error
+            ),
+        });
+    }
+    if let Err(err) = delete_issues_not_in_numbers(pool, repo.id, &numbers) {
+        errors.push(SyncErrorSummary {
+            repo: Some(repo.full_name.clone()),
+            operation: "delete_issues_not_in_numbers".to_string(),
+            message: err.to_string(),
+        });
     }
     written
 }
@@ -182,6 +201,82 @@ mod tests {
         assert_eq!(report.errors.len(), 1);
         assert_eq!(report.errors[0].operation, "upsert_issue");
         assert_eq!(list_issues_by_repo(&pool, 1).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn record_issue_result_deletes_stale_open_cache_after_successful_api_result() {
+        let pool = test_pool();
+        let repo = WatchedRepo {
+            id: 1,
+            full_name: "octocat/hello".into(),
+        };
+        upsert_issue(&pool, 1, &sample_issue(1, "current"), "t0").unwrap();
+        upsert_issue(&pool, 1, &sample_issue(2, "stale"), "t0").unwrap();
+        let mut errors = Vec::new();
+
+        let written = record_issue_result(
+            &pool,
+            &repo,
+            Ok(vec![sample_issue(1, "current")]),
+            "2026-04-30T01:00:00Z",
+            &mut errors,
+        );
+        let numbers = list_issues_by_repo(&pool, 1)
+            .unwrap()
+            .into_iter()
+            .map(|issue| issue.number)
+            .collect::<Vec<_>>();
+
+        assert_eq!(written, 1);
+        assert!(errors.is_empty());
+        assert_eq!(numbers, vec![1]);
+    }
+
+    #[test]
+    fn issue_report_is_partial_when_one_repo_succeeds_with_zero_items_and_another_has_many_upsert_failures(
+    ) {
+        let pool = test_pool();
+        let conn = pool.get().unwrap();
+        conn.execute(
+            "CREATE TRIGGER fail_all_issues BEFORE INSERT ON issues
+             BEGIN
+                SELECT RAISE(FAIL, 'forced issue failure');
+             END",
+            [],
+        )
+        .unwrap();
+        drop(conn);
+
+        let ok_repo = WatchedRepo {
+            id: 1,
+            full_name: "octocat/empty".into(),
+        };
+        let failing_repo = WatchedRepo {
+            id: 1,
+            full_name: "octocat/hello".into(),
+        };
+        let mut errors = Vec::new();
+        let written = record_issue_result(
+            &pool,
+            &ok_repo,
+            Ok(vec![]),
+            "2026-04-30T01:00:00Z",
+            &mut errors,
+        ) + record_issue_result(
+            &pool,
+            &failing_repo,
+            Ok(vec![sample_issue(1, "first"), sample_issue(2, "second")]),
+            "2026-04-30T01:00:00Z",
+            &mut errors,
+        );
+
+        let report = issue_report(2, written, errors);
+
+        assert_eq!(report.status, SyncStepStatus::Partial);
+        assert_eq!(report.errors.len(), 1);
+        assert!(report.errors[0]
+            .message
+            .contains("2 issue upsert(s) failed"));
     }
 
     #[tokio::test(flavor = "current_thread")]

@@ -1,7 +1,7 @@
 use crate::cache::CacheError;
 use crate::db::SqlitePool;
 use crate::github::types::Issue;
-use rusqlite::params;
+use rusqlite::{params, params_from_iter};
 
 /// A row read back from the `issues` table. Labels are denormalised as a
 /// JSON-encoded array of label names; full payload remains in `raw_json`.
@@ -93,6 +93,32 @@ pub fn list_issues_by_repo(
         out.push(row?);
     }
     Ok(out)
+}
+
+pub fn delete_issues_not_in_numbers(
+    pool: &SqlitePool,
+    repo_id: i64,
+    numbers: &[i64],
+) -> Result<usize, CacheError> {
+    let conn = pool.get()?;
+    if numbers.is_empty() {
+        return Ok(conn.execute(
+            "DELETE FROM issues WHERE repo_id = ?1 AND state = 'open'",
+            params![repo_id],
+        )?);
+    }
+
+    let placeholders = std::iter::repeat_n("?", numbers.len())
+        .collect::<Vec<_>>()
+        .join(",");
+    let sql = format!(
+        "DELETE FROM issues
+         WHERE repo_id = ? AND state = 'open' AND number NOT IN ({placeholders})"
+    );
+    let mut values = Vec::with_capacity(numbers.len() + 1);
+    values.push(repo_id);
+    values.extend_from_slice(numbers);
+    Ok(conn.execute(&sql, params_from_iter(values))?)
 }
 
 #[cfg(test)]
@@ -209,5 +235,47 @@ mod tests {
     fn list_returns_empty_for_unknown_repo() {
         let pool = test_pool();
         assert!(list_issues_by_repo(&pool, 42).unwrap().is_empty());
+    }
+
+    #[test]
+    fn delete_issues_not_in_numbers_removes_stale_open_rows_only() {
+        let pool = test_pool();
+        let keep = sample_issue(1, "keep", "2026-04-21T00:00:00Z", vec![]);
+        let stale = sample_issue(2, "stale", "2026-04-21T00:00:00Z", vec![]);
+        let mut closed = sample_issue(3, "closed", "2026-04-21T00:00:00Z", vec![]);
+        closed.state = "closed".into();
+        upsert_issue(&pool, 1, &keep, "t1").unwrap();
+        upsert_issue(&pool, 1, &stale, "t1").unwrap();
+        upsert_issue(&pool, 1, &closed, "t1").unwrap();
+
+        let deleted = delete_issues_not_in_numbers(&pool, 1, &[1]).unwrap();
+        let numbers = list_issues_by_repo(&pool, 1)
+            .unwrap()
+            .into_iter()
+            .map(|issue| issue.number)
+            .collect::<Vec<_>>();
+
+        assert_eq!(deleted, 1);
+        assert_eq!(numbers, vec![1, 3]);
+    }
+
+    #[test]
+    fn delete_issues_not_in_numbers_with_empty_numbers_removes_all_open_rows() {
+        let pool = test_pool();
+        let open = sample_issue(1, "open", "2026-04-21T00:00:00Z", vec![]);
+        let mut closed = sample_issue(2, "closed", "2026-04-21T00:00:00Z", vec![]);
+        closed.state = "closed".into();
+        upsert_issue(&pool, 1, &open, "t1").unwrap();
+        upsert_issue(&pool, 1, &closed, "t1").unwrap();
+
+        let deleted = delete_issues_not_in_numbers(&pool, 1, &[]).unwrap();
+        let numbers = list_issues_by_repo(&pool, 1)
+            .unwrap()
+            .into_iter()
+            .map(|issue| issue.number)
+            .collect::<Vec<_>>();
+
+        assert_eq!(deleted, 1);
+        assert_eq!(numbers, vec![2]);
     }
 }

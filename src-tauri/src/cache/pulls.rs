@@ -1,7 +1,7 @@
 use crate::cache::CacheError;
 use crate::db::SqlitePool;
 use crate::github::types::PullRequest;
-use rusqlite::params;
+use rusqlite::{params, params_from_iter};
 
 /// A row read back from the `pulls` table. Narrow to the fields consumers
 /// care about; full payload remains in `raw_json` for forward compatibility.
@@ -120,6 +120,32 @@ pub fn list_pulls_by_repo(pool: &SqlitePool, repo_id: i64) -> Result<Vec<CachedP
     Ok(out)
 }
 
+pub fn delete_pulls_not_in_numbers(
+    pool: &SqlitePool,
+    repo_id: i64,
+    numbers: &[i64],
+) -> Result<usize, CacheError> {
+    let conn = pool.get()?;
+    if numbers.is_empty() {
+        return Ok(conn.execute(
+            "DELETE FROM pulls WHERE repo_id = ?1 AND state = 'open'",
+            params![repo_id],
+        )?);
+    }
+
+    let placeholders = std::iter::repeat_n("?", numbers.len())
+        .collect::<Vec<_>>()
+        .join(",");
+    let sql = format!(
+        "DELETE FROM pulls
+         WHERE repo_id = ? AND state = 'open' AND number NOT IN ({placeholders})"
+    );
+    let mut values = Vec::with_capacity(numbers.len() + 1);
+    values.push(repo_id);
+    values.extend_from_slice(numbers);
+    Ok(conn.execute(&sql, params_from_iter(values))?)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -234,5 +260,47 @@ mod tests {
         let pool = test_pool();
         let list = list_pulls_by_repo(&pool, 999).unwrap();
         assert!(list.is_empty());
+    }
+
+    #[test]
+    fn delete_pulls_not_in_numbers_removes_stale_open_rows_only() {
+        let pool = test_pool();
+        let keep = sample_pr(1, "keep", "2026-04-21T00:00:00Z");
+        let stale = sample_pr(2, "stale", "2026-04-21T00:00:00Z");
+        let mut closed = sample_pr(3, "closed", "2026-04-21T00:00:00Z");
+        closed.state = "closed".into();
+        upsert_pull(&pool, 1, &keep, "t1").unwrap();
+        upsert_pull(&pool, 1, &stale, "t1").unwrap();
+        upsert_pull(&pool, 1, &closed, "t1").unwrap();
+
+        let deleted = delete_pulls_not_in_numbers(&pool, 1, &[1]).unwrap();
+        let numbers = list_pulls_by_repo(&pool, 1)
+            .unwrap()
+            .into_iter()
+            .map(|pull| pull.number)
+            .collect::<Vec<_>>();
+
+        assert_eq!(deleted, 1);
+        assert_eq!(numbers, vec![1, 3]);
+    }
+
+    #[test]
+    fn delete_pulls_not_in_numbers_with_empty_numbers_removes_all_open_rows() {
+        let pool = test_pool();
+        let open = sample_pr(1, "open", "2026-04-21T00:00:00Z");
+        let mut closed = sample_pr(2, "closed", "2026-04-21T00:00:00Z");
+        closed.state = "closed".into();
+        upsert_pull(&pool, 1, &open, "t1").unwrap();
+        upsert_pull(&pool, 1, &closed, "t1").unwrap();
+
+        let deleted = delete_pulls_not_in_numbers(&pool, 1, &[]).unwrap();
+        let numbers = list_pulls_by_repo(&pool, 1)
+            .unwrap()
+            .into_iter()
+            .map(|pull| pull.number)
+            .collect::<Vec<_>>();
+
+        assert_eq!(deleted, 1);
+        assert_eq!(numbers, vec![2]);
     }
 }

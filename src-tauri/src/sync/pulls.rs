@@ -1,4 +1,4 @@
-use crate::cache::pulls::upsert_pull;
+use crate::cache::pulls::{delete_pulls_not_in_numbers, upsert_pull};
 use crate::cache::repos::WatchedRepo;
 use crate::db::SqlitePool;
 use crate::github::client::GithubClient;
@@ -47,16 +47,35 @@ pub fn record_pull_result(
         }
     };
 
+    let numbers = pulls
+        .iter()
+        .map(|pull| pull.number as i64)
+        .collect::<Vec<_>>();
     let mut written = 0usize;
+    let mut upsert_failures = Vec::new();
     for pull in pulls {
         match upsert_pull(pool, repo.id, &pull, now) {
             Ok(()) => written += 1,
-            Err(err) => errors.push(SyncErrorSummary {
-                repo: Some(repo.full_name.clone()),
-                operation: "upsert_pull".to_string(),
-                message: err.to_string(),
-            }),
+            Err(err) => upsert_failures.push(err.to_string()),
         }
+    }
+    if let Some(first_error) = upsert_failures.first() {
+        errors.push(SyncErrorSummary {
+            repo: Some(repo.full_name.clone()),
+            operation: "upsert_pull".to_string(),
+            message: format!(
+                "{} pull upsert(s) failed; first error: {}",
+                upsert_failures.len(),
+                first_error
+            ),
+        });
+    }
+    if let Err(err) = delete_pulls_not_in_numbers(pool, repo.id, &numbers) {
+        errors.push(SyncErrorSummary {
+            repo: Some(repo.full_name.clone()),
+            operation: "delete_pulls_not_in_numbers".to_string(),
+            message: err.to_string(),
+        });
     }
     written
 }
@@ -186,6 +205,80 @@ mod tests {
         assert_eq!(report.errors.len(), 1);
         assert_eq!(report.errors[0].operation, "upsert_pull");
         assert_eq!(list_pulls_by_repo(&pool, 1).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn record_pull_result_deletes_stale_open_cache_after_successful_api_result() {
+        let pool = test_pool();
+        let repo = WatchedRepo {
+            id: 1,
+            full_name: "octocat/hello".into(),
+        };
+        upsert_pull(&pool, 1, &sample_pr(1, "current"), "t0").unwrap();
+        upsert_pull(&pool, 1, &sample_pr(2, "stale"), "t0").unwrap();
+        let mut errors = Vec::new();
+
+        let written = record_pull_result(
+            &pool,
+            &repo,
+            Ok(vec![sample_pr(1, "current")]),
+            "2026-04-30T01:00:00Z",
+            &mut errors,
+        );
+        let numbers = list_pulls_by_repo(&pool, 1)
+            .unwrap()
+            .into_iter()
+            .map(|pull| pull.number)
+            .collect::<Vec<_>>();
+
+        assert_eq!(written, 1);
+        assert!(errors.is_empty());
+        assert_eq!(numbers, vec![1]);
+    }
+
+    #[test]
+    fn pull_report_is_partial_when_one_repo_succeeds_with_zero_items_and_another_has_many_upsert_failures(
+    ) {
+        let pool = test_pool();
+        let conn = pool.get().unwrap();
+        conn.execute(
+            "CREATE TRIGGER fail_all_pulls BEFORE INSERT ON pulls
+             BEGIN
+                SELECT RAISE(FAIL, 'forced pull failure');
+             END",
+            [],
+        )
+        .unwrap();
+        drop(conn);
+
+        let ok_repo = WatchedRepo {
+            id: 1,
+            full_name: "octocat/empty".into(),
+        };
+        let failing_repo = WatchedRepo {
+            id: 1,
+            full_name: "octocat/hello".into(),
+        };
+        let mut errors = Vec::new();
+        let written = record_pull_result(
+            &pool,
+            &ok_repo,
+            Ok(vec![]),
+            "2026-04-30T01:00:00Z",
+            &mut errors,
+        ) + record_pull_result(
+            &pool,
+            &failing_repo,
+            Ok(vec![sample_pr(1, "first"), sample_pr(2, "second")]),
+            "2026-04-30T01:00:00Z",
+            &mut errors,
+        );
+
+        let report = pull_report(2, written, errors);
+
+        assert_eq!(report.status, SyncStepStatus::Partial);
+        assert_eq!(report.errors.len(), 1);
+        assert!(report.errors[0].message.contains("2 pull upsert(s) failed"));
     }
 
     #[tokio::test(flavor = "current_thread")]
