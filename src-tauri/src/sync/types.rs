@@ -80,7 +80,7 @@ impl SyncStepReport {
     ) -> Self {
         let status = if errors.is_empty() {
             SyncStepStatus::Success
-        } else if items_written > 0 {
+        } else if items_written > 0 || repos_seen > errors.len() {
             SyncStepStatus::Partial
         } else {
             SyncStepStatus::Failed
@@ -167,5 +167,44 @@ mod tests {
         assert!(!status.is_running);
         assert!(status.last_report.is_none());
         assert!(status.last_finished_at_epoch.is_none());
+    }
+
+    #[test]
+    fn from_errors_reports_partial_when_successful_repo_had_zero_writes() {
+        let report = SyncStepReport::from_errors(
+            SyncScope::Pulls,
+            2,
+            0,
+            vec![SyncErrorSummary {
+                repo: Some("octocat/beta".to_string()),
+                operation: "list_pull_requests".to_string(),
+                message: "GitHub API error (HTTP 500): unavailable".to_string(),
+            }],
+        );
+
+        assert_eq!(report.status, SyncStepStatus::Partial);
+    }
+
+    #[test]
+    fn from_errors_reports_failed_when_all_repos_failed_with_zero_writes() {
+        let report = SyncStepReport::from_errors(
+            SyncScope::Pulls,
+            2,
+            0,
+            vec![
+                SyncErrorSummary {
+                    repo: Some("octocat/alpha".to_string()),
+                    operation: "list_pull_requests".to_string(),
+                    message: "GitHub API error (HTTP 500): unavailable".to_string(),
+                },
+                SyncErrorSummary {
+                    repo: Some("octocat/beta".to_string()),
+                    operation: "list_pull_requests".to_string(),
+                    message: "GitHub API error (HTTP 500): unavailable".to_string(),
+                },
+            ],
+        );
+
+        assert_eq!(report.status, SyncStepStatus::Failed);
     }
 }

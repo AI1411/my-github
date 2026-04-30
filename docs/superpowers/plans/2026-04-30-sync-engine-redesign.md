@@ -69,7 +69,7 @@ mod tests {
         let json = serde_json::to_string(&report).unwrap();
         assert!(json.contains("\"scope\":\"pulls\""));
         assert!(json.contains("\"status\":\"partial\""));
-        assert!(json.contains("\"items_written\":1"));
+        assert!(json.contains("\"itemsWritten\":1"));
         assert!(json.contains("octocat/beta"));
     }
 
@@ -180,7 +180,7 @@ impl SyncStepReport {
     ) -> Self {
         let status = if errors.is_empty() {
             SyncStepStatus::Success
-        } else if items_written > 0 {
+        } else if items_written > 0 || repos_seen > errors.len() {
             SyncStepStatus::Partial
         } else {
             SyncStepStatus::Failed
