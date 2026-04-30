@@ -20,15 +20,14 @@ type SettingsTab =
   | "shortcuts"
   | "about";
 
-interface SyncNowResult {
-  rateLimit?: {
-    remaining: number;
-    reset: number;
-  } | null;
-  rate_limit?: {
-    remaining: number;
-    reset: number;
-  } | null;
+interface RateLimitInfo {
+  remaining: number;
+  reset: number;
+}
+
+interface SyncStatusResult {
+  lastRateLimit?: RateLimitInfo | null;
+  last_rate_limit?: RateLimitInfo | null;
 }
 
 const SETTINGS_TABS: { id: SettingsTab; label: string }[] = [
@@ -174,7 +173,7 @@ function formatReset(epochSeconds: number): string {
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>("accounts");
   const [repoInput, setRepoInput] = useState("");
-  const [rateLimit, setRateLimit] = useState<SyncNowResult["rateLimit"]>(null);
+  const [rateLimit, setRateLimit] = useState<RateLimitInfo | null>(null);
   const [rateError, setRateError] = useState<string | null>(null);
   const user = useAuthStore((state) => state.user);
   const pulls = useDataStore((state) => state.pulls);
@@ -225,10 +224,10 @@ export default function SettingsPage() {
     if (activeTab !== "about") return;
     let cancelled = false;
     setRateError(null);
-    invoke<SyncNowResult>("cmd_sync_now")
+    invoke<SyncStatusResult>("cmd_get_sync_status")
       .then((result) => {
         if (cancelled) return;
-        setRateLimit(result.rateLimit ?? result.rate_limit ?? null);
+        setRateLimit(result.lastRateLimit ?? result.last_rate_limit ?? null);
       })
       .catch((error: unknown) => {
         if (!cancelled) setRateError(String(error));

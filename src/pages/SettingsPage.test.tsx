@@ -40,10 +40,14 @@ describe("SettingsPage", () => {
       shortcuts: DEFAULT_SHORTCUTS,
     });
     (invoke as ReturnType<typeof vi.fn>).mockImplementation((cmd: string) => {
-      if (cmd === "cmd_sync_now") {
+      if (cmd === "cmd_get_sync_status") {
         return Promise.resolve({
-          rateLimit: { remaining: 4321, reset: 1770000000 },
-          syncedAtEpoch: 1760000000,
+          isRunning: false,
+          lastStartedAtEpoch: 1760000000,
+          lastFinishedAtEpoch: 1760000001,
+          lastStatus: "success",
+          lastReport: null,
+          lastRateLimit: { remaining: 4321, reset: 1770000000 },
         });
       }
       return Promise.resolve(null);
@@ -123,5 +127,7 @@ describe("SettingsPage", () => {
     await waitFor(() => {
       expect(screen.getByText("4321 remaining")).toBeInTheDocument();
     });
+    expect(invoke).toHaveBeenCalledWith("cmd_get_sync_status");
+    expect(invoke).not.toHaveBeenCalledWith("cmd_sync_now");
   });
 });

@@ -8,7 +8,7 @@ use crate::sync::issues::sync_issues;
 use crate::sync::pulls::sync_pulls;
 use crate::sync::repos::{sync_repositories, watched_repos};
 use crate::sync::status::persist_sync_report;
-use crate::sync::types::{SyncReport, SyncScope, SyncStepReport};
+use crate::sync::types::{SyncErrorSummary, SyncReport, SyncScope, SyncStepReport};
 
 pub struct SyncEngine<'a> {
     pool: &'a SqlitePool,
@@ -35,14 +35,17 @@ impl<'a> SyncEngine<'a> {
         }
 
         if scopes.contains(&SyncScope::Pulls) || scopes.contains(&SyncScope::Issues) {
-            let repos = watched_repos(self.pool)?;
+            match watched_repos(self.pool) {
+                Ok(repos) => {
+                    if scopes.contains(&SyncScope::Pulls) {
+                        steps.push(sync_pulls(self.pool, &self.client, &repos, &now).await);
+                    }
 
-            if scopes.contains(&SyncScope::Pulls) {
-                steps.push(sync_pulls(self.pool, &self.client, &repos, &now).await);
-            }
-
-            if scopes.contains(&SyncScope::Issues) {
-                steps.push(sync_issues(self.pool, &self.client, &repos, &now).await);
+                    if scopes.contains(&SyncScope::Issues) {
+                        steps.push(sync_issues(self.pool, &self.client, &repos, &now).await);
+                    }
+                }
+                Err(message) => steps.extend(watched_repos_error_steps(scopes, message)),
             }
         }
 
@@ -69,6 +72,25 @@ pub fn build_report(
     }
 }
 
+pub fn watched_repos_error_steps(scopes: &[SyncScope], message: String) -> Vec<SyncStepReport> {
+    [SyncScope::Pulls, SyncScope::Issues]
+        .into_iter()
+        .filter(|scope| scopes.contains(scope))
+        .map(|scope| {
+            SyncStepReport::from_errors(
+                scope,
+                0,
+                0,
+                vec![SyncErrorSummary {
+                    repo: None,
+                    operation: "watched_repos".to_string(),
+                    message: message.clone(),
+                }],
+            )
+        })
+        .collect()
+}
+
 fn epoch_now() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -79,7 +101,7 @@ fn epoch_now() -> u64 {
 #[cfg(test)]
 mod tests {
     use crate::github::client::RateLimitInfo;
-    use crate::sync::engine::build_report;
+    use crate::sync::engine::{build_report, watched_repos_error_steps};
     use crate::sync::types::{SyncScope, SyncStepReport, SyncStepStatus};
 
     #[test]
@@ -106,5 +128,24 @@ mod tests {
         assert_eq!(report.steps[0].status, SyncStepStatus::Skipped);
         assert_eq!(report.steps[1].scope, SyncScope::Repositories);
         assert_eq!(report.steps[1].status, SyncStepStatus::Success);
+    }
+
+    #[test]
+    fn watched_repos_error_steps_marks_requested_pull_and_issue_scopes_failed() {
+        let steps = watched_repos_error_steps(
+            &[SyncScope::Issues, SyncScope::Pulls, SyncScope::Repositories],
+            "database is locked".to_string(),
+        );
+
+        assert_eq!(steps.len(), 2);
+        assert_eq!(steps[0].scope, SyncScope::Pulls);
+        assert_eq!(steps[0].status, SyncStepStatus::Failed);
+        assert_eq!(steps[0].repos_seen, 0);
+        assert_eq!(steps[0].items_written, 0);
+        assert_eq!(steps[0].errors[0].operation, "watched_repos");
+        assert_eq!(steps[0].errors[0].message, "database is locked");
+        assert_eq!(steps[1].scope, SyncScope::Issues);
+        assert_eq!(steps[1].status, SyncStepStatus::Failed);
+        assert_eq!(steps[1].errors[0].operation, "watched_repos");
     }
 }
