@@ -4,7 +4,7 @@ use crate::db::SqlitePool;
 use crate::github::client::GithubClient;
 use crate::github::rest::list_repos_for_authenticated_user;
 use crate::github::types::Repository;
-use crate::sync::types::{SyncErrorSummary, SyncScope, SyncStepReport};
+use crate::sync::types::{SyncErrorSummary, SyncScope, SyncStepReport, SyncStepStatus};
 
 pub async fn sync_repositories(
     pool: &SqlitePool,
@@ -13,18 +13,8 @@ pub async fn sync_repositories(
     now: &str,
 ) -> SyncStepReport {
     match list_repos_for_authenticated_user(client).await {
-        Ok(repos) => persist_repositories(pool, user, &repos, now).unwrap_or_else(|message| {
-            SyncStepReport::from_errors(
-                SyncScope::Repositories,
-                repos.len(),
-                0,
-                vec![SyncErrorSummary {
-                    repo: None,
-                    operation: "persist_repositories".to_string(),
-                    message,
-                }],
-            )
-        }),
+        Ok(repos) => persist_repositories(pool, user, &repos, now)
+            .unwrap_or_else(|message| repository_persistence_error_report(repos.len(), message)),
         Err(err) => SyncStepReport::from_errors(
             SyncScope::Repositories,
             0,
@@ -35,6 +25,20 @@ pub async fn sync_repositories(
                 message: err.to_string(),
             }],
         ),
+    }
+}
+
+fn repository_persistence_error_report(repos_seen: usize, message: String) -> SyncStepReport {
+    SyncStepReport {
+        scope: SyncScope::Repositories,
+        status: SyncStepStatus::Failed,
+        repos_seen,
+        items_written: 0,
+        errors: vec![SyncErrorSummary {
+            repo: None,
+            operation: "persist_repositories".to_string(),
+            message,
+        }],
     }
 }
 
@@ -139,5 +143,18 @@ mod tests {
         assert_eq!(report.status, SyncStepStatus::Success);
         assert_eq!(report.items_written, 2);
         assert_eq!(watched_repos(&pool).unwrap().len(), 2);
+    }
+
+    #[test]
+    fn repository_persistence_error_report_is_failed_for_step_setup_failure() {
+        let report =
+            repository_persistence_error_report(2, "sqlite pool error: broken".to_string());
+
+        assert_eq!(report.scope, SyncScope::Repositories);
+        assert_eq!(report.status, SyncStepStatus::Failed);
+        assert_eq!(report.repos_seen, 2);
+        assert_eq!(report.items_written, 0);
+        assert_eq!(report.errors.len(), 1);
+        assert_eq!(report.errors[0].operation, "persist_repositories");
     }
 }

@@ -15,10 +15,11 @@ pub fn upsert_account(
     user: &PatUser,
     created_at: &str,
 ) -> Result<i64, CacheError> {
-    let conn = pool.get()?;
+    let mut conn = pool.get()?;
     let account_id = user.id as i64;
-    conn.execute("UPDATE accounts SET is_active = 0", [])?;
-    conn.execute(
+    let tx = conn.transaction()?;
+    tx.execute("UPDATE accounts SET is_active = 0", [])?;
+    tx.execute(
         "INSERT INTO accounts (id, login, host, avatar_url, is_active, created_at)
          VALUES (?1, ?2, 'github.com', ?3, 1, ?4)
          ON CONFLICT(id) DO UPDATE SET
@@ -27,6 +28,7 @@ pub fn upsert_account(
             is_active = 1",
         params![account_id, user.login, user.avatar_url, created_at],
     )?;
+    tx.commit()?;
     Ok(account_id)
 }
 
@@ -56,10 +58,11 @@ pub fn upsert_repo(
 pub fn list_watched_repos(pool: &SqlitePool) -> Result<Vec<WatchedRepo>, CacheError> {
     let conn = pool.get()?;
     let mut stmt = conn.prepare(
-        "SELECT id, full_name
-         FROM repos
-         WHERE is_watched = 1
-         ORDER BY full_name ASC",
+        "SELECT r.id, r.full_name
+         FROM repos r
+         JOIN accounts a ON a.id = r.account_id
+         WHERE r.is_watched = 1 AND a.is_active = 1
+         ORDER BY r.full_name ASC",
     )?;
     let rows = stmt.query_map([], |row| {
         Ok(WatchedRepo {
@@ -160,5 +163,46 @@ mod tests {
             .unwrap();
         assert_eq!(is_watched, 0);
         assert_eq!(default_branch, "trunk");
+    }
+
+    #[test]
+    fn list_watched_repos_returns_only_active_account_repos() {
+        let pool = test_pool();
+        let conn = pool.get().unwrap();
+        conn.execute(
+            "INSERT INTO accounts (id, login, host, is_active, created_at)
+             VALUES (1, 'octocat', 'github.com', 1, '2026-04-30T00:00:00Z')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO accounts (id, login, host, is_active, created_at)
+             VALUES (2, 'inactive', 'github.com', 0, '2026-04-30T00:00:00Z')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO repos (id, account_id, full_name, is_watched, default_branch)
+             VALUES (100, 1, 'octocat/active', 1, 'main')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO repos (id, account_id, full_name, is_watched, default_branch)
+             VALUES (101, 2, 'inactive/repo', 1, 'main')",
+            [],
+        )
+        .unwrap();
+        drop(conn);
+
+        let repos = list_watched_repos(&pool).unwrap();
+
+        assert_eq!(
+            repos,
+            vec![WatchedRepo {
+                id: 100,
+                full_name: "octocat/active".to_string(),
+            }]
+        );
     }
 }

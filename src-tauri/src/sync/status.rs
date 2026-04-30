@@ -20,7 +20,11 @@ pub fn persist_sync_report(pool: &SqlitePool, report: &SyncReport) -> Result<(),
     set_meta(&tx, LAST_STATUS, report_status(report))?;
     set_meta(&tx, LAST_REPORT_JSON, &serde_json::to_string(report)?)?;
     if let Some(rate_limit) = &report.rate_limit {
-        set_meta(&tx, LAST_RATE_LIMIT_JSON, &serde_json::to_string(rate_limit)?)?;
+        set_meta(
+            &tx,
+            LAST_RATE_LIMIT_JSON,
+            &serde_json::to_string(rate_limit)?,
+        )?;
     } else {
         delete_meta(&tx, LAST_RATE_LIMIT_JSON)?;
     }
