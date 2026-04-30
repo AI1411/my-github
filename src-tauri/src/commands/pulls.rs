@@ -7,7 +7,7 @@ use crate::db::SqlitePool;
 use crate::github::client::GithubClient;
 use crate::github::rest::get_pull_request_files;
 use crate::github::types::{PullRequest, PullRequestFile};
-use crate::sync::types::SyncScope;
+use crate::sync::types::{SyncReport, SyncScope, SyncStepStatus};
 
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -188,8 +188,31 @@ pub async fn cmd_list_pulls<R: Runtime>(
 }
 
 async fn refresh_pulls<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
-    run_sync_for_scopes(app, &[SyncScope::Repositories, SyncScope::Pulls]).await?;
+    let report = run_sync_for_scopes(app, &[SyncScope::Repositories, SyncScope::Pulls]).await?;
+    if let Some(err) = failed_step_error(&report, SyncScope::Pulls) {
+        return Err(err);
+    }
     Ok(())
+}
+
+fn failed_step_error(report: &SyncReport, scope: SyncScope) -> Option<String> {
+    let step = report
+        .steps
+        .iter()
+        .find(|step| step.scope == scope && step.status == SyncStepStatus::Failed)?;
+    Some(match step.errors.first() {
+        Some(error) => {
+            let repo = error.repo.as_deref().unwrap_or("unknown repo");
+            format!(
+                "{} sync failed for {} during {}: {}",
+                scope.as_str(),
+                repo,
+                error.operation,
+                error.message
+            )
+        }
+        None => format!("{} sync failed", scope.as_str()),
+    })
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -242,7 +265,9 @@ mod tests {
     use super::*;
     use crate::cache::pulls::upsert_pull;
     use crate::db::{init_pool, run_migrations};
+    use crate::github::client::RateLimitInfo;
     use crate::github::types::{PrRef, PullRequest, User};
+    use crate::sync::types::{SyncErrorSummary, SyncReport, SyncStepReport, SyncStepStatus};
     use std::path::Path;
 
     fn sample_pr(number: u32, title: &str, state: &str, draft: bool) -> PullRequest {
@@ -382,5 +407,54 @@ mod tests {
         let f = PullFilter::default();
         assert!(f.labels.is_empty());
         assert!(f.state.is_none());
+    }
+
+    fn report_with_pull_step(status: SyncStepStatus) -> SyncReport {
+        SyncReport {
+            started_at_epoch: 1,
+            finished_at_epoch: 2,
+            rate_limit: Some(RateLimitInfo {
+                remaining: 4999,
+                reset: 3,
+            }),
+            steps: vec![SyncStepReport {
+                scope: SyncScope::Pulls,
+                status,
+                repos_seen: 1,
+                items_written: if status == SyncStepStatus::Partial {
+                    1
+                } else {
+                    0
+                },
+                errors: vec![SyncErrorSummary {
+                    repo: Some("octocat/alpha".to_string()),
+                    operation: "list_pull_requests".to_string(),
+                    message: "GitHub API error (HTTP 500): unavailable".to_string(),
+                }],
+            }],
+        }
+    }
+
+    #[test]
+    fn failed_step_error_returns_message_for_failed_pull_step() {
+        let err = failed_step_error(
+            &report_with_pull_step(SyncStepStatus::Failed),
+            SyncScope::Pulls,
+        )
+        .unwrap();
+        assert!(err.contains("octocat/alpha"));
+        assert!(err.contains("list_pull_requests"));
+        assert!(err.contains("unavailable"));
+    }
+
+    #[test]
+    fn failed_step_error_ignores_partial_pull_step() {
+        assert_eq!(
+            failed_step_error(
+                &report_with_pull_step(SyncStepStatus::Partial),
+                SyncScope::Pulls
+            ),
+            None
+        );
     }
 }
