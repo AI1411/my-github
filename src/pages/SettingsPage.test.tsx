@@ -130,4 +130,29 @@ describe("SettingsPage", () => {
     expect(invoke).toHaveBeenCalledWith("cmd_get_sync_status");
     expect(invoke).not.toHaveBeenCalledWith("cmd_sync_now");
   });
+
+  it("shows an empty rate-limit state when sync status has no rate limit", async () => {
+    (invoke as ReturnType<typeof vi.fn>).mockImplementation((cmd: string) => {
+      if (cmd === "cmd_get_sync_status") {
+        return Promise.resolve({
+          isRunning: false,
+          lastStartedAtEpoch: null,
+          lastFinishedAtEpoch: null,
+          lastStatus: null,
+          lastReport: null,
+          lastRateLimit: null,
+        });
+      }
+      return Promise.resolve(null);
+    });
+
+    render(<SettingsPage />);
+
+    fireEvent.click(screen.getByRole("tab", { name: "About" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Not synced yet")).toBeInTheDocument();
+    });
+    expect(screen.queryByText("Loading")).not.toBeInTheDocument();
+  });
 });

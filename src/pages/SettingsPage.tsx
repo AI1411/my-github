@@ -175,6 +175,7 @@ export default function SettingsPage() {
   const [repoInput, setRepoInput] = useState("");
   const [rateLimit, setRateLimit] = useState<RateLimitInfo | null>(null);
   const [rateError, setRateError] = useState<string | null>(null);
+  const [rateLimitLoaded, setRateLimitLoaded] = useState(false);
   const user = useAuthStore((state) => state.user);
   const pulls = useDataStore((state) => state.pulls);
   const issues = useDataStore((state) => state.issues);
@@ -224,13 +225,18 @@ export default function SettingsPage() {
     if (activeTab !== "about") return;
     let cancelled = false;
     setRateError(null);
+    setRateLimitLoaded(false);
     invoke<SyncStatusResult>("cmd_get_sync_status")
       .then((result) => {
         if (cancelled) return;
         setRateLimit(result.lastRateLimit ?? result.last_rate_limit ?? null);
+        setRateLimitLoaded(true);
       })
       .catch((error: unknown) => {
-        if (!cancelled) setRateError(String(error));
+        if (!cancelled) {
+          setRateError(String(error));
+          setRateLimitLoaded(true);
+        }
       });
     return () => {
       cancelled = true;
@@ -490,6 +496,10 @@ export default function SettingsPage() {
                 </span>
               ) : rateError ? (
                 <span style={{ color: "var(--accent-red)" }}>{rateError}</span>
+              ) : rateLimitLoaded ? (
+                <span style={{ color: "var(--text-muted)" }}>
+                  Not synced yet
+                </span>
               ) : (
                 <span style={{ color: "var(--text-muted)" }}>Loading</span>
               )}
