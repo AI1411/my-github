@@ -3,10 +3,11 @@ use tauri::{AppHandle, Emitter, Manager, Runtime};
 
 use crate::auth::token_store::{load_last_account_id, load_token};
 use crate::cache::issues::upsert_issue;
+use crate::commands::sync::run_sync_for_scopes;
 use crate::db::SqlitePool;
 use crate::github::client::GithubClient;
-use crate::github::rest::list_issues;
 use crate::github::types::{Issue, IssueComment};
+use crate::sync::types::SyncScope;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -313,45 +314,7 @@ pub async fn cmd_list_issue_comments(
 }
 
 async fn refresh_issues<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
-    let pool = app
-        .try_state::<SqlitePool>()
-        .ok_or_else(|| "sqlite pool not initialized".to_string())?;
-    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
-    let token = load_token(&account_id).ok_or_else(|| "no token for account".to_string())?;
-    let client = GithubClient::new(token);
-
-    let watched = {
-        let conn = pool.get().map_err(|e| e.to_string())?;
-        let mut stmt = conn
-            .prepare("SELECT id, full_name FROM repos WHERE is_watched = 1")
-            .map_err(|e| e.to_string())?;
-        let rows = stmt
-            .query_map([], |row| {
-                Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
-            })
-            .map_err(|e| e.to_string())?;
-        let mut out = Vec::new();
-        for r in rows {
-            out.push(r.map_err(|e| e.to_string())?);
-        }
-        out
-    };
-
-    for (repo_id, full_name) in watched {
-        let (owner, name) = match full_name.split_once('/') {
-            Some(t) => t,
-            None => continue,
-        };
-        match list_issues(&client, owner, name, "open", &[]).await {
-            Ok(issues) => {
-                let now = now_iso();
-                for issue in issues {
-                    let _ = upsert_issue(pool.inner(), repo_id, &issue, &now);
-                }
-            }
-            Err(e) => return Err(e.to_string()),
-        }
-    }
+    run_sync_for_scopes(app, &[SyncScope::Repositories, SyncScope::Issues]).await?;
     Ok(())
 }
 

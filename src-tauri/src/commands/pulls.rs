@@ -2,12 +2,12 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 
 use crate::auth::token_store::{load_last_account_id, load_token};
-use crate::cache::pulls::upsert_pull;
+use crate::commands::sync::run_sync_for_scopes;
 use crate::db::SqlitePool;
 use crate::github::client::GithubClient;
-use crate::github::rest::{get_pull_request_files, list_pull_requests};
+use crate::github::rest::get_pull_request_files;
 use crate::github::types::{PullRequest, PullRequestFile};
-use std::time::{SystemTime, UNIX_EPOCH};
+use crate::sync::types::SyncScope;
 
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -51,14 +51,6 @@ pub struct PullSummary {
 pub struct ReviewerInfo {
     pub login: String,
     pub avatar_url: String,
-}
-
-fn now_iso() -> String {
-    let secs = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
-    format!("@{}", secs)
 }
 
 fn read_cached_pulls(pool: &SqlitePool, filter: &PullFilter) -> Result<Vec<PullSummary>, String> {
@@ -196,57 +188,8 @@ pub async fn cmd_list_pulls<R: Runtime>(
 }
 
 async fn refresh_pulls<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
-    let pool = app
-        .try_state::<SqlitePool>()
-        .ok_or_else(|| "sqlite pool not initialized".to_string())?;
-    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
-    let token = load_token(&account_id).ok_or_else(|| "no token for account".to_string())?;
-    let client = GithubClient::new(token);
-
-    let watched = {
-        let conn = pool.get().map_err(|e| e.to_string())?;
-        let mut stmt = conn
-            .prepare(
-                "SELECT id, full_name FROM repos
-                 WHERE is_watched = 1",
-            )
-            .map_err(|e| e.to_string())?;
-        let rows = stmt
-            .query_map([], |row| {
-                Ok(WatchedRepo {
-                    id: row.get(0)?,
-                    full_name: row.get(1)?,
-                })
-            })
-            .map_err(|e| e.to_string())?;
-        let mut out = Vec::new();
-        for r in rows {
-            out.push(r.map_err(|e| e.to_string())?);
-        }
-        out
-    };
-
-    for repo in watched {
-        let (owner, name) = match repo.full_name.split_once('/') {
-            Some(t) => t,
-            None => continue,
-        };
-        match list_pull_requests(&client, owner, name, "open").await {
-            Ok(prs) => {
-                let now = now_iso();
-                for pr in prs {
-                    let _ = upsert_pull(pool.inner(), repo.id, &pr, &now);
-                }
-            }
-            Err(e) => return Err(e.to_string()),
-        }
-    }
+    run_sync_for_scopes(app, &[SyncScope::Repositories, SyncScope::Pulls]).await?;
     Ok(())
-}
-
-struct WatchedRepo {
-    id: i64,
-    full_name: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
