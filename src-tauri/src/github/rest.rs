@@ -1,7 +1,7 @@
 use crate::github::client::{ClientError, GithubClient, RateLimitInfo};
 use crate::github::types::{
-    CheckRunsResponse, Issue, IssueComment, Notification, PullRequest, PullRequestFile, Repository,
-    Review, SearchIssueItem, SearchIssuesResponse, WorkflowRun, WorkflowRunsResponse,
+    CheckRunsResponse, Issue, IssueComment, Notification, PullRequest, PullRequestFile, Release,
+    Repository, Review, SearchIssueItem, SearchIssuesResponse, WorkflowRun, WorkflowRunsResponse,
 };
 
 fn has_next_page(headers: &reqwest::header::HeaderMap) -> bool {
@@ -312,6 +312,29 @@ pub async fn get_check_runs(
     }
 
     Ok(resp.json().await?)
+}
+
+/// Fetch the latest releases (max 10) for a repository. Draft releases are
+/// filtered out; prereleases are kept.
+pub async fn list_releases(
+    client: &GithubClient,
+    owner: &str,
+    repo: &str,
+) -> Result<Vec<Release>, ClientError> {
+    let resp = client
+        .get(&format!("/repos/{}/{}/releases?per_page=10", owner, repo))
+        .send()
+        .await?;
+    let status = resp.status();
+    if !status.is_success() {
+        let message = resp.text().await.unwrap_or_default();
+        return Err(ClientError::Api {
+            status: status.as_u16(),
+            message,
+        });
+    }
+    let releases: Vec<Release> = resp.json().await?;
+    Ok(releases.into_iter().filter(|r| !r.draft).collect())
 }
 
 /// Fetch the authenticated user's current rate-limit status via

@@ -77,6 +77,22 @@ export async function sendAppNotification(
   return true;
 }
 
+/** 新規リリースのOS通知。種類別設定ではなく専用フラグで制御する。 */
+export async function sendReleaseNotification(release: {
+  repo: string;
+  tagName: string;
+  htmlUrl: string;
+}): Promise<boolean> {
+  if (!(await ensureNotificationPermission())) return false;
+  sendNotification({
+    title: "New release",
+    body: `${release.repo} · ${release.tagName}`,
+    autoCancel: true,
+    group: "pulse-notifications",
+  });
+  return true;
+}
+
 export async function registerAppNotificationClickHandler(
   onOpenRoute: (route: string) => void,
 ): Promise<() => void> {

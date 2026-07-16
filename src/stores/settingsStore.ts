@@ -82,6 +82,8 @@ export interface SettingsState {
   staleThresholds: StaleThresholds;
   savedFilters: SavedFilter[];
   repoNotificationRules: RepoNotificationRules;
+  releaseNotificationsEnabled: boolean;
+  setReleaseNotificationsEnabled: (enabled: boolean) => void;
   setRepoNotificationRule: (
     repo: string,
     key: keyof RepoNotificationRule,
@@ -114,6 +116,8 @@ export const useSettingsStore = create<SettingsState>()(
       staleThresholds: DEFAULT_STALE_THRESHOLDS,
       savedFilters: [],
       repoNotificationRules: {},
+      releaseNotificationsEnabled: true,
+      setReleaseNotificationsEnabled: (enabled) => set({ releaseNotificationsEnabled: enabled }),
       setRepoNotificationRule: (repo, key, enabled) =>
         set((state) => {
           const current = state.repoNotificationRules[repo] ?? DEFAULT_REPO_NOTIFICATION_RULE;
@@ -212,6 +216,7 @@ export const useSettingsStore = create<SettingsState>()(
         staleThresholds: state.staleThresholds,
         savedFilters: state.savedFilters,
         repoNotificationRules: state.repoNotificationRules,
+        releaseNotificationsEnabled: state.releaseNotificationsEnabled,
       }),
     },
   ),

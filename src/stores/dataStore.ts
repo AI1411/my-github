@@ -82,6 +82,16 @@ export interface InboxData {
   mentions: InboxItem[];
 }
 
+export interface ReleaseSummary {
+  id: number;
+  repo: string;
+  tagName: string;
+  name: string | null;
+  prerelease: boolean;
+  publishedAt: string | null;
+  htmlUrl: string;
+}
+
 export interface WorkflowRunSummary {
   id: number;
   name: string;
@@ -99,10 +109,12 @@ export interface DataState {
   pulls: PullSummary[];
   issues: IssueSummary[];
   notifications: NotificationSummary[];
+  releases: ReleaseSummary[];
   lastSyncedAt: string | null;
   setPulls: (pulls: PullSummary[]) => void;
   setIssues: (issues: IssueSummary[]) => void;
   setNotifications: (notifications: NotificationSummary[]) => void;
+  setReleases: (releases: ReleaseSummary[]) => void;
   markLastSynced: () => void;
   reset: () => void;
 }
@@ -111,10 +123,12 @@ export const useDataStore = create<DataState>((set) => ({
   pulls: [],
   issues: [],
   notifications: [],
+  releases: [],
   lastSyncedAt: null,
   setPulls: (pulls) => set({ pulls }),
   setIssues: (issues) => set({ issues }),
   setNotifications: (notifications) => set({ notifications }),
+  setReleases: (releases) => set({ releases }),
   markLastSynced: () => set({ lastSyncedAt: new Date().toISOString() }),
-  reset: () => set({ pulls: [], issues: [], notifications: [], lastSyncedAt: null }),
+  reset: () => set({ pulls: [], issues: [], notifications: [], releases: [], lastSyncedAt: null }),
 }));

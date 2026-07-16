@@ -3,6 +3,7 @@ pub mod ci;
 pub mod inbox;
 pub mod issues;
 pub mod pulls;
+pub mod releases;
 pub mod search;
 pub mod sync;
 pub mod system;

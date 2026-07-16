@@ -42,12 +42,20 @@ pub const V4_INBOX_ITEM_STATE: Migration = Migration {
     sql: include_str!("sql/v4_inbox_item_state.sql"),
 };
 
+/// v5: cache of GitHub releases for watched repositories.
+pub const V5_RELEASES: Migration = Migration {
+    version: 5,
+    name: "v5_releases",
+    sql: include_str!("sql/v5_releases.sql"),
+};
+
 /// All migrations known to the application, ordered by version.
 pub const MIGRATIONS: &[Migration] = &[
     V1_INITIAL,
     V2_NOTIFICATIONS_REPO,
     V3_ERROR_LOGS,
     V4_INBOX_ITEM_STATE,
+    V5_RELEASES,
 ];
 
 #[cfg(test)]
@@ -204,7 +212,26 @@ mod tests {
 
     #[test]
     fn migrations_include_v4() {
-        assert_eq!(MIGRATIONS.len(), 4);
         assert_eq!(MIGRATIONS[3].version, 4);
+    }
+
+    #[test]
+    fn v5_releases_applies_after_v4() {
+        let conn = Connection::open_in_memory().unwrap();
+        apply_through(&conn, 5);
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='releases'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 1, "releases table should exist after v5");
+    }
+
+    #[test]
+    fn migrations_include_v5() {
+        assert_eq!(MIGRATIONS.len(), 5);
+        assert_eq!(MIGRATIONS[4].version, 5);
     }
 }

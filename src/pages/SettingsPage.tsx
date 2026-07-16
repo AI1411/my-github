@@ -187,6 +187,12 @@ export default function SettingsPage() {
   const addRepoNotificationRule = useSettingsStore((state) => state.addRepoNotificationRule);
   const removeRepoNotificationRule = useSettingsStore((state) => state.removeRepoNotificationRule);
   const [ruleRepoInput, setRuleRepoInput] = useState("");
+  const releaseNotificationsEnabled = useSettingsStore(
+    (state) => state.releaseNotificationsEnabled,
+  );
+  const setReleaseNotificationsEnabled = useSettingsStore(
+    (state) => state.setReleaseNotificationsEnabled,
+  );
   const setPollingInterval = useSettingsStore((state) => state.setPollingInterval);
   const setDockBadgeEnabled = useSettingsStore((state) => state.setDockBadgeEnabled);
   const setDensity = useSettingsStore((state) => state.setDensity);
@@ -369,6 +375,11 @@ export default function SettingsPage() {
                   checked={notificationSettings.mentions}
                   label="Mentions"
                   onChange={(checked) => setNotificationSetting("mentions", checked)}
+                />
+                <Toggle
+                  checked={releaseNotificationsEnabled}
+                  label="Releases"
+                  onChange={setReleaseNotificationsEnabled}
                 />
               </div>
             </Row>

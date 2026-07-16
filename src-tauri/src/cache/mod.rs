@@ -11,6 +11,7 @@ pub mod issues;
 pub mod meta;
 pub mod notifications;
 pub mod pulls;
+pub mod releases;
 pub mod repos;
 
 #[derive(Debug, Error)]

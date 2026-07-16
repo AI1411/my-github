@@ -7,7 +7,9 @@ import { Spinner } from "../components/common/Spinner";
 import { EmptyState } from "../components/common/EmptyState";
 import { ActivityRow } from "../components/activity/ActivityRow";
 import { useNotificationPollingContext } from "../features/activity/NotificationPollingContext";
+import { useReleasesQuery } from "../features/activity/useReleasesQuery";
 import { notificationRoute } from "../lib/notificationRoutes";
+import { releaseToNotification } from "../lib/releases";
 import { getTimeGroup } from "../lib/timeGroup";
 import { useDataStore, type NotificationSummary } from "../stores/dataStore";
 
@@ -47,9 +49,19 @@ const TYPE_SUBJECT: Partial<Record<TypeFilter, string[]>> = {
 
 const GROUP_ORDER = ["Today", "Yesterday", "This Week", "Older"] as const;
 
+async function openBrowser(url: string) {
+  try {
+    const opener = await import("@tauri-apps/plugin-opener");
+    await opener.openUrl(url);
+  } catch {
+    if (typeof window !== "undefined") window.open(url, "_blank");
+  }
+}
+
 export default function ActivityPage() {
   const notifications = useDataStore((state) => state.notifications);
   const { loading, error, refetch } = useNotificationPollingContext();
+  const { releases } = useReleasesQuery();
   const [activeTab, setActiveTab] = useState<TabKey>("all");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const navigate = useNavigate();
@@ -60,6 +72,10 @@ export default function ActivityPage() {
   };
 
   const handleSelectNotification = async (notification: NotificationSummary) => {
+    if (notification.reason === "release") {
+      if (notification.htmlUrl) await openBrowser(notification.htmlUrl);
+      return;
+    }
     if (notification.unread) {
       await invoke("cmd_mark_notification_read", { threadId: notification.id });
       refetch();
@@ -68,8 +84,13 @@ export default function ActivityPage() {
     if (route) navigate(route);
   };
 
+  const merged = useMemo(
+    () => [...notifications, ...releases.map(releaseToNotification)],
+    [notifications, releases],
+  );
+
   const filtered = useMemo(() => {
-    let result = notifications;
+    let result = merged;
     if (activeTab === "unread") result = result.filter((n) => n.unread);
     else if (TAB_REASON[activeTab])
       result = result.filter((n) => n.reason === TAB_REASON[activeTab]);
@@ -79,7 +100,7 @@ export default function ActivityPage() {
       if (allowed) result = result.filter((n) => allowed.includes(n.subjectType));
     }
     return result;
-  }, [notifications, activeTab, typeFilter]);
+  }, [merged, activeTab, typeFilter]);
 
   const groups = useMemo(() => {
     const map = new Map<string, NotificationSummary[]>();

@@ -227,6 +227,21 @@ pub struct WorkflowRunsResponse {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Release {
+    pub id: u64,
+    pub tag_name: String,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub draft: bool,
+    #[serde(default)]
+    pub prerelease: bool,
+    #[serde(default)]
+    pub published_at: Option<String>,
+    pub html_url: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SearchIssueItem {
     pub id: u64,
     pub number: u32,
@@ -781,6 +796,38 @@ mod tests {
         let resp: WorkflowRunsResponse = serde_json::from_str(json).unwrap();
         assert_eq!(resp.total_count, 1);
         assert_eq!(resp.workflow_runs.len(), 1);
+    }
+
+    #[test]
+    fn deserialize_release_from_json() {
+        let json = r#"{
+            "id": 1,
+            "tag_name": "v1.0.0",
+            "name": "First release",
+            "draft": false,
+            "prerelease": false,
+            "published_at": "2026-07-01T00:00:00Z",
+            "html_url": "https://github.com/octocat/hello/releases/tag/v1.0.0"
+        }"#;
+        let release: Release = serde_json::from_str(json).unwrap();
+        assert_eq!(release.id, 1);
+        assert_eq!(release.tag_name, "v1.0.0");
+        assert_eq!(release.name.as_deref(), Some("First release"));
+        assert!(!release.prerelease);
+    }
+
+    #[test]
+    fn deserialize_release_without_optional_fields() {
+        let json = r#"{
+            "id": 2,
+            "tag_name": "v0.1.0-rc1",
+            "prerelease": true,
+            "html_url": "https://github.com/octocat/hello/releases/tag/v0.1.0-rc1"
+        }"#;
+        let release: Release = serde_json::from_str(json).unwrap();
+        assert_eq!(release.name, None);
+        assert_eq!(release.published_at, None);
+        assert!(release.prerelease);
     }
 
     #[test]
