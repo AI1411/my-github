@@ -32,6 +32,7 @@ rusqlite = { version = "0.31", features = ["bundled"] }
 r2d2 = "0.8"
 r2d2_sqlite = "0.24"
 keyring = { version = "3", features = ["apple-native", "windows-native"] }
+dirs = "6"
 tauri-plugin-notification = "2.3.3"
 
 [dev-dependencies]
