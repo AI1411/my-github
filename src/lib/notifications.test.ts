@@ -100,20 +100,22 @@ describe("registerAppNotificationClickHandler", () => {
     vi.clearAllMocks();
   });
 
-  it("registers an open action and forwards route payloads", async () => {
+  it("keeps one native listener and forwards routes to the latest handler", async () => {
     let callback: ((notification: Options) => void) | null = null;
     notificationPlugin.onAction.mockImplementation((cb) => {
       callback = cb;
       return Promise.resolve(vi.fn());
     });
-    const onOpenRoute = vi.fn();
+    const firstHandler = vi.fn();
+    const latestHandler = vi.fn();
 
-    await registerAppNotificationClickHandler(onOpenRoute);
+    await registerAppNotificationClickHandler(firstHandler);
+    await registerAppNotificationClickHandler(latestHandler);
     const registeredCallback = callback as unknown as (notification: Options) => void;
     expect(registeredCallback).toBeTypeOf("function");
     registeredCallback({
-      title: "Review requested",
-      extra: { route: "/pulls/AI1411/my-github/189" },
+      title: "Issue mentioned",
+      extra: { route: "/issues/octocat/hello/7" },
     });
 
     expect(notificationPlugin.registerActionTypes).toHaveBeenCalledWith([
@@ -122,6 +124,8 @@ describe("registerAppNotificationClickHandler", () => {
         actions: [{ id: "open", title: "Open in my-github", foreground: true }],
       },
     ]);
-    expect(onOpenRoute).toHaveBeenCalledWith("/pulls/AI1411/my-github/189");
+    expect(firstHandler).not.toHaveBeenCalled();
+    expect(latestHandler).toHaveBeenCalledWith("/issues/octocat/hello/7");
+    expect(notificationPlugin.onAction).toHaveBeenCalledTimes(1);
   });
 });

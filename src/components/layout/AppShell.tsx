@@ -1,5 +1,9 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
+import { NotificationPollingContext } from "../../features/activity/NotificationPollingContext";
+import { useNotificationPolling } from "../../features/activity/useNotificationPolling";
 import { useOnlineStatus } from "../../hooks/useOnlineStatus";
+import { registerAppNotificationClickHandler } from "../../lib/notifications";
 import { useUiStore } from "../../stores/uiStore";
 import { CommandPalette } from "../command/CommandPalette";
 
@@ -11,8 +15,14 @@ export interface AppShellProps {
 
 export function AppShell({ sidebar, main, secondary }: AppShellProps) {
   useOnlineStatus();
+  const polling = useNotificationPolling();
+  const navigate = useNavigate();
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
   const offline = useUiStore((s) => s.offline);
+
+  useEffect(() => {
+    void registerAppNotificationClickHandler((route) => navigate(route));
+  }, [navigate]);
 
   const gridCols = sidebarCollapsed
     ? secondary
@@ -23,7 +33,7 @@ export function AppShell({ sidebar, main, secondary }: AppShellProps) {
       : "220px 1fr";
 
   return (
-    <>
+    <NotificationPollingContext.Provider value={polling}>
       <div
         className="min-h-screen h-screen w-screen grid overflow-hidden"
         style={{
@@ -67,6 +77,6 @@ export function AppShell({ sidebar, main, secondary }: AppShellProps) {
         )}
       </div>
       <CommandPalette />
-    </>
+    </NotificationPollingContext.Provider>
   );
 }

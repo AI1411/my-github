@@ -2,16 +2,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
-import { registerAppNotificationClickHandler } from "../lib/notifications";
+import { NotificationPollingContext } from "../features/activity/NotificationPollingContext";
+import { useDataStore } from "../stores/dataStore";
 import ActivityPage from "./ActivityPage";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
-vi.mock("../lib/notifications", () => ({
-  registerAppNotificationClickHandler: vi.fn().mockResolvedValue(undefined),
-  sendAppNotification: vi.fn().mockResolvedValue(true),
-}));
 
 const navigate = vi.fn();
+const refetch = vi.fn();
 
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual<typeof import("react-router-dom")>("react-router-dom");
@@ -34,7 +32,9 @@ const notifications = [
 function renderPage() {
   return render(
     <MemoryRouter>
-      <ActivityPage />
+      <NotificationPollingContext.Provider value={{ loading: false, error: null, refetch }}>
+        <ActivityPage />
+      </NotificationPollingContext.Provider>
     </MemoryRouter>,
   );
 }
@@ -43,33 +43,31 @@ describe("ActivityPage read state", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     navigate.mockReset();
-    (invoke as ReturnType<typeof vi.fn>).mockImplementation((cmd: string) => {
-      if (cmd === "cmd_get_notifications") return Promise.resolve(notifications);
-      return Promise.resolve(null);
-    });
+    refetch.mockReset();
+    useDataStore.setState({ notifications });
+    (invoke as ReturnType<typeof vi.fn>).mockResolvedValue(null);
   });
 
-  it("marks all read and refetches notifications", async () => {
+  it("renders shared notifications without fetching automatically", () => {
     renderPage();
-    await screen.findByText("Mentioned issue");
+
+    expect(screen.getByText("Mentioned issue")).toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith("cmd_get_notifications");
+  });
+
+  it("marks all read and refetches shared notifications", async () => {
+    renderPage();
 
     fireEvent.click(screen.getByText("Mark all read"));
 
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith("cmd_mark_all_notifications_read");
     });
-    await waitFor(() => {
-      expect(
-        (invoke as ReturnType<typeof vi.fn>).mock.calls.filter(
-          ([cmd]) => cmd === "cmd_get_notifications",
-        ),
-      ).toHaveLength(2);
-    });
+    expect(refetch).toHaveBeenCalledTimes(1);
   });
 
-  it("marks one unread notification read and navigates to issue detail", async () => {
+  it("marks an unread notification, refetches, then navigates to its route", async () => {
     renderPage();
-    await screen.findByText("Mentioned issue");
 
     fireEvent.click(screen.getByText("Mentioned issue"));
 
@@ -78,19 +76,8 @@ describe("ActivityPage read state", () => {
         threadId: "thread-1",
       });
     });
+    expect(refetch).toHaveBeenCalledTimes(1);
     expect(navigate).toHaveBeenCalledWith("/issues/octocat/hello/7");
-  });
-
-  it("routes notification click actions through navigate", async () => {
-    renderPage();
-
-    await waitFor(() => {
-      expect(registerAppNotificationClickHandler).toHaveBeenCalledTimes(1);
-    });
-    const onOpenRoute = (registerAppNotificationClickHandler as ReturnType<typeof vi.fn>).mock
-      .calls[0][0] as (route: string) => void;
-    onOpenRoute("/pulls/octocat/hello/9");
-
-    expect(navigate).toHaveBeenCalledWith("/pulls/octocat/hello/9");
+    expect(refetch.mock.invocationCallOrder[0]).toBeLessThan(navigate.mock.invocationCallOrder[0]);
   });
 });

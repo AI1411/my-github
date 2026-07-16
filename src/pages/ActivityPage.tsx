@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useNavigate } from "react-router-dom";
 import { Toolbar } from "../components/common/Toolbar";
@@ -6,10 +6,10 @@ import { Tabs } from "../components/common/Tabs";
 import { Spinner } from "../components/common/Spinner";
 import { EmptyState } from "../components/common/EmptyState";
 import { ActivityRow } from "../components/activity/ActivityRow";
-import { useNotificationsQuery } from "../features/activity/useNotificationsQuery";
+import { useNotificationPollingContext } from "../features/activity/NotificationPollingContext";
+import { notificationRoute } from "../lib/notificationRoutes";
 import { getTimeGroup } from "../lib/timeGroup";
-import { registerAppNotificationClickHandler } from "../lib/notifications";
-import type { NotificationSummary } from "../stores/dataStore";
+import { useDataStore, type NotificationSummary } from "../stores/dataStore";
 
 type TabKey = "all" | "unread" | "participating" | "mentions" | "review";
 type TypeFilter = "all" | "pulls" | "issues" | "comments" | "ci" | "releases";
@@ -47,25 +47,12 @@ const TYPE_SUBJECT: Partial<Record<TypeFilter, string[]>> = {
 
 const GROUP_ORDER = ["Today", "Yesterday", "This Week", "Older"] as const;
 
-function notificationRoute(htmlUrl: string | null): string | null {
-  if (!htmlUrl) return null;
-  const match = htmlUrl.match(/^https:\/\/github\.com\/([^/]+)\/([^/]+)\/(pull|issues)\/(\d+)/);
-  if (!match) return null;
-  const [, owner, repo, type, number] = match;
-  return type === "pull"
-    ? `/pulls/${owner}/${repo}/${number}`
-    : `/issues/${owner}/${repo}/${number}`;
-}
-
 export default function ActivityPage() {
-  const { notifications, loading, error, refetch } = useNotificationsQuery();
+  const notifications = useDataStore((state) => state.notifications);
+  const { loading, error, refetch } = useNotificationPollingContext();
   const [activeTab, setActiveTab] = useState<TabKey>("all");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const navigate = useNavigate();
-
-  useEffect(() => {
-    void registerAppNotificationClickHandler((route) => navigate(route));
-  }, [navigate]);
 
   const handleMarkAllRead = async () => {
     await invoke("cmd_mark_all_notifications_read");

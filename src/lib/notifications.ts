@@ -17,6 +17,7 @@ import {
 const APP_OPEN_ACTION = "pulse-open";
 
 let clickHandlerRegistered = false;
+let activeClickHandler: ((route: string) => void) | null = null;
 
 function titleForKind(kind: Exclude<DesktopNotificationKind, null>): string {
   switch (kind) {
@@ -68,6 +69,7 @@ export async function sendAppNotification(
 export async function registerAppNotificationClickHandler(
   onOpenRoute: (route: string) => void,
 ): Promise<void> {
+  activeClickHandler = onOpenRoute;
   if (clickHandlerRegistered) return;
   await registerActionTypes([
     {
@@ -77,7 +79,7 @@ export async function registerAppNotificationClickHandler(
   ]);
   await onAction((notification) => {
     const route = notification.extra?.route;
-    if (typeof route === "string") onOpenRoute(route);
+    if (typeof route === "string") activeClickHandler?.(route);
   });
   clickHandlerRegistered = true;
 }
