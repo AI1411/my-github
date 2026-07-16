@@ -11,7 +11,9 @@ import { PrSummaryCard } from "../components/pulls/PrSummaryCard";
 import { PrSidebar } from "../components/pulls/PrSidebar";
 import { PrFooterBar } from "../components/pulls/PrFooterBar";
 import { FileDiff, type DiffViewMode } from "../components/pulls/FileDiff";
+import { FileTreePanel } from "../components/pulls/FileTreePanel";
 import { usePullFilesQuery } from "../features/pulls/usePullFilesQuery";
+import { filterFilesByQuery } from "../lib/fileTree";
 import { getViewedSet, setViewed } from "../components/pulls/diff/DiffViewedStore";
 import { openInEditor, readStoredEditor } from "../lib/openInEditor";
 
@@ -24,6 +26,10 @@ const TABS: TabItem<DetailTab>[] = [
   { id: "files", label: "Files changed" },
 ];
 
+function fileAnchorId(filename: string): string {
+  return `file-diff-${filename}`;
+}
+
 export default function PullDetailPage() {
   const { owner, repo, number } = useParams();
   const num = number ? Number.parseInt(number, 10) : undefined;
@@ -35,6 +41,7 @@ export default function PullDetailPage() {
 
   const [tab, setTab] = useState<DetailTab>("conversation");
   const [viewMode, setViewMode] = useState<DiffViewMode>("unified");
+  const [fileQuery, setFileQuery] = useState("");
   const [viewedSet, setViewedSet] = useState<Set<string>>(() => getViewedSet(pullKey));
 
   useEffect(() => {
@@ -42,6 +49,13 @@ export default function PullDetailPage() {
   }, [pullKey]);
 
   const { files, loading: filesLoading, error: filesError } = usePullFilesQuery(owner, repo, num);
+  const visibleFiles = useMemo(() => filterFilesByQuery(files, fileQuery), [files, fileQuery]);
+
+  const scrollToFile = (filename: string) => {
+    document
+      .getElementById(fileAnchorId(filename))
+      ?.scrollIntoView({ block: "start", behavior: "smooth" });
+  };
 
   const ciVariant = useMemo(() => {
     if (!pull) return null;
@@ -175,6 +189,19 @@ export default function PullDetailPage() {
                 className="flex items-center justify-end gap-2 px-4 pt-3"
                 style={{ color: "var(--text-secondary)" }}
               >
+                <input
+                  type="search"
+                  aria-label="Search files and diff"
+                  placeholder="Search files & diff…"
+                  value={fileQuery}
+                  onChange={(e) => setFileQuery(e.currentTarget.value)}
+                  className="mr-auto w-64 rounded-md px-2.5 py-1 text-xs outline-none"
+                  style={{
+                    backgroundColor: "var(--bg-secondary)",
+                    border: "1px solid var(--border-default)",
+                    color: "var(--text-primary)",
+                  }}
+                />
                 <span className="text-xs">View:</span>
                 <button
                   type="button"
@@ -207,17 +234,35 @@ export default function PullDetailPage() {
                 </div>
               )}
               {filesError && <EmptyState title="Failed to load diff" subtitle={filesError} />}
-              {!filesLoading &&
-                !filesError &&
-                files.map((f) => (
-                  <FileDiff
-                    key={f.sha + f.filename}
-                    file={f}
-                    mode={viewMode}
-                    viewed={viewedSet.has(f.filename)}
-                    onToggleViewed={(v) => toggleViewed(f.filename, v)}
-                  />
-                ))}
+              {!filesLoading && !filesError && (
+                <div className="grid items-start" style={{ gridTemplateColumns: "220px 1fr" }}>
+                  <div
+                    className="sticky top-0 max-h-[70vh] overflow-y-auto border-r"
+                    style={{ borderColor: "var(--border-subtle)" }}
+                  >
+                    <FileTreePanel files={visibleFiles} onSelectFile={scrollToFile} />
+                  </div>
+                  <div className="min-w-0">
+                    {visibleFiles.length === 0 && files.length > 0 ? (
+                      <EmptyState
+                        title="No matching files"
+                        subtitle="Try a different search query."
+                      />
+                    ) : (
+                      visibleFiles.map((f) => (
+                        <div key={f.sha + f.filename} id={fileAnchorId(f.filename)}>
+                          <FileDiff
+                            file={f}
+                            mode={viewMode}
+                            viewed={viewedSet.has(f.filename)}
+                            onToggleViewed={(v) => toggleViewed(f.filename, v)}
+                          />
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
