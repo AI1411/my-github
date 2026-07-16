@@ -69,12 +69,18 @@ fn repo_item_to_result(item: &RepoSearchItem) -> RepoSearchResult {
     }
 }
 
+// 検索対象をサインイン中アカウントが所有するリポジトリに限定する
+fn build_repo_search_query(query: &str, login: &str) -> String {
+    format!("{query} user:{login}")
+}
+
 #[tauri::command]
 pub async fn cmd_search_repositories(query: String) -> Result<Vec<RepoSearchResult>, String> {
     let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
     let token = load_token(&account_id).ok_or_else(|| "no token".to_string())?;
     let client = GithubClient::new(token);
-    let items = search_repositories(&client, &query)
+    let scoped_query = build_repo_search_query(&query, &account_id);
+    let items = search_repositories(&client, &scoped_query)
         .await
         .map_err(|e| e.to_string())?;
     Ok(items.iter().map(repo_item_to_result).collect())
@@ -143,6 +149,14 @@ mod tests {
         assert_eq!(r.description, Some("A repo".to_string()));
         assert_eq!(r.stars, 42);
         assert!(r.private);
+    }
+
+    #[test]
+    fn build_repo_search_query_scopes_to_user() {
+        assert_eq!(
+            build_repo_search_query("hello", "AI1411"),
+            "hello user:AI1411"
+        );
     }
 
     #[test]
