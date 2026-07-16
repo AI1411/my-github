@@ -6,6 +6,7 @@ import { Spinner } from "../components/common/Spinner";
 import { EmptyState } from "../components/common/EmptyState";
 import { useDataStore } from "../stores/dataStore";
 import { CiBanner } from "../components/pulls/CiBanner";
+import { CommentDraftPanel } from "../components/pulls/CommentDraftPanel";
 import { MergeReadinessBadge } from "../components/pulls/MergeReadinessBadge";
 import { PrSummaryCard } from "../components/pulls/PrSummaryCard";
 import { PrSidebar } from "../components/pulls/PrSidebar";
@@ -163,16 +164,19 @@ export default function PullDetailPage() {
             />
           )}
           {tab === "conversation" && (
-            <PrSummaryCard
-              author={pull.author}
-              description={null}
-              stats={{
-                files: pull.changedFiles,
-                additions: pull.additions,
-                deletions: pull.deletions,
-                commits: null,
-              }}
-            />
+            <>
+              <PrSummaryCard
+                author={pull.author}
+                description={null}
+                stats={{
+                  files: pull.changedFiles,
+                  additions: pull.additions,
+                  deletions: pull.deletions,
+                  commits: null,
+                }}
+              />
+              <CommentDraftPanel htmlUrl={pull.htmlUrl} />
+            </>
           )}
           {tab === "commits" && (
             <EmptyState
