@@ -57,6 +57,7 @@ pub fn run() {
             commands::ci::cmd_get_workflow_runs,
             commands::ci::cmd_open_run_logs,
             commands::search::cmd_search_github,
+            commands::search::cmd_search_repositories,
             commands::system::cmd_log_frontend_error,
             commands::system::cmd_ping,
             tray::cmd_update_tray_summary,

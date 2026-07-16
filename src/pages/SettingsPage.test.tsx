@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import SettingsPage from "./SettingsPage";
@@ -89,6 +89,96 @@ describe("SettingsPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Remove AI1411/my-github" }));
 
     expect(screen.queryByText("AI1411/my-github")).not.toBeInTheDocument();
+  });
+
+  it("shows repository suggestions while typing and adds on click", async () => {
+    vi.useFakeTimers();
+    (invoke as ReturnType<typeof vi.fn>).mockImplementation((cmd: string) => {
+      if (cmd === "cmd_search_repositories") {
+        return Promise.resolve([
+          { fullName: "octocat/hello", description: "A repo", stars: 42, private: false },
+          { fullName: "octocat/world", description: null, stars: 1, private: true },
+        ]);
+      }
+      return Promise.resolve(null);
+    });
+
+    render(<SettingsPage />);
+    fireEvent.click(screen.getByRole("tab", { name: "Repositories" }));
+    fireEvent.change(screen.getByLabelText("Repository full name"), {
+      target: { value: "octo" },
+    });
+    await act(() => vi.advanceTimersByTimeAsync(300));
+    vi.useRealTimers();
+
+    expect(invoke).toHaveBeenCalledWith("cmd_search_repositories", { query: "octo" });
+    const option = await screen.findByRole("option", { name: /octocat\/hello/ });
+    fireEvent.mouseDown(option);
+
+    expect(useSettingsStore.getState().watchedRepositories).toContain("octocat/hello");
+    expect(screen.getByLabelText("Repository full name")).toHaveValue("");
+  });
+
+  it("adds a highlighted suggestion with arrow keys and Enter", async () => {
+    vi.useFakeTimers();
+    (invoke as ReturnType<typeof vi.fn>).mockImplementation((cmd: string) => {
+      if (cmd === "cmd_search_repositories") {
+        return Promise.resolve([
+          { fullName: "octocat/hello", description: null, stars: 42, private: false },
+          { fullName: "octocat/world", description: null, stars: 1, private: false },
+        ]);
+      }
+      return Promise.resolve(null);
+    });
+
+    render(<SettingsPage />);
+    fireEvent.click(screen.getByRole("tab", { name: "Repositories" }));
+    const input = screen.getByLabelText("Repository full name");
+    fireEvent.change(input, { target: { value: "octo" } });
+    await act(() => vi.advanceTimersByTimeAsync(300));
+    vi.useRealTimers();
+
+    await screen.findByRole("option", { name: /octocat\/hello/ });
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    expect(useSettingsStore.getState().watchedRepositories).toEqual(["octocat/world"]);
+  });
+
+  it("excludes already watched repositories from suggestions", async () => {
+    useSettingsStore.setState({ watchedRepositories: ["octocat/hello"] });
+    vi.useFakeTimers();
+    (invoke as ReturnType<typeof vi.fn>).mockImplementation((cmd: string) => {
+      if (cmd === "cmd_search_repositories") {
+        return Promise.resolve([
+          { fullName: "octocat/hello", description: null, stars: 42, private: false },
+          { fullName: "octocat/world", description: null, stars: 1, private: false },
+        ]);
+      }
+      return Promise.resolve(null);
+    });
+
+    render(<SettingsPage />);
+    fireEvent.click(screen.getByRole("tab", { name: "Repositories" }));
+    fireEvent.change(screen.getByLabelText("Repository full name"), {
+      target: { value: "octo" },
+    });
+    await act(() => vi.advanceTimersByTimeAsync(300));
+    vi.useRealTimers();
+
+    await screen.findByRole("option", { name: /octocat\/world/ });
+    expect(screen.queryByRole("option", { name: /octocat\/hello/ })).not.toBeInTheDocument();
+  });
+
+  it("still adds manual input with Enter when no suggestion is highlighted", () => {
+    render(<SettingsPage />);
+    fireEvent.click(screen.getByRole("tab", { name: "Repositories" }));
+    const input = screen.getByLabelText("Repository full name");
+    fireEvent.change(input, { target: { value: "AI1411/manual-repo" } });
+    fireEvent.submit(input.closest("form")!);
+
+    expect(useSettingsStore.getState().watchedRepositories).toContain("AI1411/manual-repo");
   });
 
   it("changes notification polling interval", () => {

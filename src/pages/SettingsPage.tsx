@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import packageJson from "../../package.json";
 import { Tabs } from "../components/common/Tabs";
 import { Toolbar } from "../components/common/Toolbar";
+import { useRepoSearchQuery } from "../features/settings/useRepoSearchQuery";
 import { useAuthStore } from "../stores/authStore";
 import { useDataStore } from "../stores/dataStore";
 import {
@@ -213,6 +214,49 @@ export default function SettingsPage() {
     [pulls, issues, notifications],
   );
 
+  const [repoDropdownOpen, setRepoDropdownOpen] = useState(false);
+  const [repoHighlightIndex, setRepoHighlightIndex] = useState(-1);
+  const {
+    results: repoSearchResults,
+    loading: repoSearchLoading,
+    error: repoSearchError,
+  } = useRepoSearchQuery(repoInput);
+  const repoSearchCandidates = useMemo(
+    () => repoSearchResults.filter((result) => !watchedRepositories.includes(result.fullName)),
+    [repoSearchResults, watchedRepositories],
+  );
+
+  useEffect(() => {
+    setRepoHighlightIndex(-1);
+    setRepoDropdownOpen(repoInput.trim().length >= 2);
+  }, [repoInput]);
+
+  const handleSelectRepoCandidate = (fullName: string) => {
+    addWatchedRepository(fullName);
+    setRepoInput("");
+    setRepoDropdownOpen(false);
+    setRepoHighlightIndex(-1);
+  };
+
+  const handleRepoInputKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Escape") {
+      setRepoDropdownOpen(false);
+      setRepoHighlightIndex(-1);
+      return;
+    }
+    if (!repoDropdownOpen || repoSearchCandidates.length === 0) return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setRepoHighlightIndex((index) => (index + 1) % repoSearchCandidates.length);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setRepoHighlightIndex((index) => (index <= 0 ? repoSearchCandidates.length : index) - 1);
+    } else if (event.key === "Enter" && repoHighlightIndex >= 0) {
+      event.preventDefault();
+      handleSelectRepoCandidate(repoSearchCandidates[repoHighlightIndex].fullName);
+    }
+  };
+
   useEffect(() => {
     if (activeTab !== "about") return;
     let cancelled = false;
@@ -292,18 +336,102 @@ export default function SettingsPage() {
               <label className="sr-only" htmlFor="repository-full-name">
                 Repository full name
               </label>
-              <input
-                id="repository-full-name"
-                value={repoInput}
-                onChange={(event) => setRepoInput(event.currentTarget.value)}
-                placeholder="owner/repository"
-                className="min-w-0 flex-1 rounded-md px-3 py-2 text-sm outline-none"
-                style={{
-                  backgroundColor: "var(--bg-secondary)",
-                  border: "1px solid var(--border-default)",
-                  color: "var(--text-primary)",
-                }}
-              />
+              <div className="relative min-w-0 flex-1">
+                <input
+                  id="repository-full-name"
+                  value={repoInput}
+                  onChange={(event) => setRepoInput(event.currentTarget.value)}
+                  onKeyDown={handleRepoInputKeyDown}
+                  onFocus={() => {
+                    if (repoInput.trim().length >= 2) setRepoDropdownOpen(true);
+                  }}
+                  onBlur={() => setRepoDropdownOpen(false)}
+                  placeholder="owner/repository"
+                  role="combobox"
+                  aria-expanded={repoDropdownOpen}
+                  aria-controls="repo-search-listbox"
+                  aria-autocomplete="list"
+                  autoComplete="off"
+                  className="w-full rounded-md px-3 py-2 text-sm outline-none"
+                  style={{
+                    backgroundColor: "var(--bg-secondary)",
+                    border: "1px solid var(--border-default)",
+                    color: "var(--text-primary)",
+                  }}
+                />
+                {repoDropdownOpen && (
+                  <ul
+                    id="repo-search-listbox"
+                    role="listbox"
+                    aria-label="Repository suggestions"
+                    className="absolute z-10 mt-1 w-full overflow-hidden rounded-md text-sm shadow-lg"
+                    style={{
+                      backgroundColor: "var(--bg-secondary)",
+                      border: "1px solid var(--border-default)",
+                    }}
+                  >
+                    {repoSearchLoading && (
+                      <li className="px-3 py-2" style={{ color: "var(--text-muted)" }}>
+                        Searching…
+                      </li>
+                    )}
+                    {!repoSearchLoading && repoSearchError && (
+                      <li className="px-3 py-2" style={{ color: "var(--text-muted)" }}>
+                        Search failed: {repoSearchError}
+                      </li>
+                    )}
+                    {!repoSearchLoading &&
+                      !repoSearchError &&
+                      repoSearchCandidates.length === 0 && (
+                        <li className="px-3 py-2" style={{ color: "var(--text-muted)" }}>
+                          No matching repositories
+                        </li>
+                      )}
+                    {!repoSearchLoading &&
+                      repoSearchCandidates.map((candidate, index) => (
+                        <li
+                          key={candidate.fullName}
+                          role="option"
+                          aria-selected={index === repoHighlightIndex}
+                          className="flex cursor-pointer items-center gap-2 px-3 py-2"
+                          style={{
+                            backgroundColor:
+                              index === repoHighlightIndex ? "var(--bg-tertiary)" : undefined,
+                          }}
+                          onMouseDown={(event) => {
+                            event.preventDefault();
+                            handleSelectRepoCandidate(candidate.fullName);
+                          }}
+                          onMouseEnter={() => setRepoHighlightIndex(index)}
+                        >
+                          <span className="flex-shrink-0 truncate">{candidate.fullName}</span>
+                          {candidate.private && (
+                            <span
+                              className="flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium"
+                              style={{
+                                backgroundColor: "var(--bg-tertiary)",
+                                color: "var(--text-secondary)",
+                              }}
+                            >
+                              Private
+                            </span>
+                          )}
+                          {candidate.description && (
+                            <span className="truncate" style={{ color: "var(--text-muted)" }}>
+                              {candidate.description}
+                            </span>
+                          )}
+                          <span
+                            className="ml-auto flex-shrink-0 text-xs"
+                            style={{ color: "var(--text-muted)" }}
+                          >
+                            ★ {candidate.stars}
+                          </span>
+                        </li>
+                      ))}
+                  </ul>
+                )}
+              </div>
               <InlineButton onClick={handleAddRepository}>Add repository</InlineButton>
             </form>
             <div className="divide-y" style={sectionStyle()}>

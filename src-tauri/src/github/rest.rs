@@ -1,7 +1,8 @@
 use crate::github::client::{ClientError, GithubClient, RateLimitInfo};
 use crate::github::types::{
     CheckRunsResponse, Issue, IssueComment, Notification, PullRequest, PullRequestFile, Release,
-    Repository, Review, SearchIssueItem, SearchIssuesResponse, WorkflowRun, WorkflowRunsResponse,
+    RepoSearchItem, RepoSearchResponse, Repository, Review, SearchIssueItem, SearchIssuesResponse,
+    WorkflowRun, WorkflowRunsResponse,
 };
 
 fn has_next_page(headers: &reqwest::header::HeaderMap) -> bool {
@@ -453,6 +454,27 @@ pub async fn search_issues(
         });
     }
     let r: SearchIssuesResponse = resp.json().await?;
+    Ok(r.items)
+}
+
+pub async fn search_repositories(
+    client: &GithubClient,
+    query: &str,
+) -> Result<Vec<RepoSearchItem>, ClientError> {
+    let encoded = query.replace(' ', "+");
+    let resp = client
+        .get(&format!("/search/repositories?q={}&per_page=8", encoded))
+        .send()
+        .await?;
+    let status = resp.status();
+    if !status.is_success() {
+        let message = resp.text().await.unwrap_or_default();
+        return Err(ClientError::Api {
+            status: status.as_u16(),
+            message,
+        });
+    }
+    let r: RepoSearchResponse = resp.json().await?;
     Ok(r.items)
 }
 

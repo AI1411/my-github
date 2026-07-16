@@ -258,6 +258,20 @@ pub struct SearchIssuesResponse {
     pub items: Vec<SearchIssueItem>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RepoSearchItem {
+    pub full_name: String,
+    pub description: Option<String>,
+    pub stargazers_count: u64,
+    pub private: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct RepoSearchResponse {
+    pub total_count: u32,
+    pub items: Vec<RepoSearchItem>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -850,5 +864,36 @@ mod tests {
         assert_eq!(item.id, 500);
         assert_eq!(item.number, 7);
         assert_eq!(item.title, "Fix the thing");
+    }
+
+    #[test]
+    fn repo_search_response_deserializes() {
+        let json = r#"{
+            "total_count": 2,
+            "items": [
+                {
+                    "full_name": "octocat/hello",
+                    "description": "A hello world repo",
+                    "stargazers_count": 42,
+                    "private": false
+                },
+                {
+                    "full_name": "octocat/secret",
+                    "description": null,
+                    "stargazers_count": 0,
+                    "private": true
+                }
+            ]
+        }"#;
+        let resp: RepoSearchResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(resp.items.len(), 2);
+        assert_eq!(resp.items[0].full_name, "octocat/hello");
+        assert_eq!(
+            resp.items[0].description,
+            Some("A hello world repo".to_string())
+        );
+        assert_eq!(resp.items[0].stargazers_count, 42);
+        assert!(resp.items[1].private);
+        assert!(resp.items[1].description.is_none());
     }
 }
