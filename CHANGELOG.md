@@ -1,5 +1,39 @@
 # Changelog
 
+## [Unreleased]
+
+### Inbox
+
+- Added pin and snooze (1 hour / tomorrow / next week) actions for inbox items, stored locally.
+- Added a stale section highlighting review requests waiting 3+ days and own pulls idle 7+ days (thresholds configurable).
+
+### Pull Requests
+
+- Added a merge readiness badge (conflicts, CI, approvals, branch protection) to the pull detail header.
+- Added a changed-files tree with jump-to-file and a search box filtering by filename or diff content.
+- Added a "Copy checkout" action that copies a `git fetch origin pull/N/head` command.
+- Added a prefixed review comment draft panel ([must]/[imo]/[nits]/[ask]/[fyi]) with copy-to-clipboard.
+
+### Views
+
+- Added saved filters: save the current pull/issue filter as a named view listed in the sidebar.
+
+### Releases
+
+- Added release monitoring for watched repositories with Activity integration and OS notifications for new releases.
+
+### Digest
+
+- Added a digest page summarizing merged pulls, CI failures, review requests, and releases since the last visit, shown automatically after 6+ hours away.
+
+### Notifications
+
+- Added per-repository notification rules overriding the global type settings.
+
+### System
+
+- Added a tray icon with a mini inbox summary (review requests / CI failing / mentions) and an "Open Inbox" shortcut.
+
 ## [0.1.0] - 2026-04-29
 
 ### Inbox
