@@ -29,10 +29,10 @@ const notifications = [
   },
 ];
 
-function renderPage() {
+function renderPage(error: string | null = null) {
   return render(
     <MemoryRouter>
-      <NotificationPollingContext.Provider value={{ loading: false, error: null, refetch }}>
+      <NotificationPollingContext.Provider value={{ loading: false, error, refetch }}>
         <ActivityPage />
       </NotificationPollingContext.Provider>
     </MemoryRouter>,
@@ -79,5 +79,22 @@ describe("ActivityPage read state", () => {
     expect(refetch).toHaveBeenCalledTimes(1);
     expect(navigate).toHaveBeenCalledWith("/issues/octocat/hello/7");
     expect(refetch.mock.invocationCallOrder[0]).toBeLessThan(navigate.mock.invocationCallOrder[0]);
+  });
+
+  it("shows a compact error alongside existing notifications", () => {
+    renderPage("Error: offline");
+
+    expect(screen.getByText("Mentioned issue")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("Error: offline");
+    expect(screen.queryByText("Failed to load activity")).not.toBeInTheDocument();
+  });
+
+  it("shows the failed state when loading fails without cached notifications", () => {
+    useDataStore.setState({ notifications: [] });
+
+    renderPage("Error: offline");
+
+    expect(screen.getByText("Failed to load activity")).toBeInTheDocument();
+    expect(screen.queryByText("No activity")).not.toBeInTheDocument();
   });
 });

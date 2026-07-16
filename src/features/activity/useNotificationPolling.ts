@@ -26,18 +26,22 @@ export function useNotificationPolling(): NotificationPollingState {
   const deliveringIds = useRef(new Map<string, number>());
   const deliveredAccount = useRef<string | null>(null);
   const generation = useRef(0);
+  const requestSequence = useRef(0);
 
   const fetchNotifications = useCallback(async () => {
     const currentGeneration = generation.current;
+    const currentRequest = ++requestSequence.current;
+    const isLatestRequest = () =>
+      currentGeneration === generation.current && currentRequest === requestSequence.current;
     setLoading(true);
     setError(null);
     try {
       const notifications = await invoke<NotificationSummary[]>("cmd_get_notifications");
-      if (currentGeneration !== generation.current) return;
+      if (!isLatestRequest()) return;
       useDataStore.getState().setNotifications(notifications);
       const settings = useSettingsStore.getState().notificationSettings;
       for (const notification of notifications) {
-        if (currentGeneration !== generation.current) return;
+        if (!isLatestRequest()) return;
         if (
           !notification.unread ||
           deliveredIds.current.has(notification.id) ||
@@ -45,7 +49,7 @@ export function useNotificationPolling(): NotificationPollingState {
         ) {
           continue;
         }
-        if (currentGeneration !== generation.current) return;
+        if (!isLatestRequest()) return;
         deliveringIds.current.set(notification.id, currentGeneration);
         try {
           const sent = await sendAppNotification(notification, settings);
@@ -62,9 +66,9 @@ export function useNotificationPolling(): NotificationPollingState {
         }
       }
     } catch (cause) {
-      if (currentGeneration === generation.current) setError(String(cause));
+      if (isLatestRequest()) setError(String(cause));
     } finally {
-      if (currentGeneration === generation.current) setLoading(false);
+      if (isLatestRequest()) setLoading(false);
     }
   }, []);
 

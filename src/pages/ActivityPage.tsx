@@ -140,9 +140,24 @@ export default function ActivityPage() {
           <Spinner />
         </div>
       )}
-      {error && <EmptyState title="Failed to load activity" subtitle={error} />}
+      {error &&
+        (notifications.length ? (
+          <div
+            role="alert"
+            className="px-4 py-2 text-xs border-b"
+            style={{
+              backgroundColor: "rgba(248, 81, 73, 0.12)",
+              borderColor: "var(--border-default)",
+              color: "var(--accent-red)",
+            }}
+          >
+            {error}
+          </div>
+        ) : (
+          <EmptyState title="Failed to load activity" subtitle={error} />
+        ))}
       <div className="flex-1 overflow-y-auto">
-        {!loading && filtered.length === 0 && (
+        {!loading && !error && filtered.length === 0 && (
           <EmptyState title="No activity" subtitle="Nothing matches the current filters" />
         )}
         {GROUP_ORDER.filter((g) => groups.has(g)).map((group) => (

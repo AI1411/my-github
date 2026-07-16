@@ -13,6 +13,9 @@ export interface AppShellProps {
   secondary?: ReactNode;
 }
 
+const CLICK_HANDLER_RETRY_BASE_MS = 250;
+const CLICK_HANDLER_MAX_ATTEMPTS = 5;
+
 export function AppShell({ sidebar, main, secondary }: AppShellProps) {
   useOnlineStatus();
   const polling = useNotificationPolling();
@@ -23,19 +26,30 @@ export function AppShell({ sidebar, main, secondary }: AppShellProps) {
   useEffect(() => {
     let disposed = false;
     let disposeClickHandler: (() => void) | undefined;
-    void registerAppNotificationClickHandler((route) => navigate(route))
-      .then((dispose) => {
-        if (disposed) {
-          dispose();
-        } else {
-          disposeClickHandler = dispose;
-        }
-      })
-      .catch(() => {
-        // Registration can be retried the next time this effect runs.
-      });
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const register = (attempt: number) => {
+      void registerAppNotificationClickHandler((route) => navigate(route))
+        .then((dispose) => {
+          if (disposed) {
+            dispose();
+          } else {
+            disposeClickHandler = dispose;
+          }
+        })
+        .catch(() => {
+          if (disposed || attempt >= CLICK_HANDLER_MAX_ATTEMPTS) return;
+          retryTimer = setTimeout(
+            () => register(attempt + 1),
+            CLICK_HANDLER_RETRY_BASE_MS * 2 ** (attempt - 1),
+          );
+        });
+    };
+
+    register(1);
     return () => {
       disposed = true;
+      if (retryTimer) clearTimeout(retryTimer);
       disposeClickHandler?.();
     };
   }, [navigate]);

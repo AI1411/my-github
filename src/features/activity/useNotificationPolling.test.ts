@@ -32,6 +32,16 @@ const secondUnreadNotification: NotificationSummary = {
   subjectTitle: "Review another PR",
 };
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
 describe("useNotificationPolling", () => {
   beforeEach(() => {
     vi.useRealTimers();
@@ -215,6 +225,79 @@ describe("useNotificationPolling", () => {
 
     await vi.waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(3));
     await vi.waitFor(() => expect(sendAppNotificationMock).toHaveBeenCalledTimes(1));
+  });
+
+  it("keeps the newer response when overlapping requests resolve in reverse order", async () => {
+    useSettingsStore.getState().setPollingInterval("off");
+    invokeMock.mockResolvedValueOnce([]);
+    const older = deferred<NotificationSummary[]>();
+    const newer = deferred<NotificationSummary[]>();
+    invokeMock.mockReturnValueOnce(older.promise).mockReturnValueOnce(newer.promise);
+
+    let result!: { current: NotificationPollingState };
+    await act(async () => {
+      ({ result } = renderHook(() => useNotificationPolling()));
+    });
+    await vi.waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(1));
+
+    act(() => {
+      result.current.refetch();
+      result.current.refetch();
+    });
+    await vi.waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(3));
+    await act(async () => newer.resolve([secondUnreadNotification]));
+    await act(async () => older.resolve([unreadNotification]));
+
+    expect(useDataStore.getState().notifications).toEqual([secondUnreadNotification]);
+  });
+
+  it("does not restore an older error after a newer overlapping request succeeds", async () => {
+    useSettingsStore.getState().setPollingInterval("off");
+    invokeMock.mockResolvedValueOnce([]);
+    const older = deferred<NotificationSummary[]>();
+    const newer = deferred<NotificationSummary[]>();
+    invokeMock.mockReturnValueOnce(older.promise).mockReturnValueOnce(newer.promise);
+
+    let result!: { current: NotificationPollingState };
+    await act(async () => {
+      ({ result } = renderHook(() => useNotificationPolling()));
+    });
+    await vi.waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(1));
+
+    act(() => {
+      result.current.refetch();
+      result.current.refetch();
+    });
+    await vi.waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(3));
+    await act(async () => newer.resolve([secondUnreadNotification]));
+    await act(async () => older.reject(new Error("stale failure")));
+
+    expect(result.current.error).toBeNull();
+  });
+
+  it("stays loading until the newest overlapping request completes", async () => {
+    useSettingsStore.getState().setPollingInterval("off");
+    invokeMock.mockResolvedValueOnce([]);
+    const older = deferred<NotificationSummary[]>();
+    const newer = deferred<NotificationSummary[]>();
+    invokeMock.mockReturnValueOnce(older.promise).mockReturnValueOnce(newer.promise);
+
+    let result!: { current: NotificationPollingState };
+    await act(async () => {
+      ({ result } = renderHook(() => useNotificationPolling()));
+    });
+    await vi.waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(1));
+
+    act(() => {
+      result.current.refetch();
+      result.current.refetch();
+    });
+    await vi.waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(3));
+    await act(async () => older.resolve([unreadNotification]));
+    expect(result.current.loading).toBe(true);
+
+    await act(async () => newer.resolve([secondUnreadNotification]));
+    expect(result.current.loading).toBe(false);
   });
 
   it("keeps successful delivery deduplication when the polling interval changes", async () => {
