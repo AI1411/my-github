@@ -182,6 +182,11 @@ export default function SettingsPage() {
   const setNotificationSetting = useSettingsStore((state) => state.setNotificationSetting);
   const staleThresholds = useSettingsStore((state) => state.staleThresholds);
   const setStaleThreshold = useSettingsStore((state) => state.setStaleThreshold);
+  const repoNotificationRules = useSettingsStore((state) => state.repoNotificationRules);
+  const setRepoNotificationRule = useSettingsStore((state) => state.setRepoNotificationRule);
+  const addRepoNotificationRule = useSettingsStore((state) => state.addRepoNotificationRule);
+  const removeRepoNotificationRule = useSettingsStore((state) => state.removeRepoNotificationRule);
+  const [ruleRepoInput, setRuleRepoInput] = useState("");
   const setPollingInterval = useSettingsStore((state) => state.setPollingInterval);
   const setDockBadgeEnabled = useSettingsStore((state) => state.setDockBadgeEnabled);
   const setDensity = useSettingsStore((state) => state.setDensity);
@@ -373,6 +378,79 @@ export default function SettingsPage() {
                 label="Unread count"
                 onChange={setDockBadgeEnabled}
               />
+            </Row>
+            <Row label="Per-repository rules">
+              <div className="flex flex-col gap-2">
+                <form
+                  className="flex max-w-xl gap-2"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    addRepoNotificationRule(ruleRepoInput);
+                    setRuleRepoInput("");
+                  }}
+                >
+                  <input
+                    aria-label="Repository for notification rule"
+                    value={ruleRepoInput}
+                    onChange={(event) => setRuleRepoInput(event.currentTarget.value)}
+                    placeholder="owner/repository"
+                    list="rule-repo-suggestions"
+                    className="min-w-0 flex-1 rounded-md px-3 py-1.5 text-sm outline-none"
+                    style={{
+                      backgroundColor: "var(--bg-secondary)",
+                      border: "1px solid var(--border-default)",
+                      color: "var(--text-primary)",
+                    }}
+                  />
+                  <datalist id="rule-repo-suggestions">
+                    {watchedRepositories.map((repo) => (
+                      <option key={repo} value={repo} />
+                    ))}
+                  </datalist>
+                  <InlineButton
+                    onClick={() => {
+                      addRepoNotificationRule(ruleRepoInput);
+                      setRuleRepoInput("");
+                    }}
+                  >
+                    Add rule
+                  </InlineButton>
+                </form>
+                {Object.keys(repoNotificationRules).length === 0 ? (
+                  <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                    No per-repository rules — all repositories follow the global settings
+                  </p>
+                ) : (
+                  Object.entries(repoNotificationRules).map(([repo, rule]) => (
+                    <div key={repo} className="flex flex-wrap items-center gap-4">
+                      <span className="min-w-48 truncate text-sm">{repo}</span>
+                      <Toggle
+                        checked={rule.ciFailures}
+                        label="CI failures"
+                        onChange={(checked) => setRepoNotificationRule(repo, "ciFailures", checked)}
+                      />
+                      <Toggle
+                        checked={rule.reviewRequests}
+                        label="Review requests"
+                        onChange={(checked) =>
+                          setRepoNotificationRule(repo, "reviewRequests", checked)
+                        }
+                      />
+                      <Toggle
+                        checked={rule.mentions}
+                        label="Mentions"
+                        onChange={(checked) => setRepoNotificationRule(repo, "mentions", checked)}
+                      />
+                      <InlineButton
+                        ariaLabel={`Remove rule for ${repo}`}
+                        onClick={() => removeRepoNotificationRule(repo)}
+                      >
+                        Remove
+                      </InlineButton>
+                    </div>
+                  ))
+                )}
+              </div>
             </Row>
             <Row label="Stale thresholds">
               <div className="flex flex-wrap items-center gap-4 text-sm">

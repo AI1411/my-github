@@ -40,6 +40,7 @@ export function useNotificationPolling(): NotificationPollingState {
       if (!isLatestRequest()) return;
       useDataStore.getState().setNotifications(notifications);
       const settings = useSettingsStore.getState().notificationSettings;
+      const repoRules = useSettingsStore.getState().repoNotificationRules;
       for (const notification of notifications) {
         if (!isLatestRequest()) return;
         if (
@@ -52,7 +53,7 @@ export function useNotificationPolling(): NotificationPollingState {
         if (!isLatestRequest()) return;
         deliveringIds.current.set(notification.id, currentGeneration);
         try {
-          const sent = await sendAppNotification(notification, settings);
+          const sent = await sendAppNotification(notification, settings, repoRules);
           if (currentGeneration !== generation.current) return;
           if (sent) {
             deliveredIds.current.add(notification.id);

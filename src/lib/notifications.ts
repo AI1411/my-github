@@ -7,7 +7,7 @@ import {
   type Options,
 } from "@tauri-apps/plugin-notification";
 import type { NotificationSummary } from "../stores/dataStore";
-import type { NotificationSettings } from "../stores/settingsStore";
+import type { NotificationSettings, RepoNotificationRules } from "../stores/settingsStore";
 import {
   notificationKind,
   notificationRoute,
@@ -33,14 +33,21 @@ function titleForKind(kind: Exclude<DesktopNotificationKind, null>): string {
   }
 }
 
-function enabledForKind(
+/**
+ * リポジトリ別ルールがあればそれを優先し、なければグローバル設定に従う。
+ * `settings.enabled` はマスタースイッチとして常に効く。
+ */
+export function enabledForKind(
   kind: Exclude<DesktopNotificationKind, null>,
   settings: NotificationSettings,
+  repo?: string,
+  repoRules?: RepoNotificationRules,
 ): boolean {
   if (!settings.enabled) return false;
-  if (kind === "ciFailure") return settings.ciFailures;
-  if (kind === "reviewRequest") return settings.reviewRequests;
-  return settings.mentions;
+  const source = (repo && repoRules?.[repo]) || settings;
+  if (kind === "ciFailure") return source.ciFailures;
+  if (kind === "reviewRequest") return source.reviewRequests;
+  return source.mentions;
 }
 
 export async function ensureNotificationPermission(): Promise<boolean> {
@@ -51,9 +58,10 @@ export async function ensureNotificationPermission(): Promise<boolean> {
 export async function sendAppNotification(
   notification: NotificationSummary,
   settings: NotificationSettings,
+  repoRules?: RepoNotificationRules,
 ): Promise<boolean> {
   const kind = notificationKind(notification);
-  if (!kind || !enabledForKind(kind, settings)) return false;
+  if (!kind || !enabledForKind(kind, settings, notification.repo, repoRules)) return false;
   if (!(await ensureNotificationPermission())) return false;
 
   const route = notificationRoute(notification.htmlUrl);

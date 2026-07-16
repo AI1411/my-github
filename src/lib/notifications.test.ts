@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Options } from "@tauri-apps/plugin-notification";
 import {
+  enabledForKind,
   ensureNotificationPermission,
   registerAppNotificationClickHandler,
   sendAppNotification,
@@ -54,6 +55,63 @@ describe("ensureNotificationPermission", () => {
     await expect(ensureNotificationPermission()).resolves.toBe(true);
 
     expect(notificationPlugin.requestPermission).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("enabledForKind", () => {
+  it("falls back to global settings when no repo rule exists", () => {
+    expect(enabledForKind("ciFailure", settings, "octocat/hello", {})).toBe(true);
+    expect(
+      enabledForKind("ciFailure", { ...settings, ciFailures: false }, "octocat/hello", {}),
+    ).toBe(false);
+  });
+
+  it("prefers the repo rule over global settings", () => {
+    const rules = {
+      "octocat/hello": { ciFailures: false, reviewRequests: true, mentions: false },
+    };
+    expect(enabledForKind("ciFailure", settings, "octocat/hello", rules)).toBe(false);
+    expect(enabledForKind("reviewRequest", settings, "octocat/hello", rules)).toBe(true);
+    expect(enabledForKind("mention", settings, "octocat/hello", rules)).toBe(false);
+  });
+
+  it("keeps the master switch authoritative even with a permissive rule", () => {
+    const rules = {
+      "octocat/hello": { ciFailures: true, reviewRequests: true, mentions: true },
+    };
+    expect(
+      enabledForKind("ciFailure", { ...settings, enabled: false }, "octocat/hello", rules),
+    ).toBe(false);
+  });
+
+  it("uses global settings for repositories without a rule", () => {
+    const rules = {
+      "octocat/other": { ciFailures: false, reviewRequests: false, mentions: false },
+    };
+    expect(enabledForKind("mention", settings, "octocat/hello", rules)).toBe(true);
+  });
+});
+
+describe("sendAppNotification with repo rules", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    notificationPlugin.isPermissionGranted.mockResolvedValue(true);
+  });
+
+  it("suppresses a notification disabled by its repo rule", async () => {
+    const sent = await sendAppNotification(reviewNotification, settings, {
+      "AI1411/my-github": { ciFailures: true, reviewRequests: false, mentions: true },
+    });
+    expect(sent).toBe(false);
+    expect(notificationPlugin.sendNotification).not.toHaveBeenCalled();
+  });
+
+  it("delivers a notification allowed by its repo rule", async () => {
+    const sent = await sendAppNotification(reviewNotification, settings, {
+      "AI1411/my-github": { ciFailures: false, reviewRequests: true, mentions: false },
+    });
+    expect(sent).toBe(true);
+    expect(notificationPlugin.sendNotification).toHaveBeenCalledTimes(1);
   });
 });
 

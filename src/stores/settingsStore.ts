@@ -31,6 +31,21 @@ export interface NotificationSettings {
   mentions: boolean;
 }
 
+/** リポジトリ単位の通知種類設定。未設定のリポジトリはグローバル設定に従う。 */
+export interface RepoNotificationRule {
+  ciFailures: boolean;
+  reviewRequests: boolean;
+  mentions: boolean;
+}
+
+export type RepoNotificationRules = Record<string, RepoNotificationRule>;
+
+export const DEFAULT_REPO_NOTIFICATION_RULE: RepoNotificationRule = {
+  ciFailures: true,
+  reviewRequests: true,
+  mentions: true,
+};
+
 export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutSetting> = {
   commandPalette: { label: "Command palette", keys: "Cmd+K" },
   workspaceSwitcher: { label: "Workspace switcher", keys: "Cmd+T" },
@@ -66,6 +81,14 @@ export interface SettingsState {
   shortcuts: Record<ShortcutId, ShortcutSetting>;
   staleThresholds: StaleThresholds;
   savedFilters: SavedFilter[];
+  repoNotificationRules: RepoNotificationRules;
+  setRepoNotificationRule: (
+    repo: string,
+    key: keyof RepoNotificationRule,
+    enabled: boolean,
+  ) => void;
+  addRepoNotificationRule: (repo: string) => void;
+  removeRepoNotificationRule: (repo: string) => void;
   addWatchedRepository: (repo: string) => void;
   addSavedFilter: (filter: Omit<SavedFilter, "id">) => void;
   removeSavedFilter: (id: string) => void;
@@ -90,6 +113,33 @@ export const useSettingsStore = create<SettingsState>()(
       shortcuts: DEFAULT_SHORTCUTS,
       staleThresholds: DEFAULT_STALE_THRESHOLDS,
       savedFilters: [],
+      repoNotificationRules: {},
+      setRepoNotificationRule: (repo, key, enabled) =>
+        set((state) => {
+          const current = state.repoNotificationRules[repo] ?? DEFAULT_REPO_NOTIFICATION_RULE;
+          return {
+            repoNotificationRules: {
+              ...state.repoNotificationRules,
+              [repo]: { ...current, [key]: enabled },
+            },
+          };
+        }),
+      addRepoNotificationRule: (repo) =>
+        set((state) => {
+          const normalized = normalizeRepo(repo);
+          if (!normalized || state.repoNotificationRules[normalized]) return state;
+          return {
+            repoNotificationRules: {
+              ...state.repoNotificationRules,
+              [normalized]: DEFAULT_REPO_NOTIFICATION_RULE,
+            },
+          };
+        }),
+      removeRepoNotificationRule: (repo) =>
+        set((state) => {
+          const { [repo]: _removed, ...rest } = state.repoNotificationRules;
+          return { repoNotificationRules: rest };
+        }),
       addSavedFilter: (filter) =>
         set((state) => {
           const name = filter.name.trim();
@@ -161,6 +211,7 @@ export const useSettingsStore = create<SettingsState>()(
         shortcuts: state.shortcuts,
         staleThresholds: state.staleThresholds,
         savedFilters: state.savedFilters,
+        repoNotificationRules: state.repoNotificationRules,
       }),
     },
   ),

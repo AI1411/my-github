@@ -91,6 +91,7 @@ describe("useNotificationPolling", () => {
     expect(sendAppNotificationMock).toHaveBeenCalledWith(
       unreadNotification,
       useSettingsStore.getState().notificationSettings,
+      useSettingsStore.getState().repoNotificationRules,
     );
 
     await act(() => vi.advanceTimersByTimeAsync(30_000));
@@ -205,6 +206,7 @@ describe("useNotificationPolling", () => {
       2,
       unreadNotification,
       useSettingsStore.getState().notificationSettings,
+      useSettingsStore.getState().repoNotificationRules,
     );
   });
 
