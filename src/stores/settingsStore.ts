@@ -84,6 +84,8 @@ export interface SettingsState {
   repoNotificationRules: RepoNotificationRules;
   releaseNotificationsEnabled: boolean;
   setReleaseNotificationsEnabled: (enabled: boolean) => void;
+  digestAutoShowEnabled: boolean;
+  setDigestAutoShowEnabled: (enabled: boolean) => void;
   setRepoNotificationRule: (
     repo: string,
     key: keyof RepoNotificationRule,
@@ -118,6 +120,8 @@ export const useSettingsStore = create<SettingsState>()(
       repoNotificationRules: {},
       releaseNotificationsEnabled: true,
       setReleaseNotificationsEnabled: (enabled) => set({ releaseNotificationsEnabled: enabled }),
+      digestAutoShowEnabled: true,
+      setDigestAutoShowEnabled: (enabled) => set({ digestAutoShowEnabled: enabled }),
       setRepoNotificationRule: (repo, key, enabled) =>
         set((state) => {
           const current = state.repoNotificationRules[repo] ?? DEFAULT_REPO_NOTIFICATION_RULE;
@@ -217,6 +221,7 @@ export const useSettingsStore = create<SettingsState>()(
         savedFilters: state.savedFilters,
         repoNotificationRules: state.repoNotificationRules,
         releaseNotificationsEnabled: state.releaseNotificationsEnabled,
+        digestAutoShowEnabled: state.digestAutoShowEnabled,
       }),
     },
   ),

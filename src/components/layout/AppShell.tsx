@@ -3,7 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { NotificationPollingContext } from "../../features/activity/NotificationPollingContext";
 import { useNotificationPolling } from "../../features/activity/useNotificationPolling";
 import { useOnlineStatus } from "../../hooks/useOnlineStatus";
+import { loadDigestLastSeen, shouldShowDigest } from "../../lib/digest";
 import { registerAppNotificationClickHandler } from "../../lib/notifications";
+import { useSettingsStore } from "../../stores/settingsStore";
 import { useUiStore } from "../../stores/uiStore";
 import { CommandPalette } from "../command/CommandPalette";
 
@@ -22,6 +24,17 @@ export function AppShell({ sidebar, main, secondary }: AppShellProps) {
   const navigate = useNavigate();
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
   const offline = useUiStore((s) => s.offline);
+
+  // 起動時、前回のダイジェスト表示から間が空いていればDigestを開く
+  useEffect(() => {
+    const { digestAutoShowEnabled } = useSettingsStore.getState();
+    if (!digestAutoShowEnabled) return;
+    if (shouldShowDigest(loadDigestLastSeen(), new Date())) {
+      navigate("/digest");
+    }
+    // 起動時に一度だけ判定する
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     let disposed = false;

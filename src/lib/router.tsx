@@ -6,6 +6,7 @@ import InboxPage from "../pages/InboxPage";
 import PullsPage from "../pages/PullsPage";
 import IssuesPage from "../pages/IssuesPage";
 import ActivityPage from "../pages/ActivityPage";
+import DigestPage from "../pages/DigestPage";
 import SettingsPage from "../pages/SettingsPage";
 import PullDetailPage from "../pages/PullDetailPage";
 import IssueDetailPage from "../pages/IssueDetailPage";
@@ -42,6 +43,7 @@ export function createAppRouter(onSignOut: () => void) {
         { path: "issues", element: <IssuesPage /> },
         { path: "issues/:owner/:repo/:number", element: <IssueDetailPage /> },
         { path: "activity", element: <ActivityPage /> },
+        { path: "digest", element: <DigestPage /> },
         { path: "ci", element: <CiStatusPage /> },
         { path: "settings", element: <SettingsPage /> },
         { path: "*", element: <NotFoundPage /> },

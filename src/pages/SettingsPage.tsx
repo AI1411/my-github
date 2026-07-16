@@ -193,6 +193,8 @@ export default function SettingsPage() {
   const setReleaseNotificationsEnabled = useSettingsStore(
     (state) => state.setReleaseNotificationsEnabled,
   );
+  const digestAutoShowEnabled = useSettingsStore((state) => state.digestAutoShowEnabled);
+  const setDigestAutoShowEnabled = useSettingsStore((state) => state.setDigestAutoShowEnabled);
   const setPollingInterval = useSettingsStore((state) => state.setPollingInterval);
   const setDockBadgeEnabled = useSettingsStore((state) => state.setDockBadgeEnabled);
   const setDensity = useSettingsStore((state) => state.setDensity);
@@ -388,6 +390,13 @@ export default function SettingsPage() {
                 checked={dockBadgeEnabled}
                 label="Unread count"
                 onChange={setDockBadgeEnabled}
+              />
+            </Row>
+            <Row label="Startup digest">
+              <Toggle
+                checked={digestAutoShowEnabled}
+                label="Show digest when returning after 6+ hours"
+                onChange={setDigestAutoShowEnabled}
               />
             </Row>
             <Row label="Per-repository rules">
