@@ -100,8 +100,15 @@ describe("registerAppNotificationClickHandler", () => {
     vi.clearAllMocks();
   });
 
-  it("keeps one native listener and forwards routes to the latest handler", async () => {
+  it("single-flights concurrent registration, retries failures, and disposes by handler generation", async () => {
     let callback: ((notification: Options) => void) | null = null;
+    let finishRegistration!: () => void;
+    const registrationGate = new Promise<void>((resolve) => {
+      finishRegistration = resolve;
+    });
+    notificationPlugin.registerActionTypes
+      .mockRejectedValueOnce(new Error("registration failed"))
+      .mockReturnValueOnce(registrationGate);
     notificationPlugin.onAction.mockImplementation((cb) => {
       callback = cb;
       return Promise.resolve(vi.fn());
@@ -109,8 +116,21 @@ describe("registerAppNotificationClickHandler", () => {
     const firstHandler = vi.fn();
     const latestHandler = vi.fn();
 
-    await registerAppNotificationClickHandler(firstHandler);
-    await registerAppNotificationClickHandler(latestHandler);
+    await expect(registerAppNotificationClickHandler(firstHandler)).rejects.toThrow(
+      "registration failed",
+    );
+
+    const firstRegistration = registerAppNotificationClickHandler(firstHandler);
+    const latestRegistration = registerAppNotificationClickHandler(latestHandler);
+    await Promise.resolve();
+
+    expect(notificationPlugin.registerActionTypes).toHaveBeenCalledTimes(2);
+    finishRegistration();
+    const [disposeFirst, disposeLatest] = await Promise.all([
+      firstRegistration,
+      latestRegistration,
+    ]);
+
     const registeredCallback = callback as unknown as (notification: Options) => void;
     expect(registeredCallback).toBeTypeOf("function");
     registeredCallback({
@@ -127,5 +147,36 @@ describe("registerAppNotificationClickHandler", () => {
     expect(firstHandler).not.toHaveBeenCalled();
     expect(latestHandler).toHaveBeenCalledWith("/issues/octocat/hello/7");
     expect(notificationPlugin.onAction).toHaveBeenCalledTimes(1);
+
+    disposeFirst();
+    registeredCallback({
+      title: "Pull request reviewed",
+      extra: { route: "/pulls/octocat/hello/8" },
+    });
+    expect(latestHandler).toHaveBeenCalledWith("/pulls/octocat/hello/8");
+
+    disposeLatest();
+    registeredCallback({
+      title: "Issue mentioned",
+      extra: { route: "/issues/octocat/hello/9" },
+    });
+    expect(latestHandler).toHaveBeenCalledTimes(2);
+
+    const sharedHandler = vi.fn();
+    const disposeOlderGeneration = await registerAppNotificationClickHandler(sharedHandler);
+    const disposeNewerGeneration = await registerAppNotificationClickHandler(sharedHandler);
+    disposeOlderGeneration();
+    registeredCallback({
+      title: "Issue mentioned",
+      extra: { route: "/issues/octocat/hello/10" },
+    });
+    expect(sharedHandler).toHaveBeenCalledWith("/issues/octocat/hello/10");
+
+    disposeNewerGeneration();
+    registeredCallback({
+      title: "Issue mentioned",
+      extra: { route: "/issues/octocat/hello/11" },
+    });
+    expect(sharedHandler).toHaveBeenCalledTimes(1);
   });
 });

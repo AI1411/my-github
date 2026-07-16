@@ -16,8 +16,11 @@ import {
 
 const APP_OPEN_ACTION = "pulse-open";
 
-let clickHandlerRegistered = false;
-let activeClickHandler: ((route: string) => void) | null = null;
+let activeClickHandler: {
+  token: symbol;
+  handler: (route: string) => void;
+} | null = null;
+let clickHandlerRegistration: Promise<void> | null = null;
 
 function titleForKind(kind: Exclude<DesktopNotificationKind, null>): string {
   switch (kind) {
@@ -68,18 +71,38 @@ export async function sendAppNotification(
 
 export async function registerAppNotificationClickHandler(
   onOpenRoute: (route: string) => void,
-): Promise<void> {
-  activeClickHandler = onOpenRoute;
-  if (clickHandlerRegistered) return;
-  await registerActionTypes([
-    {
-      id: APP_OPEN_ACTION,
-      actions: [{ id: "open", title: "Open in my-github", foreground: true }],
-    },
-  ]);
-  await onAction((notification) => {
-    const route = notification.extra?.route;
-    if (typeof route === "string") activeClickHandler?.(route);
-  });
-  clickHandlerRegistered = true;
+): Promise<() => void> {
+  const token = Symbol("notification-click-handler");
+  activeClickHandler = { token, handler: onOpenRoute };
+  if (!clickHandlerRegistration) {
+    const registration = (async () => {
+      await registerActionTypes([
+        {
+          id: APP_OPEN_ACTION,
+          actions: [{ id: "open", title: "Open in my-github", foreground: true }],
+        },
+      ]);
+      await onAction((notification) => {
+        const route = notification.extra?.route;
+        if (typeof route === "string") activeClickHandler?.handler(route);
+      });
+    })();
+    clickHandlerRegistration = registration;
+    try {
+      await registration;
+    } catch (error) {
+      if (clickHandlerRegistration === registration) {
+        clickHandlerRegistration = null;
+      }
+      throw error;
+    }
+  } else {
+    await clickHandlerRegistration;
+  }
+
+  return () => {
+    if (activeClickHandler?.token === token) {
+      activeClickHandler = null;
+    }
+  };
 }

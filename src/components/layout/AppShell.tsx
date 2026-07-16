@@ -21,7 +21,23 @@ export function AppShell({ sidebar, main, secondary }: AppShellProps) {
   const offline = useUiStore((s) => s.offline);
 
   useEffect(() => {
-    void registerAppNotificationClickHandler((route) => navigate(route));
+    let disposed = false;
+    let disposeClickHandler: (() => void) | undefined;
+    void registerAppNotificationClickHandler((route) => navigate(route))
+      .then((dispose) => {
+        if (disposed) {
+          dispose();
+        } else {
+          disposeClickHandler = dispose;
+        }
+      })
+      .catch(() => {
+        // Registration can be retried the next time this effect runs.
+      });
+    return () => {
+      disposed = true;
+      disposeClickHandler?.();
+    };
   }, [navigate]);
 
   const gridCols = sidebarCollapsed

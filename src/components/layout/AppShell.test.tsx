@@ -1,11 +1,12 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useUiStore } from "../../stores/uiStore";
 import { AppShell } from "./AppShell";
 
 const notificationLifecycle = vi.hoisted(() => ({
-  registerAppNotificationClickHandler: vi.fn().mockResolvedValue(undefined),
+  disposeClickHandler: vi.fn(),
+  registerAppNotificationClickHandler: vi.fn(),
   useNotificationPolling: vi.fn(() => ({
     loading: false,
     error: null,
@@ -26,6 +27,9 @@ vi.mock("../../lib/notifications", () => ({
 describe("AppShell offline banner", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    notificationLifecycle.registerAppNotificationClickHandler.mockResolvedValue(
+      notificationLifecycle.disposeClickHandler,
+    );
     useUiStore.setState({ offline: false, sidebarCollapsed: false });
   });
 
@@ -50,5 +54,20 @@ describe("AppShell offline banner", () => {
 
     expect(notificationLifecycle.useNotificationPolling).toHaveBeenCalledTimes(1);
     expect(notificationLifecycle.registerAppNotificationClickHandler).toHaveBeenCalledTimes(1);
+  });
+
+  it("disposes notification click handling when AppShell unmounts", async () => {
+    const { unmount } = render(
+      <MemoryRouter>
+        <AppShell sidebar={<div />} main={<div>Main</div>} />
+      </MemoryRouter>,
+    );
+    await waitFor(() => {
+      expect(notificationLifecycle.registerAppNotificationClickHandler).toHaveBeenCalledTimes(1);
+    });
+
+    unmount();
+
+    expect(notificationLifecycle.disposeClickHandler).toHaveBeenCalledTimes(1);
   });
 });
