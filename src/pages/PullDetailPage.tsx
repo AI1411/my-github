@@ -280,6 +280,7 @@ export default function PullDetailPage() {
         canApprove={statusLabel === "open"}
         htmlUrl={pull.htmlUrl ?? ""}
         onOpenInEditor={handleOpenInEditor}
+        checkout={{ number: pull.number, headRef: pull.headRef }}
       />
     </div>
   );

@@ -1,10 +1,13 @@
+import { useEffect, useRef, useState } from "react";
 import { Button } from "../common/Button";
+import { checkoutCommand, copyToClipboard } from "../../lib/checkout";
 
 export interface PrFooterBarProps {
   canMerge: boolean;
   canApprove: boolean;
   htmlUrl: string;
   onOpenInEditor?: () => void;
+  checkout?: { number: number; headRef: string };
 }
 
 async function openBrowser(url: string) {
@@ -18,7 +21,27 @@ async function openBrowser(url: string) {
   }
 }
 
-export function PrFooterBar({ canMerge, canApprove, htmlUrl, onOpenInEditor }: PrFooterBarProps) {
+export function PrFooterBar({
+  canMerge,
+  canApprove,
+  htmlUrl,
+  onOpenInEditor,
+  checkout,
+}: PrFooterBarProps) {
+  const [copied, setCopied] = useState(false);
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  useEffect(() => () => clearTimeout(copiedTimer.current), []);
+
+  const handleCopyCheckout = async () => {
+    if (!checkout) return;
+    const ok = await copyToClipboard(checkoutCommand(checkout.number, checkout.headRef));
+    if (!ok) return;
+    setCopied(true);
+    clearTimeout(copiedTimer.current);
+    copiedTimer.current = setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
     <footer
       className="flex items-center justify-end gap-2 px-4 py-3 border-t"
@@ -27,6 +50,15 @@ export function PrFooterBar({ canMerge, canApprove, htmlUrl, onOpenInEditor }: P
         backgroundColor: "var(--bg-secondary)",
       }}
     >
+      {checkout && (
+        <Button
+          variant="ghost"
+          onClick={() => void handleCopyCheckout()}
+          title={checkoutCommand(checkout.number, checkout.headRef)}
+        >
+          {copied ? "Copied!" : "Copy checkout"}
+        </Button>
+      )}
       {onOpenInEditor && (
         <Button variant="ghost" onClick={onOpenInEditor}>
           Open in editor
