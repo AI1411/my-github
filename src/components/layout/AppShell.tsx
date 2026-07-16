@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { useNavigate } from "react-router-dom";
 import { NotificationPollingContext } from "../../features/activity/NotificationPollingContext";
 import { useNotificationPolling } from "../../features/activity/useNotificationPolling";
@@ -24,6 +25,14 @@ export function AppShell({ sidebar, main, secondary }: AppShellProps) {
   const navigate = useNavigate();
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
   const offline = useUiStore((s) => s.offline);
+
+  // トレイメニューの "Open Inbox" でInboxへ遷移する
+  useEffect(() => {
+    const unlisten = listen("tray-open-inbox", () => navigate("/inbox"));
+    return () => {
+      void unlisten.then((dispose) => dispose());
+    };
+  }, [navigate]);
 
   // 起動時、前回のダイジェスト表示から間が空いていればDigestを開く
   useEffect(() => {

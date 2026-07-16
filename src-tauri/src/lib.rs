@@ -5,6 +5,7 @@ pub mod config;
 pub mod db;
 pub mod github;
 pub mod sync;
+pub mod tray;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -24,6 +25,9 @@ pub fn run() {
             let pool = db::init_pool(&db_path)?;
             db::run_migrations(&pool)?;
             app.manage(pool);
+            if let Err(error) = tray::init(&handle) {
+                eprintln!("tray init failed: {error}");
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -55,6 +59,7 @@ pub fn run() {
             commands::search::cmd_search_github,
             commands::system::cmd_log_frontend_error,
             commands::system::cmd_ping,
+            tray::cmd_update_tray_summary,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

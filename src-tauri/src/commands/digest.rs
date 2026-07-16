@@ -41,7 +41,11 @@ fn get_active_account_db_id(pool: &SqlitePool) -> Option<i64> {
     .ok()
 }
 
-fn pull_rows(pool: &SqlitePool, since: &str, where_clause: &str) -> Vec<(String, i64, String, String, String)> {
+fn pull_rows(
+    pool: &SqlitePool,
+    since: &str,
+    where_clause: &str,
+) -> Vec<(String, i64, String, String, String)> {
     let Ok(conn) = pool.get() else {
         return Vec::new();
     };
@@ -248,9 +252,30 @@ mod tests {
     #[test]
     fn ci_failures_since_filters_by_updated_at() {
         let pool = test_pool();
-        insert_pull(&pool, 1, "open", Some("failure"), None, "2026-07-15T12:00:00Z");
-        insert_pull(&pool, 2, "open", Some("failure"), None, "2026-07-01T00:00:00Z");
-        insert_pull(&pool, 3, "open", Some("success"), None, "2026-07-15T12:00:00Z");
+        insert_pull(
+            &pool,
+            1,
+            "open",
+            Some("failure"),
+            None,
+            "2026-07-15T12:00:00Z",
+        );
+        insert_pull(
+            &pool,
+            2,
+            "open",
+            Some("failure"),
+            None,
+            "2026-07-01T00:00:00Z",
+        );
+        insert_pull(
+            &pool,
+            3,
+            "open",
+            Some("success"),
+            None,
+            "2026-07-15T12:00:00Z",
+        );
         let items = ci_failures_since(&pool, "2026-07-14T00:00:00Z");
         assert_eq!(items.len(), 1);
         assert_eq!(items[0].number, 1);
