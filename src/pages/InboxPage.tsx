@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Toolbar } from "../components/common/Toolbar";
 import { Spinner } from "../components/common/Spinner";
@@ -7,11 +7,30 @@ import { InboxList } from "../components/inbox/InboxList";
 import { InboxDetailPanel } from "../components/inbox/InboxDetailPanel";
 import { useInboxQuery } from "../features/inbox/useInboxQuery";
 import { snoozeUntilEpochSecs, type SnoozeOption } from "../lib/snooze";
+import { findStaleItems } from "../lib/stalePulls";
+import { useAuthStore } from "../stores/authStore";
+import { useDataStore } from "../stores/dataStore";
+import { useSettingsStore } from "../stores/settingsStore";
 import type { InboxItem } from "../stores/dataStore";
 
 export default function InboxPage() {
   const { data, loading, error, refetch } = useInboxQuery();
   const [selected, setSelected] = useState<InboxItem | null>(null);
+  const pulls = useDataStore((state) => state.pulls);
+  const currentUser = useAuthStore((state) => state.user?.login ?? null);
+  const staleThresholds = useSettingsStore((state) => state.staleThresholds);
+
+  const staleItems = useMemo(
+    () =>
+      findStaleItems({
+        inbox: data,
+        pulls,
+        currentUser,
+        thresholds: staleThresholds,
+        now: new Date(),
+      }),
+    [data, pulls, currentUser, staleThresholds],
+  );
 
   async function handleTogglePin(item: InboxItem) {
     try {
@@ -55,6 +74,7 @@ export default function InboxPage() {
           >
             <InboxList
               data={data}
+              staleItems={staleItems}
               selectedId={selected?.id ?? null}
               onSelect={setSelected}
               onTogglePin={handleTogglePin}

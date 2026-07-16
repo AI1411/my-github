@@ -5,6 +5,7 @@ import { EmptyState } from "../common/EmptyState";
 
 interface InboxListProps {
   data: InboxData | null;
+  staleItems?: InboxItem[];
   selectedId: string | null;
   onSelect: (item: InboxItem) => void;
   onTogglePin?: (item: InboxItem) => void;
@@ -18,6 +19,7 @@ function Section({
   onSelect,
   onTogglePin,
   onSnooze,
+  tone = "default",
 }: {
   title: string;
   items: InboxItem[];
@@ -25,13 +27,17 @@ function Section({
   onSelect: (item: InboxItem) => void;
   onTogglePin?: (item: InboxItem) => void;
   onSnooze?: (item: InboxItem, option: SnoozeOption) => void;
+  tone?: "default" | "warning";
 }) {
   if (items.length === 0) return null;
   return (
     <div>
       <div
         className="px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider border-b"
-        style={{ color: "var(--text-muted)", borderColor: "var(--border-subtle)" }}
+        style={{
+          color: tone === "warning" ? "var(--accent-orange, #fb923c)" : "var(--text-muted)",
+          borderColor: "var(--border-subtle)",
+        }}
       >
         {title}
       </div>
@@ -49,11 +55,21 @@ function Section({
   );
 }
 
-export function InboxList({ data, selectedId, onSelect, onTogglePin, onSnooze }: InboxListProps) {
+export function InboxList({
+  data,
+  staleItems = [],
+  selectedId,
+  onSelect,
+  onTogglePin,
+  onSnooze,
+}: InboxListProps) {
   if (!data) return null;
 
   const isEmpty =
-    data.reviewRequests.length === 0 && data.ciFailures.length === 0 && data.mentions.length === 0;
+    staleItems.length === 0 &&
+    data.reviewRequests.length === 0 &&
+    data.ciFailures.length === 0 &&
+    data.mentions.length === 0;
 
   if (isEmpty) {
     return (
@@ -66,6 +82,13 @@ export function InboxList({ data, selectedId, onSelect, onTogglePin, onSnooze }:
 
   return (
     <div>
+      <Section
+        title="Stale"
+        tone="warning"
+        items={staleItems}
+        selectedId={selectedId}
+        onSelect={onSelect}
+      />
       <Section
         title="Review Requests"
         items={data.reviewRequests}

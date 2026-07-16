@@ -180,6 +180,8 @@ export default function SettingsPage() {
   const addWatchedRepository = useSettingsStore((state) => state.addWatchedRepository);
   const removeWatchedRepository = useSettingsStore((state) => state.removeWatchedRepository);
   const setNotificationSetting = useSettingsStore((state) => state.setNotificationSetting);
+  const staleThresholds = useSettingsStore((state) => state.staleThresholds);
+  const setStaleThreshold = useSettingsStore((state) => state.setStaleThreshold);
   const setPollingInterval = useSettingsStore((state) => state.setPollingInterval);
   const setDockBadgeEnabled = useSettingsStore((state) => state.setDockBadgeEnabled);
   const setDensity = useSettingsStore((state) => state.setDensity);
@@ -371,6 +373,48 @@ export default function SettingsPage() {
                 label="Unread count"
                 onChange={setDockBadgeEnabled}
               />
+            </Row>
+            <Row label="Stale thresholds">
+              <div className="flex flex-wrap items-center gap-4 text-sm">
+                <label className="inline-flex items-center gap-2">
+                  <span style={{ color: "var(--text-secondary)" }}>Review requests</span>
+                  <input
+                    type="number"
+                    min={1}
+                    aria-label="Stale review request threshold in days"
+                    value={staleThresholds.reviewRequestDays}
+                    onChange={(event) =>
+                      setStaleThreshold("reviewRequestDays", event.currentTarget.valueAsNumber)
+                    }
+                    className="w-16 rounded-md px-2 py-1 text-sm outline-none"
+                    style={{
+                      backgroundColor: "var(--bg-secondary)",
+                      border: "1px solid var(--border-default)",
+                      color: "var(--text-primary)",
+                    }}
+                  />
+                  <span style={{ color: "var(--text-muted)" }}>days</span>
+                </label>
+                <label className="inline-flex items-center gap-2">
+                  <span style={{ color: "var(--text-secondary)" }}>My pulls</span>
+                  <input
+                    type="number"
+                    min={1}
+                    aria-label="Stale own pull threshold in days"
+                    value={staleThresholds.myPullDays}
+                    onChange={(event) =>
+                      setStaleThreshold("myPullDays", event.currentTarget.valueAsNumber)
+                    }
+                    className="w-16 rounded-md px-2 py-1 text-sm outline-none"
+                    style={{
+                      backgroundColor: "var(--bg-secondary)",
+                      border: "1px solid var(--border-default)",
+                      color: "var(--text-primary)",
+                    }}
+                  />
+                  <span style={{ color: "var(--text-muted)" }}>days</span>
+                </label>
+              </div>
             </Row>
           </Section>
         )}

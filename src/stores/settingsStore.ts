@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import { DEFAULT_STALE_THRESHOLDS, type StaleThresholds } from "../lib/stalePulls";
 
 export type PollingInterval = "30s" | "60s" | "5m" | "off";
 export type AppearanceDensity = "compact" | "comfortable";
@@ -62,9 +63,11 @@ export interface SettingsState {
   dockBadgeEnabled: boolean;
   density: AppearanceDensity;
   shortcuts: Record<ShortcutId, ShortcutSetting>;
+  staleThresholds: StaleThresholds;
   addWatchedRepository: (repo: string) => void;
   removeWatchedRepository: (repo: string) => void;
   setNotificationSetting: (key: keyof NotificationSettings, enabled: boolean) => void;
+  setStaleThreshold: (key: keyof StaleThresholds, days: number) => void;
   setPollingInterval: (interval: PollingInterval) => void;
   setDockBadgeEnabled: (enabled: boolean) => void;
   setDensity: (density: AppearanceDensity) => void;
@@ -81,6 +84,7 @@ export const useSettingsStore = create<SettingsState>()(
       dockBadgeEnabled: true,
       density: "comfortable",
       shortcuts: DEFAULT_SHORTCUTS,
+      staleThresholds: DEFAULT_STALE_THRESHOLDS,
       addWatchedRepository: (repo) =>
         set((state) => {
           const normalized = normalizeRepo(repo);
@@ -103,6 +107,16 @@ export const useSettingsStore = create<SettingsState>()(
             [key]: enabled,
           },
         })),
+      setStaleThreshold: (key, days) =>
+        set((state) => {
+          if (!Number.isFinite(days) || days < 1) return state;
+          return {
+            staleThresholds: {
+              ...state.staleThresholds,
+              [key]: Math.floor(days),
+            },
+          };
+        }),
       setPollingInterval: (interval) => set({ pollingInterval: interval }),
       setDockBadgeEnabled: (enabled) => set({ dockBadgeEnabled: enabled }),
       setDensity: (density) => set({ density }),
@@ -128,6 +142,7 @@ export const useSettingsStore = create<SettingsState>()(
         dockBadgeEnabled: state.dockBadgeEnabled,
         density: state.density,
         shortcuts: state.shortcuts,
+        staleThresholds: state.staleThresholds,
       }),
     },
   ),
