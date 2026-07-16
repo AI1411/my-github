@@ -1,9 +1,6 @@
 export type Status = "open" | "merged" | "closed" | "draft";
 
-const STATUS_STYLE: Record<
-  Status,
-  { label: string; bg: string; fg: string }
-> = {
+const STATUS_STYLE: Record<Status, { label: string; bg: string; fg: string }> = {
   open: { label: "Open", bg: "var(--accent-green)", fg: "#ffffff" },
   merged: { label: "Merged", bg: "var(--accent-purple)", fg: "#1b1130" },
   closed: { label: "Closed", bg: "var(--accent-red)", fg: "#ffffff" },

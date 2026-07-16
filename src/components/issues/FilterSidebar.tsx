@@ -1,8 +1,5 @@
 import type { ReactNode } from "react";
-import {
-  type IssueFilter,
-  toggleLabel,
-} from "../../features/issues/issueFilter";
+import { type IssueFilter, toggleLabel } from "../../features/issues/issueFilter";
 
 export interface AvailableLabel {
   name: string;
@@ -21,10 +18,7 @@ export interface FilterSidebarProps {
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section
-      className="px-3 py-3 border-b"
-      style={{ borderColor: "var(--border-subtle)" }}
-    >
+    <section className="px-3 py-3 border-b" style={{ borderColor: "var(--border-subtle)" }}>
       <h3
         className="text-[11px] uppercase tracking-wide mb-2"
         style={{ color: "var(--text-muted)" }}

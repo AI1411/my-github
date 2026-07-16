@@ -24,10 +24,7 @@ export default function IssueDetailPage() {
           Issues
         </Link>
         <span style={{ color: "var(--text-muted)" }}>/</span>
-        <Link
-          to={`/issues?repo=${owner}/${repo}`}
-          style={{ color: "var(--text-muted)" }}
-        >
+        <Link to={`/issues?repo=${owner}/${repo}`} style={{ color: "var(--text-muted)" }}>
           {owner}/{repo}
         </Link>
         <span style={{ color: "var(--text-muted)" }}>/</span>
@@ -40,9 +37,7 @@ export default function IssueDetailPage() {
         </div>
       )}
 
-      {error && !issue && (
-        <EmptyState title="Failed to load issue" subtitle={error} />
-      )}
+      {error && !issue && <EmptyState title="Failed to load issue" subtitle={error} />}
 
       {issue && (
         <>
@@ -50,18 +45,14 @@ export default function IssueDetailPage() {
             className="px-4 py-3 border-b flex items-center gap-3"
             style={{ borderColor: "var(--border-subtle)" }}
           >
-            <StatusPill
-              status={issue.state === "closed" ? "closed" : "open"}
-            />
+            <StatusPill status={issue.state === "closed" ? "closed" : "open"} />
             <h1
               className="text-base font-semibold flex-1 min-w-0 truncate"
               style={{ color: "var(--text-primary)" }}
               title={issue.title}
             >
               {issue.title}{" "}
-              <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>
-                #{issue.number}
-              </span>
+              <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>#{issue.number}</span>
             </h1>
           </div>
 

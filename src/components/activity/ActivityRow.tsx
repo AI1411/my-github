@@ -26,7 +26,9 @@ export function ActivityRow({ notification, selected, onSelect }: ActivityRowPro
       role="row"
       tabIndex={0}
       onClick={onSelect}
-      onKeyDown={(e) => { if (e.key === "Enter") onSelect?.(); }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") onSelect?.();
+      }}
       className="px-4 py-2.5 flex items-start gap-3 cursor-pointer border-b outline-none"
       style={{
         backgroundColor: selected ? "var(--bg-overlay)" : "transparent",
@@ -50,10 +52,7 @@ export function ActivityRow({ notification, selected, onSelect }: ActivityRowPro
               data-testid="unread-dot"
             />
           )}
-          <span
-            className="text-sm font-medium truncate"
-            style={{ color: "var(--text-primary)" }}
-          >
+          <span className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>
             {notification.subjectTitle}
           </span>
         </div>
@@ -63,10 +62,7 @@ export function ActivityRow({ notification, selected, onSelect }: ActivityRowPro
           {notification.reason.replace(/_/g, " ")}
         </p>
       </div>
-      <span
-        className="text-xs flex-shrink-0 tabular-nums"
-        style={{ color: "var(--text-muted)" }}
-      >
+      <span className="text-xs flex-shrink-0 tabular-nums" style={{ color: "var(--text-muted)" }}>
         {formatRelativeTime(notification.updatedAt)}
       </span>
     </div>

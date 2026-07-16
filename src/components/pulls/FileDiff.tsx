@@ -79,9 +79,7 @@ export function FileDiff({
         style={{ borderColor: "var(--border-subtle)" }}
         onClick={() => setOpen((o) => !o)}
       >
-        <span style={{ width: 14, textAlign: "center" }}>
-          {open ? "▼" : "▶"}
-        </span>
+        <span style={{ width: 14, textAlign: "center" }}>{open ? "▼" : "▶"}</span>
         <StatusIcon status={file.status} />
         <span
           className="font-mono text-xs flex-1 truncate"
@@ -90,16 +88,10 @@ export function FileDiff({
         >
           {file.filename}
         </span>
-        <span
-          className="text-[11px] tabular-nums"
-          style={{ color: "var(--accent-green)" }}
-        >
+        <span className="text-[11px] tabular-nums" style={{ color: "var(--accent-green)" }}>
           +{file.additions}
         </span>
-        <span
-          className="text-[11px] tabular-nums"
-          style={{ color: "var(--accent-red)" }}
-        >
+        <span className="text-[11px] tabular-nums" style={{ color: "var(--accent-red)" }}>
           -{file.deletions}
         </span>
         <label
@@ -118,9 +110,7 @@ export function FileDiff({
       {open && (
         <div className="overflow-x-auto">
           {mode === "unified"
-            ? lines.map((l, i) => (
-                <DiffLineRow key={i} line={l} showOld showNew />
-              ))
+            ? lines.map((l, i) => <DiffLineRow key={i} line={l} showOld showNew />)
             : splitRows.map((row, i) => (
                 <div key={i} className="grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
                   <div
@@ -144,10 +134,7 @@ export function FileDiff({
                 </div>
               ))}
           {lines.length === 0 && (
-            <div
-              className="px-4 py-6 text-xs text-center"
-              style={{ color: "var(--text-muted)" }}
-            >
+            <div className="px-4 py-6 text-xs text-center" style={{ color: "var(--text-muted)" }}>
               Binary file or no text diff available.
             </div>
           )}

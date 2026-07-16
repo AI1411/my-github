@@ -40,10 +40,7 @@ function Section({
   empty?: boolean;
 }) {
   return (
-    <section
-      className="px-3 py-3 border-b"
-      style={{ borderColor: "var(--border-subtle)" }}
-    >
+    <section className="px-3 py-3 border-b" style={{ borderColor: "var(--border-subtle)" }}>
       <h3
         className="text-[11px] uppercase tracking-wide mb-2"
         style={{ color: "var(--text-muted)" }}
@@ -143,11 +140,7 @@ export function PrSidebar({
                 style={{ backgroundColor: CHECK_COLOR[c.conclusion] }}
                 aria-hidden
               />
-              <span
-                className="truncate"
-                style={{ color: "var(--text-secondary)" }}
-                title={c.name}
-              >
+              <span className="truncate" style={{ color: "var(--text-secondary)" }} title={c.name}>
                 {c.name}
               </span>
             </li>

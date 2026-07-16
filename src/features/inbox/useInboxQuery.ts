@@ -19,10 +19,18 @@ export function useInboxQuery(): UseInboxQueryResult {
     setLoading(true);
     setError(null);
     invoke<InboxData>("cmd_get_inbox")
-      .then((d) => { if (!cancelled) setData(d); })
-      .catch((e: unknown) => { if (!cancelled) setError(String(e)); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+      .then((d) => {
+        if (!cancelled) setData(d);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setError(String(e));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }
 
   useEffect(() => fetch(), []);

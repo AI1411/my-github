@@ -22,10 +22,7 @@ describe("CommentThread", () => {
   it("renders one card per comment", () => {
     render(
       <CommentThread
-        comments={[
-          make(1, "alice", "first", "OWNER"),
-          make(2, "bob", "second", null),
-        ]}
+        comments={[make(1, "alice", "first", "OWNER"), make(2, "bob", "second", null)]}
       />,
     );
     expect(screen.getByText("first")).toBeInTheDocument();
@@ -33,23 +30,17 @@ describe("CommentThread", () => {
   });
 
   it("shows the Author badge for OWNER association", () => {
-    render(
-      <CommentThread comments={[make(1, "alice", "x", "OWNER")]} />,
-    );
+    render(<CommentThread comments={[make(1, "alice", "x", "OWNER")]} />);
     expect(screen.getByText("Author")).toBeInTheDocument();
   });
 
   it("shows the Collaborator badge for COLLABORATOR association", () => {
-    render(
-      <CommentThread comments={[make(1, "alice", "x", "COLLABORATOR")]} />,
-    );
+    render(<CommentThread comments={[make(1, "alice", "x", "COLLABORATOR")]} />);
     expect(screen.getByText("Collaborator")).toBeInTheDocument();
   });
 
   it("shows the Maintainer badge for MEMBER association", () => {
-    render(
-      <CommentThread comments={[make(1, "alice", "x", "MEMBER")]} />,
-    );
+    render(<CommentThread comments={[make(1, "alice", "x", "MEMBER")]} />);
     expect(screen.getByText("Maintainer")).toBeInTheDocument();
   });
 

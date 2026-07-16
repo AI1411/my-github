@@ -10,43 +10,35 @@ export interface CiBannerProps {
   onAction?: () => void;
 }
 
-const STYLE: Record<
-  CiBannerVariant,
-  { icon: string; bg: string; border: string; color: string }
-> = {
-  failure: {
-    icon: "✗",
-    bg: "rgba(232, 83, 83, 0.12)",
-    border: "var(--accent-red)",
-    color: "var(--accent-red)",
-  },
-  pending: {
-    icon: "●",
-    bg: "rgba(242, 199, 85, 0.12)",
-    border: "var(--accent-yellow)",
-    color: "var(--accent-yellow)",
-  },
-  success: {
-    icon: "✓",
-    bg: "rgba(87, 188, 116, 0.12)",
-    border: "var(--accent-green)",
-    color: "var(--accent-green)",
-  },
-  neutral: {
-    icon: "?",
-    bg: "var(--bg-tertiary)",
-    border: "var(--border-subtle)",
-    color: "var(--text-secondary)",
-  },
-};
+const STYLE: Record<CiBannerVariant, { icon: string; bg: string; border: string; color: string }> =
+  {
+    failure: {
+      icon: "✗",
+      bg: "rgba(232, 83, 83, 0.12)",
+      border: "var(--accent-red)",
+      color: "var(--accent-red)",
+    },
+    pending: {
+      icon: "●",
+      bg: "rgba(242, 199, 85, 0.12)",
+      border: "var(--accent-yellow)",
+      color: "var(--accent-yellow)",
+    },
+    success: {
+      icon: "✓",
+      bg: "rgba(87, 188, 116, 0.12)",
+      border: "var(--accent-green)",
+      color: "var(--accent-green)",
+    },
+    neutral: {
+      icon: "?",
+      bg: "var(--bg-tertiary)",
+      border: "var(--border-subtle)",
+      color: "var(--text-secondary)",
+    },
+  };
 
-export function CiBanner({
-  variant,
-  summary,
-  description,
-  actionLabel,
-  onAction,
-}: CiBannerProps) {
+export function CiBanner({ variant, summary, description, actionLabel, onAction }: CiBannerProps) {
   const s = STYLE[variant];
   const rootStyle: CSSProperties = {
     backgroundColor: s.bg,
@@ -74,10 +66,7 @@ export function CiBanner({
       <div className="flex-1 min-w-0">
         <div className="text-sm font-semibold">{summary}</div>
         {description && (
-          <div
-            className="text-xs mt-1"
-            style={{ color: "var(--text-secondary)" }}
-          >
+          <div className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
             {description}
           </div>
         )}

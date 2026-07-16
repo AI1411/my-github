@@ -7,12 +7,7 @@ export interface EmptyStateProps {
   actions?: ReactNode;
 }
 
-export function EmptyState({
-  icon,
-  title,
-  subtitle,
-  actions,
-}: EmptyStateProps) {
+export function EmptyState({ icon, title, subtitle, actions }: EmptyStateProps) {
   return (
     <div
       className="flex flex-col items-center justify-center text-center py-16 px-6 gap-3"
@@ -30,10 +25,7 @@ export function EmptyState({
         </div>
       )}
       <div>
-        <p
-          className="text-sm font-semibold"
-          style={{ color: "var(--text-primary)" }}
-        >
+        <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
           {title}
         </p>
         {subtitle && (

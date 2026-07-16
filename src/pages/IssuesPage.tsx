@@ -3,10 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Toolbar } from "../components/common/Toolbar";
 import { useIssuesQuery } from "../features/issues/useIssuesQuery";
 import { useUiStore } from "../stores/uiStore";
-import {
-  FilterSidebar,
-  type AvailableLabel,
-} from "../components/issues/FilterSidebar";
+import { FilterSidebar, type AvailableLabel } from "../components/issues/FilterSidebar";
 import { AppliedFilters } from "../components/issues/AppliedFilters";
 import { IssueRow } from "../components/issues/IssueRow";
 import { useListNavigation } from "../hooks/useListNavigation";
@@ -30,23 +27,12 @@ export default function IssuesPage() {
   }, [issues]);
 
   const availableAssignees = useMemo(
-    () =>
-      Array.from(
-        new Set(issues.flatMap((i) => i.assignees.map((a) => a.login))),
-      ),
+    () => Array.from(new Set(issues.flatMap((i) => i.assignees.map((a) => a.login)))),
     [issues],
   );
-  const availableRepos = useMemo(
-    () => Array.from(new Set(issues.map((i) => i.repo))),
-    [issues],
-  );
+  const availableRepos = useMemo(() => Array.from(new Set(issues.map((i) => i.repo))), [issues]);
   const availableMilestones = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          issues.map((i) => i.milestone).filter((m): m is string => !!m),
-        ),
-      ),
+    () => Array.from(new Set(issues.map((i) => i.milestone).filter((m): m is string => !!m))),
     [issues],
   );
 
@@ -64,10 +50,7 @@ export default function IssuesPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <Toolbar
-        title="Issues"
-        subtitle={refreshing ? "Refreshing…" : undefined}
-      />
+      <Toolbar title="Issues" subtitle={refreshing ? "Refreshing…" : undefined} />
       <div
         data-testid="issues-page-root"
         className="flex-1 overflow-hidden"

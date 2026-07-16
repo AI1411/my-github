@@ -11,10 +11,7 @@ import { PrSidebar } from "../components/pulls/PrSidebar";
 import { PrFooterBar } from "../components/pulls/PrFooterBar";
 import { FileDiff, type DiffViewMode } from "../components/pulls/FileDiff";
 import { usePullFilesQuery } from "../features/pulls/usePullFilesQuery";
-import {
-  getViewedSet,
-  setViewed,
-} from "../components/pulls/diff/DiffViewedStore";
+import { getViewedSet, setViewed } from "../components/pulls/diff/DiffViewedStore";
 import { openInEditor, readStoredEditor } from "../lib/openInEditor";
 
 type DetailTab = "conversation" | "commits" | "checks" | "files";
@@ -32,32 +29,23 @@ export default function PullDetailPage() {
   const pullKey = `${owner}/${repo}#${number ?? ""}`;
 
   const pull = useDataStore((s) =>
-    s.pulls.find(
-      (p) =>
-        p.repo === `${owner}/${repo}` &&
-        p.number === num,
-    ),
+    s.pulls.find((p) => p.repo === `${owner}/${repo}` && p.number === num),
   );
 
   const [tab, setTab] = useState<DetailTab>("conversation");
   const [viewMode, setViewMode] = useState<DiffViewMode>("unified");
-  const [viewedSet, setViewedSet] = useState<Set<string>>(() =>
-    getViewedSet(pullKey),
-  );
+  const [viewedSet, setViewedSet] = useState<Set<string>>(() => getViewedSet(pullKey));
 
   useEffect(() => {
     setViewedSet(getViewedSet(pullKey));
   }, [pullKey]);
 
-  const { files, loading: filesLoading, error: filesError } =
-    usePullFilesQuery(owner, repo, num);
+  const { files, loading: filesLoading, error: filesError } = usePullFilesQuery(owner, repo, num);
 
   const ciVariant = useMemo(() => {
     if (!pull) return null;
-    if (pull.ciState === "failure" || pull.ciState === "error")
-      return "failure" as const;
-    if (pull.ciState === "pending" || pull.ciState === "in_progress")
-      return "pending" as const;
+    if (pull.ciState === "failure" || pull.ciState === "error") return "failure" as const;
+    if (pull.ciState === "pending" || pull.ciState === "in_progress") return "pending" as const;
     return null;
   }, [pull]);
 
@@ -94,9 +82,11 @@ export default function PullDetailPage() {
 
   const toggleViewed = (filename: string, v: boolean) => {
     setViewed(pullKey, filename, v);
-    setViewedSet(new Set([...viewedSet].concat(v ? [filename] : []).filter(
-      (f) => (v ? true : f !== filename),
-    )));
+    setViewedSet(
+      new Set(
+        [...viewedSet].concat(v ? [filename] : []).filter((f) => (v ? true : f !== filename)),
+      ),
+    );
   };
 
   const handleOpenInEditor = async () => {
@@ -118,10 +108,7 @@ export default function PullDetailPage() {
           Pull Requests
         </Link>
         <span style={{ color: "var(--text-muted)" }}>/</span>
-        <Link
-          to={`/pulls?repo=${owner}/${repo}`}
-          style={{ color: "var(--text-muted)" }}
-        >
+        <Link to={`/pulls?repo=${owner}/${repo}`} style={{ color: "var(--text-muted)" }}>
           {owner}/{repo}
         </Link>
         <span style={{ color: "var(--text-muted)" }}>/</span>
@@ -138,14 +125,9 @@ export default function PullDetailPage() {
           title={pull.title}
         >
           {pull.title}{" "}
-          <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>
-            #{pull.number}
-          </span>
+          <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>#{pull.number}</span>
         </h1>
-        <span
-          className="text-xs font-mono"
-          style={{ color: "var(--text-muted)" }}
-        >
+        <span className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>
           {pull.headRef} → {pull.baseRef}
         </span>
       </div>
@@ -158,9 +140,7 @@ export default function PullDetailPage() {
             <CiBanner
               variant={ciVariant}
               summary={
-                ciVariant === "failure"
-                  ? "Some checks are failing."
-                  : "Checks are still running."
+                ciVariant === "failure" ? "Some checks are failing." : "Checks are still running."
               }
             />
           )}
@@ -183,10 +163,7 @@ export default function PullDetailPage() {
             />
           )}
           {tab === "checks" && (
-            <EmptyState
-              title="Checks view pending"
-              subtitle="Check runs will be wired in M7."
-            />
+            <EmptyState title="Checks view pending" subtitle="Check runs will be wired in M7." />
           )}
           {tab === "files" && (
             <div className="flex flex-col">
@@ -201,9 +178,7 @@ export default function PullDetailPage() {
                   className="text-xs px-2 py-1 rounded"
                   style={{
                     backgroundColor:
-                      viewMode === "unified"
-                        ? "var(--accent-blue)"
-                        : "var(--bg-tertiary)",
+                      viewMode === "unified" ? "var(--accent-blue)" : "var(--bg-tertiary)",
                     color: viewMode === "unified" ? "#fff" : "inherit",
                   }}
                 >
@@ -215,9 +190,7 @@ export default function PullDetailPage() {
                   className="text-xs px-2 py-1 rounded"
                   style={{
                     backgroundColor:
-                      viewMode === "split"
-                        ? "var(--accent-blue)"
-                        : "var(--bg-tertiary)",
+                      viewMode === "split" ? "var(--accent-blue)" : "var(--bg-tertiary)",
                     color: viewMode === "split" ? "#fff" : "inherit",
                   }}
                 >
@@ -229,13 +202,9 @@ export default function PullDetailPage() {
                   <Spinner />
                 </div>
               )}
-              {filesError && (
-                <EmptyState
-                  title="Failed to load diff"
-                  subtitle={filesError}
-                />
-              )}
-              {!filesLoading && !filesError &&
+              {filesError && <EmptyState title="Failed to load diff" subtitle={filesError} />}
+              {!filesLoading &&
+                !filesError &&
                 files.map((f) => (
                   <FileDiff
                     key={f.sha + f.filename}

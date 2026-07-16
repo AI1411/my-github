@@ -16,10 +16,7 @@ export function Toolbar({ title, subtitle, actions }: ToolbarProps) {
       }}
     >
       <div>
-        <h1
-          className="text-base font-semibold"
-          style={{ color: "var(--text-primary)" }}
-        >
+        <h1 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
           {title}
         </h1>
         {subtitle && (

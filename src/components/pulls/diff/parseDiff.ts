@@ -21,9 +21,7 @@ export function parsePatch(patch: string | null | undefined): DiffLine[] {
 
   for (const raw of lines) {
     if (raw.startsWith("@@")) {
-      const match = /^@@ -([0-9]+)(?:,[0-9]+)? \+([0-9]+)(?:,[0-9]+)? @@/.exec(
-        raw,
-      );
+      const match = /^@@ -([0-9]+)(?:,[0-9]+)? \+([0-9]+)(?:,[0-9]+)? @@/.exec(raw);
       if (match) {
         oldLine = Number.parseInt(match[1], 10);
         newLine = Number.parseInt(match[2], 10);

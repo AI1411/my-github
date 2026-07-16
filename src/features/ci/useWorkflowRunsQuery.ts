@@ -24,10 +24,18 @@ export function useWorkflowRunsQuery(
     setLoading(true);
     setError(null);
     invoke<WorkflowRunSummary[]>("cmd_get_workflow_runs", { owner, repo, branch })
-      .then((r) => { if (!cancelled) setRuns(r); })
-      .catch((e: unknown) => { if (!cancelled) setError(String(e)); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+      .then((r) => {
+        if (!cancelled) setRuns(r);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setError(String(e));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }
 
   useEffect(() => fetch(), [owner, repo, branch]);

@@ -1,10 +1,7 @@
 import type { ReactNode } from "react";
 import { Avatar } from "../common/Avatar";
 import { LabelPill } from "../common/LabelPill";
-import type {
-  IssueAssigneeInfo,
-  IssueLabelInfo,
-} from "../../stores/dataStore";
+import type { IssueAssigneeInfo, IssueLabelInfo } from "../../stores/dataStore";
 
 export interface IssueSidebarMilestone {
   title: string;
@@ -44,10 +41,7 @@ function Section({
   empty?: boolean;
 }) {
   return (
-    <section
-      className="px-3 py-3 border-b"
-      style={{ borderColor: "var(--border-subtle)" }}
-    >
+    <section className="px-3 py-3 border-b" style={{ borderColor: "var(--border-subtle)" }}>
       <h3
         className="text-[11px] uppercase tracking-wide mb-2"
         style={{ color: "var(--text-muted)" }}
@@ -85,10 +79,7 @@ function MilestoneCard({ m }: { m: IssueSidebarMilestone }) {
   const pct = total === 0 ? 0 : Math.round((m.closedIssues / total) * 100);
   return (
     <div className="flex flex-col gap-1.5">
-      <p
-        className="text-xs font-medium"
-        style={{ color: "var(--text-primary)" }}
-      >
+      <p className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>
         {m.title}
       </p>
       <div
@@ -170,12 +161,7 @@ export function IssueSidebar({
       <Section title="Participants" empty={participants.length === 0}>
         <div className="flex flex-wrap gap-1">
           {participants.map((p) => (
-            <Avatar
-              key={p.login}
-              login={p.login}
-              src={p.avatarUrl}
-              size="xs"
-            />
+            <Avatar key={p.login} login={p.login} src={p.avatarUrl} size="xs" />
           ))}
         </div>
       </Section>

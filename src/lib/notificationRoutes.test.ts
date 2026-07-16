@@ -3,15 +3,15 @@ import { notificationKind, notificationRoute } from "./notificationRoutes";
 
 describe("notificationRoute", () => {
   it("routes GitHub pull URLs to local pull detail pages", () => {
-    expect(
-      notificationRoute("https://github.com/AI1411/my-github/pull/189"),
-    ).toBe("/pulls/AI1411/my-github/189");
+    expect(notificationRoute("https://github.com/AI1411/my-github/pull/189")).toBe(
+      "/pulls/AI1411/my-github/189",
+    );
   });
 
   it("routes GitHub issue URLs to local issue detail pages", () => {
-    expect(
-      notificationRoute("https://github.com/AI1411/my-github/issues/118"),
-    ).toBe("/issues/AI1411/my-github/118");
+    expect(notificationRoute("https://github.com/AI1411/my-github/issues/118")).toBe(
+      "/issues/AI1411/my-github/118",
+    );
   });
 
   it("returns null for unsupported URLs", () => {

@@ -18,12 +18,7 @@ async function openBrowser(url: string) {
   }
 }
 
-export function PrFooterBar({
-  canMerge,
-  canApprove,
-  htmlUrl,
-  onOpenInEditor,
-}: PrFooterBarProps) {
+export function PrFooterBar({ canMerge, canApprove, htmlUrl, onOpenInEditor }: PrFooterBarProps) {
   return (
     <footer
       className="flex items-center justify-end gap-2 px-4 py-3 border-t"

@@ -64,10 +64,7 @@ export interface SettingsState {
   shortcuts: Record<ShortcutId, ShortcutSetting>;
   addWatchedRepository: (repo: string) => void;
   removeWatchedRepository: (repo: string) => void;
-  setNotificationSetting: (
-    key: keyof NotificationSettings,
-    enabled: boolean,
-  ) => void;
+  setNotificationSetting: (key: keyof NotificationSettings, enabled: boolean) => void;
   setPollingInterval: (interval: PollingInterval) => void;
   setDockBadgeEnabled: (enabled: boolean) => void;
   setDensity: (density: AppearanceDensity) => void;
@@ -90,10 +87,7 @@ export const useSettingsStore = create<SettingsState>()(
           if (!normalized) return state;
           if (state.watchedRepositories.includes(normalized)) return state;
           return {
-            watchedRepositories: [
-              ...state.watchedRepositories,
-              normalized,
-            ].sort(),
+            watchedRepositories: [...state.watchedRepositories, normalized].sort(),
           };
         }),
       removeWatchedRepository: (repo) =>

@@ -28,13 +28,11 @@ export const useUiStore = create<UiState>((set) => ({
   offline: false,
   issueFilters: { labels: [] },
   setSelectedItemId: (id) => set({ selectedItemId: id }),
-  toggleSidebar: () =>
-    set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
+  toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
   setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
   openCommandPalette: () => set({ commandPaletteOpen: true }),
   closeCommandPalette: () => set({ commandPaletteOpen: false }),
-  toggleCommandPalette: () =>
-    set((s) => ({ commandPaletteOpen: !s.commandPaletteOpen })),
+  toggleCommandPalette: () => set((s) => ({ commandPaletteOpen: !s.commandPaletteOpen })),
   openWorkspaceSwitcher: () => set({ workspaceSwitcherOpen: true }),
   closeWorkspaceSwitcher: () => set({ workspaceSwitcherOpen: false }),
   setOffline: (offline) => set({ offline }),

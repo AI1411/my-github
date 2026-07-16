@@ -26,11 +26,7 @@ export function getViewedSet(pullKey: string): Set<string> {
   return readSet(pullKey);
 }
 
-export function setViewed(
-  pullKey: string,
-  filename: string,
-  viewed: boolean,
-): void {
+export function setViewed(pullKey: string, filename: string, viewed: boolean): void {
   const set = readSet(pullKey);
   if (viewed) set.add(filename);
   else set.delete(filename);

@@ -32,7 +32,7 @@ export function DeviceFlowTab({ onSuccess }: Props) {
     if (state !== "waiting" || deviceCode === null) return;
     setSecondsLeft(deviceCode.expires_in);
     const id = setInterval(() => {
-      setSecondsLeft(prev => {
+      setSecondsLeft((prev) => {
         if (prev === null || prev <= 1) {
           clearInterval(id);
           setState("error");
@@ -46,7 +46,9 @@ export function DeviceFlowTab({ onSuccess }: Props) {
   }, [state, deviceCode]);
 
   const formatTime = (seconds: number): string => {
-    const m = Math.floor(seconds / 60).toString().padStart(2, "0");
+    const m = Math.floor(seconds / 60)
+      .toString()
+      .padStart(2, "0");
     const s = (seconds % 60).toString().padStart(2, "0");
     return `${m}:${s}`;
   };
@@ -92,8 +94,8 @@ export function DeviceFlowTab({ onSuccess }: Props) {
     return (
       <div className="space-y-4">
         <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-          Authenticate securely without entering your password. GitHub will give
-          you a short code to enter on their website.
+          Authenticate securely without entering your password. GitHub will give you a short code to
+          enter on their website.
         </p>
         <button
           onClick={handleStart}

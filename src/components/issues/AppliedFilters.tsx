@@ -45,8 +45,7 @@ export function AppliedFilters({ filter, onChange }: AppliedFiltersProps) {
   for (const l of filter.labels) {
     chips.push({
       label: `Label: ${l}`,
-      clear: () =>
-        onChange({ ...filter, labels: filter.labels.filter((x) => x !== l) }),
+      clear: () => onChange({ ...filter, labels: filter.labels.filter((x) => x !== l) }),
     });
   }
   if (filter.repoFullName) {

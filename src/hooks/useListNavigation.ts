@@ -34,14 +34,11 @@ export function useListNavigation<T>({
       setActiveIdState(null);
       return;
     }
-    const exists =
-      activeId !== null && items.some((i) => getId(i) === activeId);
+    const exists = activeId !== null && items.some((i) => getId(i) === activeId);
     if (!exists) setActiveIdState(getId(items[0]));
   }, [items, getId, activeId]);
 
-  const activeIndex = activeId
-    ? items.findIndex((i) => getId(i) === activeId)
-    : -1;
+  const activeIndex = activeId ? items.findIndex((i) => getId(i) === activeId) : -1;
 
   const setActiveId = useCallback(
     (id: string | null) => {
@@ -80,9 +77,7 @@ export function useListNavigation<T>({
       const target = event.target as HTMLElement | null;
       if (
         target &&
-        (target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.isContentEditable)
+        (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)
       ) {
         return;
       }
@@ -106,10 +101,7 @@ export function useListNavigation<T>({
     return () => window.removeEventListener("keydown", onKey);
   }, [enabled, moveBy, activeId, items, getId, onOpen]);
 
-  const activeItem =
-    activeId !== null
-      ? (items.find((i) => getId(i) === activeId) ?? null)
-      : null;
+  const activeItem = activeId !== null ? (items.find((i) => getId(i) === activeId) ?? null) : null;
 
   return {
     activeId,

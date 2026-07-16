@@ -22,8 +22,7 @@ export function classifyPull(p: PullSummary): StatusKind {
   const ci = p.ciState;
   if (ci === "failure" || ci === "error") return "ci-failure";
   if (ci === "success") return "ci-success";
-  if (ci === "pending" || ci === "queued" || ci === "in_progress")
-    return "ci-pending";
+  if (ci === "pending" || ci === "queued" || ci === "in_progress") return "ci-pending";
   const rv = p.reviewState;
   if (rv === "approved") return "approved";
   if (rv === "changes_requested") return "changes-requested";
@@ -31,10 +30,7 @@ export function classifyPull(p: PullSummary): StatusKind {
   return "open";
 }
 
-const STYLE: Record<
-  StatusKind,
-  { glyph: string; color: string; title: string }
-> = {
+const STYLE: Record<StatusKind, { glyph: string; color: string; title: string }> = {
   "ci-success": { glyph: "✓", color: "var(--accent-green)", title: "CI passing" },
   "ci-failure": { glyph: "✗", color: "var(--accent-red)", title: "CI failing" },
   "ci-pending": { glyph: "●", color: "var(--accent-yellow)", title: "CI pending" },

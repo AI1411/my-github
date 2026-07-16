@@ -2,8 +2,7 @@ import type { ButtonHTMLAttributes, CSSProperties, ReactNode } from "react";
 
 export type ButtonVariant = "primary" | "ghost" | "danger";
 
-export interface ButtonProps
-  extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "type"> {
+export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "type"> {
   variant?: ButtonVariant;
   shortcut?: string;
   children: ReactNode;

@@ -6,10 +6,7 @@ const WEEK = 7 * DAY;
 const MONTH = 30 * DAY;
 const YEAR = 365 * DAY;
 
-export function formatRelativeTime(
-  iso: string | null | undefined,
-  now: Date = new Date(),
-): string {
+export function formatRelativeTime(iso: string | null | undefined, now: Date = new Date()): string {
   if (!iso) return "";
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return "";

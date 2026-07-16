@@ -20,10 +20,19 @@ describe("useInboxQuery", () => {
 
   it("returns inbox data when successful", async () => {
     const data = {
-      reviewRequests: [{
-        id: "1", kind: "review_requested", repo: "o/r", number: null,
-        title: "Review me", htmlUrl: null, updatedAt: "2026-04-21T00:00:00Z", unread: true,
-      }],
+      reviewRequests: [
+        {
+          id: "1",
+          kind: "review_requested",
+          repo: "o/r",
+          number: null,
+          title: "Review me",
+          htmlUrl: null,
+          updatedAt: "2026-04-21T00:00:00Z",
+          unread: true,
+          pinned: false,
+        },
+      ],
       ciFailures: [],
       mentions: [],
     };

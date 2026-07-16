@@ -38,10 +38,7 @@ export function PATTab({ onSuccess }: Props) {
     <form onSubmit={handleSubmit} className="space-y-4">
       <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
         Create a token at{" "}
-        <span style={{ color: "var(--accent-blue)" }}>
-          github.com/settings/tokens
-        </span>{" "}
-        with{" "}
+        <span style={{ color: "var(--accent-blue)" }}>github.com/settings/tokens</span> with{" "}
         <code
           className="text-xs px-1 py-0.5 rounded"
           style={{ backgroundColor: "var(--bg-tertiary)", color: "var(--text-primary)" }}
@@ -69,7 +66,7 @@ export function PATTab({ onSuccess }: Props) {
         <input
           type={showToken ? "text" : "password"}
           value={token}
-          onChange={e => setToken(e.target.value)}
+          onChange={(e) => setToken(e.target.value)}
           placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
           className="w-full py-2.5 px-3 pr-16 rounded-md text-sm font-mono"
           style={{
@@ -84,7 +81,7 @@ export function PATTab({ onSuccess }: Props) {
         />
         <button
           type="button"
-          onClick={() => setShowToken(v => !v)}
+          onClick={() => setShowToken((v) => !v)}
           className="absolute right-2 top-1/2 -translate-y-1/2 text-xs px-2 py-1 rounded"
           style={{ color: "var(--text-muted)" }}
           tabIndex={-1}

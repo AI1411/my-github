@@ -34,9 +34,7 @@ describe("useIssueCommentsQuery", () => {
         authorAssociation: "MEMBER",
       },
     ]);
-    const { result } = renderHook(() =>
-      useIssueCommentsQuery("o", "r", 1),
-    );
+    const { result } = renderHook(() => useIssueCommentsQuery("o", "r", 1));
     await waitFor(() => expect(result.current.comments).toHaveLength(1));
   });
 

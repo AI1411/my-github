@@ -8,16 +8,10 @@ export interface MarkdownRendererProps {
   className?: string;
 }
 
-export function MarkdownRenderer({
-  source,
-  className = "",
-}: MarkdownRendererProps) {
+export function MarkdownRenderer({ source, className = "" }: MarkdownRendererProps) {
   return (
     <div className={"prose prose-invert max-w-none text-sm " + className}>
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeHighlight]}
-      >
+      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
         {source}
       </ReactMarkdown>
     </div>

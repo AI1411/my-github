@@ -43,9 +43,7 @@ describe("useOnlineStatus", () => {
   });
 
   it("marks offline when ping fails after an online event", async () => {
-    (invoke as ReturnType<typeof vi.fn>)
-      .mockResolvedValueOnce(true)
-      .mockResolvedValueOnce(false);
+    (invoke as ReturnType<typeof vi.fn>).mockResolvedValueOnce(true).mockResolvedValueOnce(false);
     renderHook(() => useOnlineStatus());
     await waitFor(() => expect(invoke).toHaveBeenCalledTimes(1));
 

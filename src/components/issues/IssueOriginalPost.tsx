@@ -8,11 +8,7 @@ export interface IssueOriginalPostProps {
   createdAt: string;
 }
 
-export function IssueOriginalPost({
-  author,
-  body,
-  createdAt,
-}: IssueOriginalPostProps) {
+export function IssueOriginalPost({ author, body, createdAt }: IssueOriginalPostProps) {
   return (
     <article
       className="mx-4 my-3 rounded border overflow-hidden"
@@ -26,10 +22,7 @@ export function IssueOriginalPost({
         style={{ borderColor: "var(--border-subtle)" }}
       >
         <Avatar login={author.login} src={author.avatarUrl} size="sm" />
-        <span
-          className="text-xs font-medium"
-          style={{ color: "var(--text-primary)" }}
-        >
+        <span className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>
           {author.login}
         </span>
         <span
@@ -42,10 +35,7 @@ export function IssueOriginalPost({
         >
           Author
         </span>
-        <span
-          className="ml-auto text-[11px]"
-          style={{ color: "var(--text-muted)" }}
-        >
+        <span className="ml-auto text-[11px]" style={{ color: "var(--text-muted)" }}>
           {formatRelativeTime(createdAt)}
         </span>
       </header>
@@ -53,10 +43,7 @@ export function IssueOriginalPost({
         {body ? (
           <MarkdownRenderer source={body} />
         ) : (
-          <p
-            className="text-xs italic"
-            style={{ color: "var(--text-muted)" }}
-          >
+          <p className="text-xs italic" style={{ color: "var(--text-muted)" }}>
             No description provided.
           </p>
         )}

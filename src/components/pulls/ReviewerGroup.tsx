@@ -15,13 +15,8 @@ function reviewerRing(state: string | null | undefined): ReviewRing {
   return null;
 }
 
-export function ReviewerGroup({
-  reviewers,
-  reviewState,
-  max = 3,
-}: ReviewerGroupProps) {
-  if (!reviewers.length)
-    return <span style={{ color: "var(--text-muted)" }}>—</span>;
+export function ReviewerGroup({ reviewers, reviewState, max = 3 }: ReviewerGroupProps) {
+  if (!reviewers.length) return <span style={{ color: "var(--text-muted)" }}>—</span>;
   const visible = reviewers.slice(0, max);
   const overflow = reviewers.length - visible.length;
   const ring = reviewerRing(reviewState);
@@ -39,8 +34,7 @@ export function ReviewerGroup({
           key={r.login}
           className="rounded-full"
           style={{
-            boxShadow:
-              ring !== null ? `0 0 0 2px ${ringColor}` : undefined,
+            boxShadow: ring !== null ? `0 0 0 2px ${ringColor}` : undefined,
           }}
         >
           <Avatar login={r.login} src={r.avatarUrl} size="sm" />

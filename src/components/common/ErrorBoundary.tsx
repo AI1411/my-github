@@ -9,10 +9,7 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-export class ErrorBoundary extends Component<
-  ErrorBoundaryProps,
-  ErrorBoundaryState
-> {
+export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   state: ErrorBoundaryState = { error: null };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
@@ -35,10 +32,7 @@ export class ErrorBoundary extends Component<
         className="flex h-full min-h-[360px] flex-col items-center justify-center gap-3 px-6 text-center"
         style={{ color: "var(--text-secondary)" }}
       >
-        <h2
-          className="text-sm font-semibold"
-          style={{ color: "var(--text-primary)" }}
-        >
+        <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
           Something went wrong
         </h2>
         <p className="max-w-md text-xs" style={{ color: "var(--text-muted)" }}>

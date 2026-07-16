@@ -35,10 +35,7 @@ function CommentCard({ c }: { c: IssueCommentSummary }) {
         style={{ borderColor: "var(--border-subtle)" }}
       >
         <Avatar login={c.author.login} src={c.author.avatarUrl} size="sm" />
-        <span
-          className="text-xs font-medium"
-          style={{ color: "var(--text-primary)" }}
-        >
+        <span className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>
           {c.author.login}
         </span>
         {badge && (
@@ -53,10 +50,7 @@ function CommentCard({ c }: { c: IssueCommentSummary }) {
             {badge}
           </span>
         )}
-        <span
-          className="ml-auto text-[11px]"
-          style={{ color: "var(--text-muted)" }}
-        >
+        <span className="ml-auto text-[11px]" style={{ color: "var(--text-muted)" }}>
           {formatRelativeTime(c.createdAt)}
         </span>
       </header>
@@ -70,10 +64,7 @@ function CommentCard({ c }: { c: IssueCommentSummary }) {
 export function CommentThread({ comments }: CommentThreadProps) {
   if (comments.length === 0) {
     return (
-      <p
-        className="px-4 py-6 text-xs text-center"
-        style={{ color: "var(--text-muted)" }}
-      >
+      <p className="px-4 py-6 text-xs text-center" style={{ color: "var(--text-muted)" }}>
         No comments yet.
       </p>
     );

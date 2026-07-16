@@ -10,16 +10,11 @@ export function toggleLabel(filter: IssueFilter, label: string): IssueFilter {
   const has = filter.labels.includes(label);
   return {
     ...filter,
-    labels: has
-      ? filter.labels.filter((l) => l !== label)
-      : [...filter.labels, label],
+    labels: has ? filter.labels.filter((l) => l !== label) : [...filter.labels, label],
   };
 }
 
-export function withState(
-  filter: IssueFilter,
-  state: IssueFilter["state"],
-): IssueFilter {
+export function withState(filter: IssueFilter, state: IssueFilter["state"]): IssueFilter {
   return { ...filter, state };
 }
 

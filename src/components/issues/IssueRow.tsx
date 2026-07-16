@@ -33,13 +33,7 @@ function StatusDot({ state }: { state: string }) {
   );
 }
 
-export function IssueRow({
-  issue,
-  selected,
-  onSelect,
-  onOpen,
-  style,
-}: IssueRowProps) {
+export function IssueRow({ issue, selected, onSelect, onOpen, style }: IssueRowProps) {
   const bg = selected ? "var(--bg-overlay)" : "transparent";
   return (
     <div
@@ -83,10 +77,7 @@ export function IssueRow({
             <LabelPill key={l.name} name={l.name} color={l.color} />
           ))}
         </div>
-        <span
-          className="truncate text-[11px]"
-          style={{ color: "var(--text-muted)" }}
-        >
+        <span className="truncate text-[11px]" style={{ color: "var(--text-muted)" }}>
           {issue.repo}
           {issue.author && ` · opened by ${issue.author}`}
         </span>
@@ -101,10 +92,7 @@ export function IssueRow({
       >
         {issue.comments}
       </div>
-      <div
-        className="text-xs tabular-nums text-right"
-        style={{ color: "var(--text-muted)" }}
-      >
+      <div className="text-xs tabular-nums text-right" style={{ color: "var(--text-muted)" }}>
         {formatRelativeTime(issue.updatedAt)}
       </div>
     </div>

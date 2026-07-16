@@ -1,12 +1,18 @@
-import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { InboxItemRow } from "./InboxItem";
 import type { InboxItem } from "../../stores/dataStore";
 
 const item: InboxItem = {
-  id: "1", kind: "review_requested", repo: "octocat/hello", number: 5,
-  title: "Fix critical bug", htmlUrl: "https://github.com/octocat/hello/pull/5",
-  updatedAt: "2026-04-21T00:00:00Z", unread: true,
+  id: "1",
+  kind: "review_requested",
+  repo: "octocat/hello",
+  number: 5,
+  title: "Fix critical bug",
+  htmlUrl: "https://github.com/octocat/hello/pull/5",
+  updatedAt: "2026-04-21T00:00:00Z",
+  unread: true,
+  pinned: false,
 };
 
 describe("InboxItemRow", () => {
@@ -29,5 +35,36 @@ describe("InboxItemRow", () => {
   it("hides Unread indicator when unread=false", () => {
     render(<InboxItemRow item={{ ...item, unread: false }} />);
     expect(screen.queryByLabelText("Unread")).not.toBeInTheDocument();
+  });
+
+  it("shows Pinned indicator when pinned=true", () => {
+    render(<InboxItemRow item={{ ...item, pinned: true }} />);
+    expect(screen.getByLabelText("Pinned")).toBeInTheDocument();
+  });
+
+  it("hides actions when no handlers are given", () => {
+    render(<InboxItemRow item={item} />);
+    expect(screen.queryByLabelText("Pin")).not.toBeInTheDocument();
+  });
+
+  it("calls onTogglePin without triggering onSelect", () => {
+    const onTogglePin = vi.fn();
+    const onSelect = vi.fn();
+    render(<InboxItemRow item={item} onSelect={onSelect} onTogglePin={onTogglePin} />);
+    fireEvent.click(screen.getByLabelText("Pin"));
+    expect(onTogglePin).toHaveBeenCalledWith(item);
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it("labels the pin button Unpin when already pinned", () => {
+    render(<InboxItemRow item={{ ...item, pinned: true }} onTogglePin={vi.fn()} />);
+    expect(screen.getByLabelText("Unpin")).toBeInTheDocument();
+  });
+
+  it("calls onSnooze with the chosen option", () => {
+    const onSnooze = vi.fn();
+    render(<InboxItemRow item={item} onSnooze={onSnooze} />);
+    fireEvent.click(screen.getByLabelText("Snooze until Tomorrow"));
+    expect(onSnooze).toHaveBeenCalledWith(item, "tomorrow");
   });
 });

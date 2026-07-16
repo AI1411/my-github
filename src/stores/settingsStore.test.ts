@@ -30,9 +30,7 @@ describe("settingsStore", () => {
     useSettingsStore.getState().addWatchedRepository("AI1411/my-github");
     useSettingsStore.getState().addWatchedRepository(" AI1411/my-github ");
 
-    expect(useSettingsStore.getState().watchedRepositories).toEqual([
-      "AI1411/my-github",
-    ]);
+    expect(useSettingsStore.getState().watchedRepositories).toEqual(["AI1411/my-github"]);
 
     useSettingsStore.getState().removeWatchedRepository("AI1411/my-github");
 
@@ -44,17 +42,13 @@ describe("settingsStore", () => {
     useSettingsStore.getState().setNotificationSetting("ciFailures", false);
 
     expect(useSettingsStore.getState().pollingInterval).toBe("5m");
-    expect(useSettingsStore.getState().notificationSettings.ciFailures).toBe(
-      false,
-    );
+    expect(useSettingsStore.getState().notificationSettings.ciFailures).toBe(false);
   });
 
   it("customizes and resets shortcuts", () => {
     useSettingsStore.getState().setShortcut("commandPalette", "Ctrl+K");
 
-    expect(useSettingsStore.getState().shortcuts.commandPalette.keys).toBe(
-      "Ctrl+K",
-    );
+    expect(useSettingsStore.getState().shortcuts.commandPalette.keys).toBe("Ctrl+K");
 
     useSettingsStore.getState().resetShortcuts();
 

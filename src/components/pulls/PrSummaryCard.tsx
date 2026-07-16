@@ -15,28 +15,17 @@ export interface PrSummaryCardProps {
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="flex flex-col">
-      <span
-        className="text-[11px] uppercase tracking-wide"
-        style={{ color: "var(--text-muted)" }}
-      >
+      <span className="text-[11px] uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
         {label}
       </span>
-      <span
-        className="text-sm font-semibold tabular-nums"
-        style={{ color: "var(--text-primary)" }}
-      >
+      <span className="text-sm font-semibold tabular-nums" style={{ color: "var(--text-primary)" }}>
         {value}
       </span>
     </div>
   );
 }
 
-export function PrSummaryCard({
-  author,
-  description,
-  stats,
-  createdAt,
-}: PrSummaryCardProps) {
+export function PrSummaryCard({ author, description, stats, createdAt }: PrSummaryCardProps) {
   return (
     <section
       className="mx-4 my-3 rounded-md border"
@@ -68,14 +57,8 @@ export function PrSummaryCard({
         style={{ borderColor: "var(--border-subtle)" }}
       >
         <Stat label="Files" value={stats.files ?? "—"} />
-        <Stat
-          label="Additions"
-          value={stats.additions !== null ? `+${stats.additions}` : "—"}
-        />
-        <Stat
-          label="Deletions"
-          value={stats.deletions !== null ? `-${stats.deletions}` : "—"}
-        />
+        <Stat label="Additions" value={stats.additions !== null ? `+${stats.additions}` : "—"} />
+        <Stat label="Deletions" value={stats.deletions !== null ? `-${stats.deletions}` : "—"} />
         <Stat label="Commits" value={stats.commits ?? "—"} />
       </div>
     </section>

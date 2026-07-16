@@ -73,6 +73,7 @@ export interface InboxItem {
   htmlUrl: string | null;
   updatedAt: string;
   unread: boolean;
+  pinned: boolean;
 }
 
 export interface InboxData {
@@ -115,6 +116,5 @@ export const useDataStore = create<DataState>((set) => ({
   setIssues: (issues) => set({ issues }),
   setNotifications: (notifications) => set({ notifications }),
   markLastSynced: () => set({ lastSyncedAt: new Date().toISOString() }),
-  reset: () =>
-    set({ pulls: [], issues: [], notifications: [], lastSyncedAt: null }),
+  reset: () => set({ pulls: [], issues: [], notifications: [], lastSyncedAt: null }),
 }));

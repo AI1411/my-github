@@ -4,9 +4,7 @@ import { AppliedFilters } from "./AppliedFilters";
 
 describe("AppliedFilters", () => {
   it("renders nothing when filter is empty", () => {
-    const { container } = render(
-      <AppliedFilters filter={{ labels: [] }} onChange={vi.fn()} />,
-    );
+    const { container } = render(<AppliedFilters filter={{ labels: [] }} onChange={vi.fn()} />);
     expect(container.firstChild).toBeNull();
   });
 
@@ -34,12 +32,7 @@ describe("AppliedFilters", () => {
   it("clears a label when its × is clicked", async () => {
     const onChange = vi.fn();
     const user = (await import("@testing-library/user-event")).default.setup();
-    render(
-      <AppliedFilters
-        filter={{ labels: ["bug"] }}
-        onChange={onChange}
-      />,
-    );
+    render(<AppliedFilters filter={{ labels: ["bug"] }} onChange={onChange} />);
     await user.click(screen.getByRole("button", { name: "Clear Label: bug" }));
     expect(onChange).toHaveBeenCalledWith({ labels: [] });
   });
@@ -47,12 +40,7 @@ describe("AppliedFilters", () => {
   it("clears state when its × is clicked", async () => {
     const onChange = vi.fn();
     const user = (await import("@testing-library/user-event")).default.setup();
-    render(
-      <AppliedFilters
-        filter={{ labels: [], state: "open" }}
-        onChange={onChange}
-      />,
-    );
+    render(<AppliedFilters filter={{ labels: [], state: "open" }} onChange={onChange} />);
     await user.click(screen.getByRole("button", { name: /Clear State/ }));
     expect(onChange).toHaveBeenCalledWith({ labels: [] });
   });

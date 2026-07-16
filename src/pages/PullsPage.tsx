@@ -7,11 +7,7 @@ import { Spinner } from "../components/common/Spinner";
 import { Tabs, type TabItem } from "../components/common/Tabs";
 import { PullRow } from "../components/pulls/PullRow";
 import { FilterChips } from "../components/pulls/FilterChips";
-import {
-  usePullsQuery,
-  type PullFilter,
-  type PullTab,
-} from "../features/pulls/usePullsQuery";
+import { usePullsQuery, type PullFilter, type PullTab } from "../features/pulls/usePullsQuery";
 import { useListNavigation } from "../hooks/useListNavigation";
 
 const TABS: TabItem<PullTab>[] = [
@@ -33,15 +29,9 @@ export default function PullsPage() {
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  const availableRepos = useMemo(
-    () => Array.from(new Set(pulls.map((p) => p.repo))),
-    [pulls],
-  );
+  const availableRepos = useMemo(() => Array.from(new Set(pulls.map((p) => p.repo))), [pulls]);
   const availableAuthors = useMemo(
-    () =>
-      Array.from(
-        new Set(pulls.map((p) => p.author).filter((a): a is string => !!a)),
-      ),
+    () => Array.from(new Set(pulls.map((p) => p.author).filter((a): a is string => !!a))),
     [pulls],
   );
   const availableLabels: string[] = [];
@@ -67,10 +57,7 @@ export default function PullsPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <Toolbar
-        title="Pull Requests"
-        subtitle={refreshing ? "Refreshing…" : undefined}
-      />
+      <Toolbar title="Pull Requests" subtitle={refreshing ? "Refreshing…" : undefined} />
       <Tabs
         items={TABS}
         activeId={filter.tab ?? "all"}
@@ -95,12 +82,7 @@ export default function PullsPage() {
           subtitle="Try changing the filter, or sync to fetch fresh data."
         />
       ) : (
-        <div
-          ref={containerRef}
-          className="flex-1 overflow-auto"
-          role="grid"
-          tabIndex={0}
-        >
+        <div ref={containerRef} className="flex-1 overflow-auto" role="grid" tabIndex={0}>
           <div
             style={{
               height: rowVirtualizer.getTotalSize(),

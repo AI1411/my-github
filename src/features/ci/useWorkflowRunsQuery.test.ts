@@ -28,10 +28,16 @@ describe("useWorkflowRunsQuery", () => {
 
   it("returns runs", async () => {
     const run = {
-      id: 1, name: "CI", status: "completed", conclusion: "success",
-      headBranch: "main", runNumber: 1, runStartedAt: null,
+      id: 1,
+      name: "CI",
+      status: "completed",
+      conclusion: "success",
+      headBranch: "main",
+      runNumber: 1,
+      runStartedAt: null,
       updatedAt: "2026-04-21T00:00:00Z",
-      htmlUrl: "https://github.com/o/r/actions/runs/1", repo: "o/r",
+      htmlUrl: "https://github.com/o/r/actions/runs/1",
+      repo: "o/r",
     };
     (invoke as ReturnType<typeof vi.fn>).mockResolvedValue([run]);
     const { result } = renderHook(() => useWorkflowRunsQuery("o", "r", null));

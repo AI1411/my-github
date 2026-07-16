@@ -19,6 +19,8 @@ pub struct InboxItem {
     pub html_url: Option<String>,
     pub updated_at: String,
     pub unread: bool,
+    #[serde(default)]
+    pub pinned: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -59,6 +61,7 @@ fn notification_to_inbox_item(n: &Notification) -> InboxItem {
         html_url,
         updated_at: n.updated_at.clone(),
         unread: n.unread,
+        pinned: false,
     }
 }
 
@@ -94,6 +97,7 @@ fn review_requests_from_graphql(data: &inbox_query::ResponseData) -> Vec<InboxIt
                             html_url: Some(pr.url.clone()),
                             updated_at: pr.updated_at.clone(),
                             unread: true,
+                            pinned: false,
                         })
                     }
                     _ => None,
@@ -120,6 +124,7 @@ fn mentions_from_graphql(data: &inbox_query::ResponseData) -> Vec<InboxItem> {
                         html_url: Some(issue.url.clone()),
                         updated_at: issue.updated_at.clone(),
                         unread: true,
+                        pinned: false,
                     }),
                     Some(inbox_query::InboxQueryMentionsNodes::PullRequest(pr)) => {
                         Some(InboxItem {
@@ -131,6 +136,7 @@ fn mentions_from_graphql(data: &inbox_query::ResponseData) -> Vec<InboxItem> {
                             html_url: Some(pr.url.clone()),
                             updated_at: pr.updated_at.clone(),
                             unread: true,
+                            pinned: false,
                         })
                     }
                     _ => None,
@@ -178,9 +184,34 @@ fn read_ci_failures(pool: &SqlitePool) -> Result<Vec<InboxItem>, String> {
             html_url,
             updated_at,
             unread: true,
+            pinned: false,
         });
     }
     Ok(out)
+}
+
+/// Drops snoozed items and floats pinned items to the top of their section,
+/// preserving the underlying (updated_at desc) order otherwise.
+fn apply_item_states(
+    items: Vec<InboxItem>,
+    states: &std::collections::HashMap<String, crate::cache::inbox_state::InboxItemState>,
+    now: i64,
+) -> Vec<InboxItem> {
+    let mut out: Vec<InboxItem> = items
+        .into_iter()
+        .filter(|item| {
+            states
+                .get(&item.id)
+                .and_then(|s| s.snoozed_until)
+                .is_none_or(|until| until <= now)
+        })
+        .map(|mut item| {
+            item.pinned = states.get(&item.id).map(|s| s.pinned).unwrap_or(false);
+            item
+        })
+        .collect();
+    out.sort_by_key(|item| !item.pinned);
+    out
 }
 
 fn get_active_account_db_id(pool: &SqlitePool) -> Option<i64> {
@@ -205,11 +236,53 @@ pub async fn cmd_get_inbox<R: Runtime>(app: AppHandle<R>) -> Result<InboxData, S
     let review_requests = review_requests_from_graphql(&inbox);
     let mentions = mentions_from_graphql(&inbox);
     let ci_failures = read_ci_failures(pool.inner()).unwrap_or_default();
+    let now = crate::cache::inbox_state::now_epoch_secs();
+    let states = get_active_account_db_id(pool.inner())
+        .and_then(|acct_id| {
+            let _ = crate::cache::inbox_state::purge_expired(pool.inner(), acct_id, now);
+            crate::cache::inbox_state::get_states(pool.inner(), acct_id).ok()
+        })
+        .unwrap_or_default();
     Ok(InboxData {
-        review_requests,
-        ci_failures,
-        mentions,
+        review_requests: apply_item_states(review_requests, &states, now),
+        ci_failures: apply_item_states(ci_failures, &states, now),
+        mentions: apply_item_states(mentions, &states, now),
     })
+}
+
+#[tauri::command]
+pub async fn cmd_pin_inbox_item<R: Runtime>(
+    app: AppHandle<R>,
+    item_id: String,
+    pinned: bool,
+) -> Result<(), String> {
+    let pool = app
+        .try_state::<SqlitePool>()
+        .ok_or_else(|| "db not initialized".to_string())?;
+    let account_db_id =
+        get_active_account_db_id(pool.inner()).ok_or_else(|| "no active account".to_string())?;
+    crate::cache::inbox_state::set_pinned(pool.inner(), account_db_id, &item_id, pinned)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn cmd_snooze_inbox_item<R: Runtime>(
+    app: AppHandle<R>,
+    item_id: String,
+    snoozed_until: Option<i64>,
+) -> Result<(), String> {
+    let pool = app
+        .try_state::<SqlitePool>()
+        .ok_or_else(|| "db not initialized".to_string())?;
+    let account_db_id =
+        get_active_account_db_id(pool.inner()).ok_or_else(|| "no active account".to_string())?;
+    crate::cache::inbox_state::set_snoozed_until(
+        pool.inner(),
+        account_db_id,
+        &item_id,
+        snoozed_until,
+    )
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -482,5 +555,62 @@ mod tests {
             result[0].html_url.as_deref(),
             Some("https://github.com/octocat/hello/pull/10")
         );
+    }
+
+    fn make_item(id: &str) -> InboxItem {
+        InboxItem {
+            id: id.to_string(),
+            kind: "review_requested".to_string(),
+            repo: "octocat/hello".to_string(),
+            number: Some(1),
+            title: format!("Item {id}"),
+            html_url: None,
+            updated_at: "2026-07-16T00:00:00Z".to_string(),
+            unread: true,
+            pinned: false,
+        }
+    }
+
+    #[test]
+    fn apply_item_states_drops_actively_snoozed_items() {
+        use crate::cache::inbox_state::InboxItemState;
+        let mut states = std::collections::HashMap::new();
+        states.insert(
+            "snoozed".to_string(),
+            InboxItemState {
+                pinned: false,
+                snoozed_until: Some(2_000),
+            },
+        );
+        states.insert(
+            "expired".to_string(),
+            InboxItemState {
+                pinned: false,
+                snoozed_until: Some(500),
+            },
+        );
+        let items = vec![make_item("snoozed"), make_item("expired"), make_item("plain")];
+        let out = apply_item_states(items, &states, 1_000);
+        let ids: Vec<&str> = out.iter().map(|i| i.id.as_str()).collect();
+        assert_eq!(ids, vec!["expired", "plain"]);
+    }
+
+    #[test]
+    fn apply_item_states_floats_pinned_to_top_keeping_order() {
+        use crate::cache::inbox_state::InboxItemState;
+        let mut states = std::collections::HashMap::new();
+        states.insert(
+            "b".to_string(),
+            InboxItemState {
+                pinned: true,
+                snoozed_until: None,
+            },
+        );
+        let items = vec![make_item("a"), make_item("b"), make_item("c")];
+        let out = apply_item_states(items, &states, 1_000);
+        let ids: Vec<&str> = out.iter().map(|i| i.id.as_str()).collect();
+        assert_eq!(ids, vec!["b", "a", "c"]);
+        assert!(out[0].pinned);
+        assert!(!out[1].pinned);
     }
 }

@@ -35,8 +35,20 @@ pub const V3_ERROR_LOGS: Migration = Migration {
     sql: include_str!("sql/v3_error_logs.sql"),
 };
 
+/// v4: local pin / snooze state for inbox items.
+pub const V4_INBOX_ITEM_STATE: Migration = Migration {
+    version: 4,
+    name: "v4_inbox_item_state",
+    sql: include_str!("sql/v4_inbox_item_state.sql"),
+};
+
 /// All migrations known to the application, ordered by version.
-pub const MIGRATIONS: &[Migration] = &[V1_INITIAL, V2_NOTIFICATIONS_REPO, V3_ERROR_LOGS];
+pub const MIGRATIONS: &[Migration] = &[
+    V1_INITIAL,
+    V2_NOTIFICATIONS_REPO,
+    V3_ERROR_LOGS,
+    V4_INBOX_ITEM_STATE,
+];
 
 #[cfg(test)]
 mod tests {
@@ -166,7 +178,33 @@ mod tests {
 
     #[test]
     fn migrations_include_v3() {
-        assert_eq!(MIGRATIONS.len(), 3);
         assert_eq!(MIGRATIONS[2].version, 3);
+    }
+
+    fn apply_through(conn: &Connection, last_version: u32) {
+        for m in MIGRATIONS.iter().filter(|m| m.version <= last_version) {
+            conn.execute_batch(m.sql)
+                .unwrap_or_else(|e| panic!("{} should apply: {e}", m.name));
+        }
+    }
+
+    #[test]
+    fn v4_inbox_item_state_applies_after_v3() {
+        let conn = Connection::open_in_memory().unwrap();
+        apply_through(&conn, 4);
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='inbox_item_state'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 1, "inbox_item_state table should exist after v4");
+    }
+
+    #[test]
+    fn migrations_include_v4() {
+        assert_eq!(MIGRATIONS.len(), 4);
+        assert_eq!(MIGRATIONS[3].version, 4);
     }
 }

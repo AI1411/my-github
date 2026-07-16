@@ -68,9 +68,7 @@ export function FilterChips({
   };
   const toggleLabel = (label: string) => {
     const labels = filter.labels ?? [];
-    const next = labels.includes(label)
-      ? labels.filter((l) => l !== label)
-      : [...labels, label];
+    const next = labels.includes(label) ? labels.filter((l) => l !== label) : [...labels, label];
     onChange({ ...filter, labels: next });
   };
 
@@ -83,11 +81,7 @@ export function FilterChips({
         label={`State: ${filter.state ?? "any"}`}
         active={!!filter.state}
         onClick={toggleState}
-        onClear={
-          filter.state
-            ? () => onChange({ ...filter, state: undefined })
-            : undefined
-        }
+        onClear={filter.state ? () => onChange({ ...filter, state: undefined }) : undefined}
       />
       {availableRepos.length > 0 && (
         <Chip
@@ -95,9 +89,7 @@ export function FilterChips({
           active={!!filter.repoFullName}
           onClick={selectRepo}
           onClear={
-            filter.repoFullName
-              ? () => onChange({ ...filter, repoFullName: undefined })
-              : undefined
+            filter.repoFullName ? () => onChange({ ...filter, repoFullName: undefined }) : undefined
           }
         />
       )}
@@ -107,9 +99,7 @@ export function FilterChips({
           active={!!filter.authorLogin}
           onClick={selectAuthor}
           onClear={
-            filter.authorLogin
-              ? () => onChange({ ...filter, authorLogin: undefined })
-              : undefined
+            filter.authorLogin ? () => onChange({ ...filter, authorLogin: undefined }) : undefined
           }
         />
       )}

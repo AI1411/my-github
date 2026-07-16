@@ -1,18 +1,9 @@
 import type { WorkflowRunSummary } from "../../stores/dataStore";
 
-function StatusIcon({
-  status,
-  conclusion,
-}: {
-  status: string;
-  conclusion: string | null;
-}) {
+function StatusIcon({ status, conclusion }: { status: string; conclusion: string | null }) {
   if (status !== "completed") {
     return (
-      <span
-        style={{ color: "var(--accent-orange)" }}
-        aria-label="in-progress"
-      >
+      <span style={{ color: "var(--accent-orange)" }} aria-label="in-progress">
         ●
       </span>
     );
@@ -32,19 +23,13 @@ function StatusIcon({
     );
   }
   return (
-    <span
-      style={{ color: "var(--text-muted)" }}
-      aria-label={conclusion ?? "unknown"}
-    >
+    <span style={{ color: "var(--text-muted)" }} aria-label={conclusion ?? "unknown"}>
       ○
     </span>
   );
 }
 
-function formatDuration(
-  startedAt: string | null,
-  updatedAt: string,
-): string {
+function formatDuration(startedAt: string | null, updatedAt: string): string {
   if (!startedAt) return "—";
   const diffSec = Math.floor(
     (new Date(updatedAt).getTime() - new Date(startedAt).getTime()) / 1000,
@@ -69,24 +54,17 @@ export function WorkflowRunRow({ run, onOpenLogs }: WorkflowRunRowProps) {
         <StatusIcon status={run.status} conclusion={run.conclusion} />
       </div>
       <div className="flex-1 min-w-0">
-        <p
-          className="text-sm font-medium truncate"
-          style={{ color: "var(--text-primary)" }}
-        >
+        <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>
           {run.name}
         </p>
         <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
           {run.repo}
           {" · "}
           {run.headBranch ?? "unknown"}
-          {" · "}
-          #{run.runNumber}
+          {" · "}#{run.runNumber}
         </p>
       </div>
-      <span
-        className="text-xs tabular-nums flex-shrink-0"
-        style={{ color: "var(--text-muted)" }}
-      >
+      <span className="text-xs tabular-nums flex-shrink-0" style={{ color: "var(--text-muted)" }}>
         {formatDuration(run.runStartedAt, run.updatedAt)}
       </span>
       {run.conclusion === "failure" && onOpenLogs && (

@@ -15,19 +15,12 @@ export interface PullRowProps {
 
 const GRID: CSSProperties = {
   display: "grid",
-  gridTemplateColumns:
-    "24px 56px minmax(0,1fr) 140px 140px 100px 100px 72px",
+  gridTemplateColumns: "24px 56px minmax(0,1fr) 140px 140px 100px 100px 72px",
   alignItems: "center",
   gap: 12,
 };
 
-export function PullRow({
-  pull,
-  selected,
-  onSelect,
-  onOpen,
-  style,
-}: PullRowProps) {
+export function PullRow({ pull, selected, onSelect, onOpen, style }: PullRowProps) {
   const kind = classifyPull(pull);
   const bg = selected ? "var(--bg-overlay)" : "transparent";
   return (
@@ -66,10 +59,7 @@ export function PullRow({
         >
           {pull.title}
         </span>
-        <span
-          className="truncate text-[11px]"
-          style={{ color: "var(--text-muted)" }}
-        >
+        <span className="truncate text-[11px]" style={{ color: "var(--text-muted)" }}>
           {pull.repo} · {pull.headRef} → {pull.baseRef}
         </span>
       </div>
@@ -77,39 +67,24 @@ export function PullRow({
         {pull.author && (
           <>
             <Avatar login={pull.author} size="sm" />
-            <span
-              className="truncate text-xs"
-              style={{ color: "var(--text-secondary)" }}
-            >
+            <span className="truncate text-xs" style={{ color: "var(--text-secondary)" }}>
               {pull.author}
             </span>
           </>
         )}
       </div>
       <div>
-        <ReviewerGroup
-          reviewers={pull.requestedReviewers}
-          reviewState={pull.reviewState}
-        />
+        <ReviewerGroup reviewers={pull.requestedReviewers} reviewState={pull.reviewState} />
       </div>
-      <div
-        className="text-xs tabular-nums"
-        style={{ color: "var(--text-muted)" }}
-      >
+      <div className="text-xs tabular-nums" style={{ color: "var(--text-muted)" }}>
         {pull.changedFiles !== null ? `${pull.changedFiles} files` : "—"}
       </div>
-      <div
-        className="text-xs tabular-nums"
-        style={{ color: "var(--text-muted)" }}
-      >
+      <div className="text-xs tabular-nums" style={{ color: "var(--text-muted)" }}>
         {pull.additions !== null && pull.deletions !== null
           ? `+${pull.additions} -${pull.deletions}`
           : "—"}
       </div>
-      <div
-        className="text-xs text-right tabular-nums"
-        style={{ color: "var(--text-muted)" }}
-      >
+      <div className="text-xs text-right tabular-nums" style={{ color: "var(--text-muted)" }}>
         {formatRelativeTime(pull.updatedAt)}
       </div>
     </div>

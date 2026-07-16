@@ -19,11 +19,7 @@ export default function Dashboard({ user, onLogout }: Props) {
           className="w-12 h-12 rounded-full mx-auto mb-3 overflow-hidden"
           style={{ border: "2px solid var(--border-default)" }}
         >
-          <img
-            src={user.avatar_url}
-            alt={user.login}
-            className="w-full h-full object-cover"
-          />
+          <img src={user.avatar_url} alt={user.login} className="w-full h-full object-cover" />
         </div>
         <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
           {user.login}

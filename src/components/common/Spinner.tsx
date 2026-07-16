@@ -3,10 +3,7 @@ export interface SpinnerProps {
   color?: string;
 }
 
-export function Spinner({
-  className = "",
-  color = "var(--accent-blue)",
-}: SpinnerProps) {
+export function Spinner({ className = "", color = "var(--accent-blue)" }: SpinnerProps) {
   return (
     <span
       role="status"
@@ -17,10 +14,7 @@ export function Spinner({
   );
 }
 
-export function SpinnerLarge({
-  className = "",
-  color = "var(--accent-blue)",
-}: SpinnerProps) {
+export function SpinnerLarge({ className = "", color = "var(--accent-blue)" }: SpinnerProps) {
   return (
     <span
       role="status"

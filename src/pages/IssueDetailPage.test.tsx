@@ -33,10 +33,7 @@ function renderAt(path: string) {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
-        <Route
-          path="/issues/:owner/:repo/:number"
-          element={<IssueDetailPage />}
-        />
+        <Route path="/issues/:owner/:repo/:number" element={<IssueDetailPage />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -62,9 +59,7 @@ describe("IssueDetailPage", () => {
 
   it("renders the IssueOriginalPost (markdown body)", async () => {
     renderAt("/issues/octocat/alpha/7");
-    expect(
-      await screen.findByRole("heading", { name: "Steps" }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Steps" })).toBeInTheDocument();
   });
 
   it("renders the IssueSidebar with assignee", async () => {

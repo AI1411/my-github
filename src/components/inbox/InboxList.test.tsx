@@ -14,10 +14,19 @@ describe("InboxList", () => {
   it("renders Review Requests section with items", () => {
     const data = {
       ...empty,
-      reviewRequests: [{
-        id: "1", kind: "review_requested", repo: "o/r", number: null,
-        title: "Review me", htmlUrl: null, updatedAt: "2026-04-21T00:00:00Z", unread: true,
-      }],
+      reviewRequests: [
+        {
+          id: "1",
+          kind: "review_requested",
+          repo: "o/r",
+          number: null,
+          title: "Review me",
+          htmlUrl: null,
+          updatedAt: "2026-04-21T00:00:00Z",
+          unread: true,
+          pinned: false,
+        },
+      ],
     };
     render(<InboxList data={data} selectedId={null} onSelect={() => {}} />);
     expect(screen.getByText("Review Requests")).toBeInTheDocument();
@@ -27,10 +36,19 @@ describe("InboxList", () => {
   it("renders CI Failures section", () => {
     const data = {
       ...empty,
-      ciFailures: [{
-        id: "ci-1", kind: "ci_failure", repo: "o/r", number: 5,
-        title: "Build failed", htmlUrl: null, updatedAt: "2026-04-21T00:00:00Z", unread: true,
-      }],
+      ciFailures: [
+        {
+          id: "ci-1",
+          kind: "ci_failure",
+          repo: "o/r",
+          number: 5,
+          title: "Build failed",
+          htmlUrl: null,
+          updatedAt: "2026-04-21T00:00:00Z",
+          unread: true,
+          pinned: false,
+        },
+      ],
     };
     render(<InboxList data={data} selectedId={null} onSelect={() => {}} />);
     expect(screen.getByText("CI Failures")).toBeInTheDocument();
@@ -40,10 +58,19 @@ describe("InboxList", () => {
   it("renders Mentions section", () => {
     const data = {
       ...empty,
-      mentions: [{
-        id: "m1", kind: "mention", repo: "o/r", number: null,
-        title: "You were mentioned", htmlUrl: null, updatedAt: "2026-04-21T00:00:00Z", unread: true,
-      }],
+      mentions: [
+        {
+          id: "m1",
+          kind: "mention",
+          repo: "o/r",
+          number: null,
+          title: "You were mentioned",
+          htmlUrl: null,
+          updatedAt: "2026-04-21T00:00:00Z",
+          unread: true,
+          pinned: false,
+        },
+      ],
     };
     render(<InboxList data={data} selectedId={null} onSelect={() => {}} />);
     expect(screen.getByText("Mentions")).toBeInTheDocument();
@@ -52,10 +79,19 @@ describe("InboxList", () => {
   it("hides empty sections", () => {
     const data = {
       ...empty,
-      reviewRequests: [{
-        id: "1", kind: "review_requested", repo: "o/r", number: null,
-        title: "Review", htmlUrl: null, updatedAt: "2026-04-21T00:00:00Z", unread: true,
-      }],
+      reviewRequests: [
+        {
+          id: "1",
+          kind: "review_requested",
+          repo: "o/r",
+          number: null,
+          title: "Review",
+          htmlUrl: null,
+          updatedAt: "2026-04-21T00:00:00Z",
+          unread: true,
+          pinned: false,
+        },
+      ],
     };
     render(<InboxList data={data} selectedId={null} onSelect={() => {}} />);
     expect(screen.queryByText("CI Failures")).not.toBeInTheDocument();

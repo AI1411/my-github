@@ -49,11 +49,9 @@ export function CommandPalette() {
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useKeyboardShortcut(
-    { key: "k", meta: true, preventDefault: true },
-    toggle,
-    { allowInInputs: true },
-  );
+  useKeyboardShortcut({ key: "k", meta: true, preventDefault: true }, toggle, {
+    allowInInputs: true,
+  });
 
   useEffect(() => {
     if (isOpen) {
@@ -70,30 +68,31 @@ export function CommandPalette() {
     const prMatches = pulls
       .filter((p) => fuzzyMatch(query, p.title) || fuzzyMatch(query, p.repo))
       .slice(0, 5)
-      .map((p): CommandItem => ({
-        id: `pr-${p.repo}-${p.number}`,
-        label: p.title,
-        subtitle: `PR #${p.number} · ${p.repo}`,
-        kind: "pr",
-        href: `/pulls/${p.repo}/${p.number}`,
-      }));
+      .map(
+        (p): CommandItem => ({
+          id: `pr-${p.repo}-${p.number}`,
+          label: p.title,
+          subtitle: `PR #${p.number} · ${p.repo}`,
+          kind: "pr",
+          href: `/pulls/${p.repo}/${p.number}`,
+        }),
+      );
     const issueMatches = issues
       .filter((i) => fuzzyMatch(query, i.title) || fuzzyMatch(query, i.repo))
       .slice(0, 5)
-      .map((i): CommandItem => ({
-        id: `issue-${i.repo}-${i.number}`,
-        label: i.title,
-        subtitle: `Issue #${i.number} · ${i.repo}`,
-        kind: "issue",
-        href: `/issues/${i.repo}/${i.number}`,
-      }));
+      .map(
+        (i): CommandItem => ({
+          id: `issue-${i.repo}-${i.number}`,
+          label: i.title,
+          subtitle: `Issue #${i.number} · ${i.repo}`,
+          kind: "issue",
+          href: `/issues/${i.repo}/${i.number}`,
+        }),
+      );
     return [...navMatches, ...prMatches, ...issueMatches];
   }, [query, pulls, issues]);
 
-  const allItems = useMemo(
-    () => [...localItems, ...remoteResults],
-    [localItems, remoteResults],
-  );
+  const allItems = useMemo(() => [...localItems, ...remoteResults], [localItems, remoteResults]);
 
   useEffect(() => {
     setSelectedIndex(0);
@@ -107,10 +106,17 @@ export function CommandPalette() {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       setSearching(true);
-      invoke<{ id: number; number: number; title: string; state: string; htmlUrl: string; repo: string; kind: string }[]>(
-        "cmd_search_github",
-        { query },
-      )
+      invoke<
+        {
+          id: number;
+          number: number;
+          title: string;
+          state: string;
+          htmlUrl: string;
+          repo: string;
+          kind: string;
+        }[]
+      >("cmd_search_github", { query })
         .then((results) => {
           setRemoteResults(
             results.slice(0, 5).map((r) => ({
@@ -140,7 +146,10 @@ export function CommandPalette() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Escape") { close(); return; }
+    if (e.key === "Escape") {
+      close();
+      return;
+    }
     if (e.key === "ArrowDown") {
       e.preventDefault();
       setSelectedIndex((i) => Math.min(i + 1, allItems.length - 1));
@@ -175,10 +184,7 @@ export function CommandPalette() {
           className="flex items-center px-4 border-b"
           style={{ borderColor: "var(--border-default)" }}
         >
-          <span
-            className="mr-2 text-sm"
-            style={{ color: "var(--text-muted)" }}
-          >
+          <span className="mr-2 text-sm" style={{ color: "var(--text-muted)" }}>
             ⌘
           </span>
           <input
@@ -199,10 +205,7 @@ export function CommandPalette() {
         </div>
         <div className="max-h-80 overflow-y-auto py-1">
           {allItems.length === 0 && (
-            <p
-              className="px-4 py-3 text-sm"
-              style={{ color: "var(--text-muted)" }}
-            >
+            <p className="px-4 py-3 text-sm" style={{ color: "var(--text-muted)" }}>
               No results
             </p>
           )}
@@ -214,8 +217,7 @@ export function CommandPalette() {
               onClick={() => handleSelect(item)}
               className="px-4 py-2 flex items-center gap-3 cursor-pointer"
               style={{
-                backgroundColor:
-                  i === selectedIndex ? "var(--bg-tertiary)" : "transparent",
+                backgroundColor: i === selectedIndex ? "var(--bg-tertiary)" : "transparent",
               }}
             >
               <span
@@ -232,10 +234,7 @@ export function CommandPalette() {
                   {item.label}
                 </p>
                 {item.subtitle && (
-                  <p
-                    className="text-xs truncate"
-                    style={{ color: "var(--text-muted)" }}
-                  >
+                  <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>
                     {item.subtitle}
                   </p>
                 )}

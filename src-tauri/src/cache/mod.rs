@@ -6,6 +6,7 @@
 
 use thiserror::Error;
 
+pub mod inbox_state;
 pub mod issues;
 pub mod meta;
 pub mod notifications;

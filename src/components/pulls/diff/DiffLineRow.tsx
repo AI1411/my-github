@@ -36,29 +36,14 @@ const GUTTER: CSSProperties = {
   borderRight: "1px solid var(--border-subtle)",
 };
 
-export function DiffLineRow({
-  line,
-  showOld = true,
-  showNew = true,
-}: DiffLineRowProps) {
+export function DiffLineRow({ line, showOld = true, showNew = true }: DiffLineRowProps) {
   const sign = line.kind === "addition" ? "+" : line.kind === "deletion" ? "-" : " ";
   return (
-    <div
-      className="flex font-mono text-xs leading-5"
-      style={STYLE[line.kind]}
-    >
-      {showOld && (
-        <span style={GUTTER}>{line.oldNumber ?? ""}</span>
-      )}
-      {showNew && (
-        <span style={GUTTER}>{line.newNumber ?? ""}</span>
-      )}
-      <span style={{ width: 16, textAlign: "center", color: "var(--text-muted)" }}>
-        {sign}
-      </span>
-      <span className="whitespace-pre flex-1 overflow-x-auto">
-        {line.content}
-      </span>
+    <div className="flex font-mono text-xs leading-5" style={STYLE[line.kind]}>
+      {showOld && <span style={GUTTER}>{line.oldNumber ?? ""}</span>}
+      {showNew && <span style={GUTTER}>{line.newNumber ?? ""}</span>}
+      <span style={{ width: 16, textAlign: "center", color: "var(--text-muted)" }}>{sign}</span>
+      <span className="whitespace-pre flex-1 overflow-x-auto">{line.content}</span>
     </div>
   );
 }
