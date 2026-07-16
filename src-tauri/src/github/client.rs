@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-const USER_AGENT: &str = "pulse-app/0.1";
+const USER_AGENT: &str = "my-github/0.1";
 const GITHUB_API_BASE: &str = "https://api.github.com";
 
 #[derive(Debug, Error)]
@@ -98,8 +98,8 @@ mod tests {
     }
 
     #[test]
-    fn user_agent_contains_pulse() {
-        assert!(GithubClient::user_agent().contains("pulse"));
+    fn user_agent_contains_app_name() {
+        assert!(GithubClient::user_agent().contains("my-github"));
     }
 
     #[test]
@@ -128,7 +128,7 @@ mod tests {
             .unwrap();
         assert_eq!(auth, "Bearer gho_mytoken");
         let ua = req.headers().get("User-Agent").unwrap().to_str().unwrap();
-        assert_eq!(ua, "pulse-app/0.1");
+        assert_eq!(ua, "my-github/0.1");
         let accept = req.headers().get("Accept").unwrap().to_str().unwrap();
         assert_eq!(accept, "application/vnd.github+json");
     }

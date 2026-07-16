@@ -2489,6 +2489,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "my-github"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "graphql_client",
+ "keyring",
+ "octocrab",
+ "r2d2",
+ "r2d2_sqlite",
+ "reqwest 0.12.28",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-notification",
+ "tauri-plugin-opener",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
+]
+
+[[package]]
 name = "native-tls"
 version = "0.2.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4642,29 +4665,6 @@ dependencies = [
  "webview2-com",
  "window-vibrancy",
  "windows",
-]
-
-[[package]]
-name = "tauri-app"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "graphql_client",
- "keyring",
- "octocrab",
- "r2d2",
- "r2d2_sqlite",
- "reqwest 0.12.28",
- "rusqlite",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-notification",
- "tauri-plugin-opener",
- "tempfile",
- "thiserror 2.0.18",
- "tokio",
 ]
 
 [[package]]

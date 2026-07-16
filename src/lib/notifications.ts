@@ -14,7 +14,7 @@ import {
   type DesktopNotificationKind,
 } from "./notificationRoutes";
 
-const PULSE_OPEN_ACTION = "pulse-open";
+const APP_OPEN_ACTION = "pulse-open";
 
 let clickHandlerRegistered = false;
 
@@ -44,7 +44,7 @@ export async function ensureNotificationPermission(): Promise<boolean> {
   return (await requestPermission()) === "granted";
 }
 
-export async function sendPulseNotification(
+export async function sendAppNotification(
   notification: NotificationSummary,
   settings: NotificationSettings,
 ): Promise<boolean> {
@@ -56,7 +56,7 @@ export async function sendPulseNotification(
   const options: Options = {
     title: titleForKind(kind),
     body: `${notification.repo} · ${notification.subjectTitle}`,
-    actionTypeId: route ? PULSE_OPEN_ACTION : undefined,
+    actionTypeId: route ? APP_OPEN_ACTION : undefined,
     autoCancel: true,
     extra: route ? { route } : undefined,
     group: "pulse-notifications",
@@ -65,14 +65,14 @@ export async function sendPulseNotification(
   return true;
 }
 
-export async function registerPulseNotificationClickHandler(
+export async function registerAppNotificationClickHandler(
   onOpenRoute: (route: string) => void,
 ): Promise<void> {
   if (clickHandlerRegistered) return;
   await registerActionTypes([
     {
-      id: PULSE_OPEN_ACTION,
-      actions: [{ id: "open", title: "Open in Pulse", foreground: true }],
+      id: APP_OPEN_ACTION,
+      actions: [{ id: "open", title: "Open in my-github", foreground: true }],
     },
   ]);
   await onAction((notification) => {

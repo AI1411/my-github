@@ -7,7 +7,7 @@ use tokio::time::{interval, MissedTickBehavior};
 
 use crate::github::client::RateLimitInfo;
 
-/// Default Pulse polling interval when the app window is focused.
+/// Default my-github polling interval when the app window is focused.
 pub const DEFAULT_POLL_INTERVAL: Duration = Duration::from_secs(60);
 
 /// Spawn a polling loop that invokes `tick` at `period` intervals.

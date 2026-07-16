@@ -63,7 +63,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: Pulse ${{ github.ref_name }}
+          releaseName: my-github ${{ github.ref_name }}
           releaseBody: See CHANGELOG.md for release notes.
           releaseDraft: true
           prerelease: false

@@ -1,4 +1,4 @@
-//! Background synchronization for Pulse.
+//! Background synchronization for my-github.
 pub mod engine;
 pub mod issues;
 pub mod poller;

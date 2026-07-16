@@ -64,15 +64,9 @@ function Section({
   action?: ReactNode;
 }) {
   return (
-    <section
-      className="border-b px-6 py-5"
-      style={{ borderColor: "var(--border-subtle)" }}
-    >
+    <section className="border-b px-6 py-5" style={{ borderColor: "var(--border-subtle)" }}>
       <div className="mb-4 flex items-center justify-between gap-4">
-        <h2
-          className="text-sm font-semibold"
-          style={{ color: "var(--text-primary)" }}
-        >
+        <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
           {title}
         </h2>
         {action}
@@ -96,10 +90,7 @@ function Row({
       className="grid min-h-11 grid-cols-[220px_1fr] items-center gap-4 border-t py-2 first:border-t-0"
       style={sectionStyle()}
     >
-      <div
-        className="text-xs font-medium"
-        style={{ color: "var(--text-secondary)" }}
-      >
+      <div className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
         {label}
       </div>
       <div className="min-w-0 text-sm" style={{ color: "var(--text-primary)" }}>
@@ -180,31 +171,17 @@ export default function SettingsPage() {
   const pulls = useDataStore((state) => state.pulls);
   const issues = useDataStore((state) => state.issues);
   const notifications = useDataStore((state) => state.notifications);
-  const watchedRepositories = useSettingsStore(
-    (state) => state.watchedRepositories,
-  );
-  const notificationSettings = useSettingsStore(
-    (state) => state.notificationSettings,
-  );
+  const watchedRepositories = useSettingsStore((state) => state.watchedRepositories);
+  const notificationSettings = useSettingsStore((state) => state.notificationSettings);
   const pollingInterval = useSettingsStore((state) => state.pollingInterval);
   const dockBadgeEnabled = useSettingsStore((state) => state.dockBadgeEnabled);
   const density = useSettingsStore((state) => state.density);
   const shortcuts = useSettingsStore((state) => state.shortcuts);
-  const addWatchedRepository = useSettingsStore(
-    (state) => state.addWatchedRepository,
-  );
-  const removeWatchedRepository = useSettingsStore(
-    (state) => state.removeWatchedRepository,
-  );
-  const setNotificationSetting = useSettingsStore(
-    (state) => state.setNotificationSetting,
-  );
-  const setPollingInterval = useSettingsStore(
-    (state) => state.setPollingInterval,
-  );
-  const setDockBadgeEnabled = useSettingsStore(
-    (state) => state.setDockBadgeEnabled,
-  );
+  const addWatchedRepository = useSettingsStore((state) => state.addWatchedRepository);
+  const removeWatchedRepository = useSettingsStore((state) => state.removeWatchedRepository);
+  const setNotificationSetting = useSettingsStore((state) => state.setNotificationSetting);
+  const setPollingInterval = useSettingsStore((state) => state.setPollingInterval);
+  const setDockBadgeEnabled = useSettingsStore((state) => state.setDockBadgeEnabled);
   const setDensity = useSettingsStore((state) => state.setDensity);
   const setShortcut = useSettingsStore((state) => state.setShortcut);
   const resetShortcuts = useSettingsStore((state) => state.resetShortcuts);
@@ -255,7 +232,7 @@ export default function SettingsPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <Toolbar title="Settings" subtitle="Pulse v0.1.0" />
+      <Toolbar title="Settings" subtitle="my-github v0.1.0" />
       <Tabs
         items={SETTINGS_TABS}
         activeId={activeTab}
@@ -264,10 +241,7 @@ export default function SettingsPage() {
       />
       <div className="flex-1 overflow-y-auto">
         {activeTab === "accounts" && (
-          <Section
-            title="Accounts"
-            action={<InlineButton>Add account</InlineButton>}
-          >
+          <Section title="Accounts" action={<InlineButton>Add account</InlineButton>}>
             <Row label="Active account">
               <div className="flex items-center justify-between gap-3">
                 <span className="truncate">{user?.login ?? "Not signed in"}</span>
@@ -285,9 +259,7 @@ export default function SettingsPage() {
             <Row label="Actions">
               <div className="flex flex-wrap gap-2">
                 <InlineButton>Reauth</InlineButton>
-                <InlineButton onClick={() => void handleRemoveAccount()}>
-                  Remove
-                </InlineButton>
+                <InlineButton onClick={() => void handleRemoveAccount()}>Remove</InlineButton>
               </div>
             </Row>
           </Section>
@@ -317,24 +289,16 @@ export default function SettingsPage() {
                   color: "var(--text-primary)",
                 }}
               />
-              <InlineButton onClick={handleAddRepository}>
-                Add repository
-              </InlineButton>
+              <InlineButton onClick={handleAddRepository}>Add repository</InlineButton>
             </form>
             <div className="divide-y" style={sectionStyle()}>
               {watchedRepositories.length === 0 ? (
-                <p
-                  className="py-3 text-sm"
-                  style={{ color: "var(--text-muted)" }}
-                >
+                <p className="py-3 text-sm" style={{ color: "var(--text-muted)" }}>
                   No watched repositories
                 </p>
               ) : (
                 watchedRepositories.map((repo) => (
-                  <div
-                    key={repo}
-                    className="flex min-h-11 items-center justify-between gap-3 py-2"
-                  >
+                  <div key={repo} className="flex min-h-11 items-center justify-between gap-3 py-2">
                     <span className="truncate text-sm">{repo}</span>
                     <InlineButton
                       ariaLabel={`Remove ${repo}`}
@@ -350,10 +314,7 @@ export default function SettingsPage() {
               <Row label="Recent repositories">
                 <div className="flex flex-wrap gap-2">
                   {repoSuggestions.slice(0, 8).map((repo) => (
-                    <InlineButton
-                      key={repo}
-                      onClick={() => addWatchedRepository(repo)}
-                    >
+                    <InlineButton key={repo} onClick={() => addWatchedRepository(repo)}>
                       {repo}
                     </InlineButton>
                   ))}
@@ -382,9 +343,7 @@ export default function SettingsPage() {
               <Toggle
                 checked={notificationSettings.enabled}
                 label="Enabled"
-                onChange={(checked) =>
-                  setNotificationSetting("enabled", checked)
-                }
+                onChange={(checked) => setNotificationSetting("enabled", checked)}
               />
             </Row>
             <Row label="Notification types">
@@ -392,23 +351,17 @@ export default function SettingsPage() {
                 <Toggle
                   checked={notificationSettings.ciFailures}
                   label="CI failures"
-                  onChange={(checked) =>
-                    setNotificationSetting("ciFailures", checked)
-                  }
+                  onChange={(checked) => setNotificationSetting("ciFailures", checked)}
                 />
                 <Toggle
                   checked={notificationSettings.reviewRequests}
                   label="Review requests"
-                  onChange={(checked) =>
-                    setNotificationSetting("reviewRequests", checked)
-                  }
+                  onChange={(checked) => setNotificationSetting("reviewRequests", checked)}
                 />
                 <Toggle
                   checked={notificationSettings.mentions}
                   label="Mentions"
-                  onChange={(checked) =>
-                    setNotificationSetting("mentions", checked)
-                  }
+                  onChange={(checked) => setNotificationSetting("mentions", checked)}
                 />
               </div>
             </Row>
@@ -433,10 +386,7 @@ export default function SettingsPage() {
                 >
                   Comfortable
                 </InlineButton>
-                <InlineButton
-                  active={density === "compact"}
-                  onClick={() => setDensity("compact")}
-                >
+                <InlineButton active={density === "compact"} onClick={() => setDensity("compact")}>
                   Compact
                 </InlineButton>
               </div>
@@ -447,11 +397,7 @@ export default function SettingsPage() {
         {activeTab === "shortcuts" && (
           <Section
             title="Shortcuts"
-            action={
-              <InlineButton onClick={resetShortcuts}>
-                Reset shortcuts
-              </InlineButton>
-            }
+            action={<InlineButton onClick={resetShortcuts}>Reset shortcuts</InlineButton>}
           >
             <div className="divide-y" style={sectionStyle()}>
               {SHORTCUT_IDS.map((id) => (
@@ -485,7 +431,7 @@ export default function SettingsPage() {
         )}
 
         {activeTab === "about" && (
-          <Section title="About Pulse">
+          <Section title="About my-github">
             <Row label="Version" value={packageJson.version} />
             <Row label="License" value="MIT" />
             <Row label="GitHub API">
@@ -497,9 +443,7 @@ export default function SettingsPage() {
               ) : rateError ? (
                 <span style={{ color: "var(--accent-red)" }}>{rateError}</span>
               ) : rateLimitLoaded ? (
-                <span style={{ color: "var(--text-muted)" }}>
-                  Not synced yet
-                </span>
+                <span style={{ color: "var(--text-muted)" }}>Not synced yet</span>
               ) : (
                 <span style={{ color: "var(--text-muted)" }}>Loading</span>
               )}

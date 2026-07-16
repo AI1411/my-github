@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Pulse** — GitHub cross-repository dashboard desktop application.
+**my-github** — GitHub cross-repository dashboard desktop application.
 View-only in v0.1.0 (read PRs, Issues, CI, Notifications across multiple repos). Write operations open browser via ⌘K.
 
 Full requirements: `docs/requirments.md` | Task breakdown: `docs/tasks.md`

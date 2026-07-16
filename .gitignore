@@ -19,7 +19,7 @@ target/
 *.pdb
 **/mutants.out*/
 
-# SQLite (Pulse DB)
+# SQLite (my-github DB)
 *.db
 *.db-shm
 *.db-wal

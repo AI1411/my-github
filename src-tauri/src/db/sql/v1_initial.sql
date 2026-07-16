@@ -1,4 +1,4 @@
--- v1_initial: create baseline tables for Pulse.
+-- v1_initial: create baseline tables for my-github.
 -- Source of truth: docs/requirments.md §7 "データモデル (SQLite)".
 
 CREATE TABLE accounts (

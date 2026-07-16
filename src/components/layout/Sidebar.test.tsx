@@ -1,13 +1,10 @@
-import { render, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { updateUnreadBadge } from "../../lib/badge";
 import { useAuthStore } from "../../stores/authStore";
 import { useDataStore } from "../../stores/dataStore";
-import {
-  DEFAULT_SHORTCUTS,
-  useSettingsStore,
-} from "../../stores/settingsStore";
+import { DEFAULT_SHORTCUTS, useSettingsStore } from "../../stores/settingsStore";
 import { useUiStore } from "../../stores/uiStore";
 import { Sidebar } from "./Sidebar";
 
@@ -79,5 +76,15 @@ describe("Sidebar badge integration", () => {
     await waitFor(() => {
       expect(updateUnreadBadge).toHaveBeenCalledWith(1, true);
     });
+  });
+
+  it("shows the my-github app name", () => {
+    render(
+      <MemoryRouter>
+        <Sidebar />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("my-github")).toBeInTheDocument();
   });
 });

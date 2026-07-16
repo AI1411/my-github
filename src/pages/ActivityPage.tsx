@@ -8,7 +8,7 @@ import { EmptyState } from "../components/common/EmptyState";
 import { ActivityRow } from "../components/activity/ActivityRow";
 import { useNotificationsQuery } from "../features/activity/useNotificationsQuery";
 import { getTimeGroup } from "../lib/timeGroup";
-import { registerPulseNotificationClickHandler } from "../lib/notifications";
+import { registerAppNotificationClickHandler } from "../lib/notifications";
 import type { NotificationSummary } from "../stores/dataStore";
 
 type TabKey = "all" | "unread" | "participating" | "mentions" | "review";
@@ -64,7 +64,7 @@ export default function ActivityPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    void registerPulseNotificationClickHandler((route) => navigate(route));
+    void registerAppNotificationClickHandler((route) => navigate(route));
   }, [navigate]);
 
   const handleMarkAllRead = async () => {

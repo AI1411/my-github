@@ -4,7 +4,7 @@ Date: 2026-04-30
 
 ## Purpose
 
-Pulse is now broad enough that data freshness is becoming a product and maintenance risk. Pull requests, issues, inbox, CI, and notifications all depend on GitHub state, but the current implementation spreads refresh behavior across individual commands and page-specific flows. This makes failures hard to diagnose and makes future features more likely to duplicate API, cache, and rate-limit logic.
+my-github is now broad enough that data freshness is becoming a product and maintenance risk. Pull requests, issues, inbox, CI, and notifications all depend on GitHub state, but the current implementation spreads refresh behavior across individual commands and page-specific flows. This makes failures hard to diagnose and makes future features more likely to duplicate API, cache, and rate-limit logic.
 
 This design focuses on internal quality first: consolidate synchronization into a backend Sync Engine while preserving the existing cache-first UI behavior.
 

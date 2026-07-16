@@ -1,4 +1,4 @@
-# Pulse MVP タスク分解
+# my-github MVP タスク分解
 
 GitHub cross-repository dashboard (Tauri 2 + Rust + React + TypeScript).
 標準スコープ: Inbox / PR一覧・詳細 / Issues一覧・詳細 / CI / 検索 / 設定 / Activity。
@@ -22,7 +22,7 @@ GitHub cross-repository dashboard (Tauri 2 + Rust + React + TypeScript).
 
 ## M1: プロジェクトセットアップと基盤
 
-- [ ] M1-001 `pulse/` リポジトリ作成、`.gitignore` (Tauriテンプレート + `*.db` 追加) (15m)
+- [ ] M1-001 `my-github/` リポジトリ作成、`.gitignore` (Tauriテンプレート + `*.db` 追加) (15m)
 - [ ] M1-002 `cargo create-tauri-app` で Tauri 2 + React + TS + Vite 構成で初期化 (30m)
 - [x] M1-003 `package.json`: React 19 / TypeScript 5.x / Vite / Tailwind CSS v4 のバージョン固定 (15m)
 - [x] M1-004 Tailwind CSS v4 導入、`index.css` に `@import "tailwindcss"` と design tokens (CSS variables) 定義 (45m)

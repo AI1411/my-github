@@ -1,4 +1,4 @@
-//! Schema migrations for the Pulse SQLite database.
+//! Schema migrations for the my-github SQLite database.
 //!
 //! Each migration is represented as a [`Migration`] containing its version, a
 //! human readable name, and the SQL to apply. The migration runner

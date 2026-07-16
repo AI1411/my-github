@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { NotificationSummary } from "../../stores/dataStore";
 import { useDataStore } from "../../stores/dataStore";
 import { useSettingsStore } from "../../stores/settingsStore";
-import { sendPulseNotification } from "../../lib/notifications";
+import { sendAppNotification } from "../../lib/notifications";
 
 interface UseNotificationsQueryResult {
   notifications: NotificationSummary[];
@@ -34,7 +34,7 @@ export function useNotificationsQuery(): UseNotificationsQueryResult {
             continue;
           }
           notifiedThreadIds.add(notification.id);
-          void sendPulseNotification(notification, settings);
+          void sendAppNotification(notification, settings);
         }
       })
       .catch((e: unknown) => {

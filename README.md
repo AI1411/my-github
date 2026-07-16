@@ -1,10 +1,10 @@
-# Pulse
+# my-github
 
 > GitHub cross-repository dashboard desktop app — view PRs, Issues, CI status, and Notifications across multiple repos in one keyboard-driven window.
 
 <!-- Screenshot placeholder — add after first UI milestone -->
 <!--
-![Pulse screenshot](docs/screenshots/pulse-inbox.png)
+![my-github screenshot](docs/screenshots/my-github-inbox.png)
 -->
 
 ## Features (v0.1.0)

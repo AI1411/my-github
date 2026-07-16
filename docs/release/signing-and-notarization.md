@@ -1,6 +1,6 @@
 # Release Signing and Notarization
 
-Pulse v0.1.0 releases are built from `v*` tags by `.github/workflows/release.yml`.
+my-github v0.1.0 releases are built from `v*` tags by `.github/workflows/release.yml`.
 
 ## Required GitHub Secrets
 
@@ -28,8 +28,8 @@ pnpm tauri build
 On macOS, verify the built app after signing:
 
 ```bash
-codesign --verify --deep --strict src-tauri/target/release/bundle/macos/Pulse.app
-spctl --assess --type execute --verbose src-tauri/target/release/bundle/macos/Pulse.app
+codesign --verify --deep --strict src-tauri/target/release/bundle/macos/my-github.app
+spctl --assess --type execute --verbose src-tauri/target/release/bundle/macos/my-github.app
 ```
 
 The workflow keeps releases as drafts so the generated artifacts can be inspected before publishing.

@@ -31,7 +31,7 @@ export default function LoginPage({ onSuccess }: LoginPageProps) {
             className="text-3xl font-bold tracking-tight"
             style={{ color: "var(--text-primary)" }}
           >
-            Pulse
+            my-github
           </h1>
           <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
             GitHub cross-repository dashboard
@@ -49,14 +49,9 @@ export default function LoginPage({ onSuccess }: LoginPageProps) {
             onClick={() => setActiveTab("oauth")}
             className="px-5 py-2.5 text-sm font-medium transition-colors"
             style={{
-              color:
-                activeTab === "oauth"
-                  ? "var(--text-primary)"
-                  : "var(--text-secondary)",
+              color: activeTab === "oauth" ? "var(--text-primary)" : "var(--text-secondary)",
               borderBottom:
-                activeTab === "oauth"
-                  ? "2px solid var(--accent-blue)"
-                  : "2px solid transparent",
+                activeTab === "oauth" ? "2px solid var(--accent-blue)" : "2px solid transparent",
             }}
           >
             Device Flow
@@ -67,14 +62,9 @@ export default function LoginPage({ onSuccess }: LoginPageProps) {
             onClick={() => setActiveTab("pat")}
             className="px-5 py-2.5 text-sm font-medium transition-colors"
             style={{
-              color:
-                activeTab === "pat"
-                  ? "var(--text-primary)"
-                  : "var(--text-secondary)",
+              color: activeTab === "pat" ? "var(--text-primary)" : "var(--text-secondary)",
               borderBottom:
-                activeTab === "pat"
-                  ? "2px solid var(--accent-blue)"
-                  : "2px solid transparent",
+                activeTab === "pat" ? "2px solid var(--accent-blue)" : "2px solid transparent",
             }}
           >
             Personal Token

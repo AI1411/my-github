@@ -98,7 +98,7 @@ fn now_epoch_secs() -> String {
         .to_string()
 }
 
-pub fn pulse_db_path<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, DbError> {
+pub fn app_db_path<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, DbError> {
     use tauri::Manager;
     let data_dir = app
         .path()
@@ -147,16 +147,16 @@ mod tests {
     }
 
     #[test]
-    fn pulse_db_path_joins_pulse_db_filename() {
+    fn app_db_path_joins_legacy_db_filename() {
         let fake_data_dir = PathBuf::from("/tmp/app-data");
         let expected = fake_data_dir.join("pulse.db");
         assert_eq!(expected, PathBuf::from("/tmp/app-data/pulse.db"));
     }
 
     #[test]
-    fn pulse_db_path_signature_accepts_apphandle_runtime() {
+    fn app_db_path_signature_accepts_apphandle_runtime() {
         fn _sig<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, DbError> {
-            super::pulse_db_path(app)
+            super::app_db_path(app)
         }
     }
 

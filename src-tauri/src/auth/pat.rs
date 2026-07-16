@@ -61,7 +61,7 @@ pub async fn validate_pat(
         .get("https://api.github.com/user")
         .header("Accept", "application/vnd.github+json")
         .header("Authorization", format!("Bearer {}", token))
-        .header("User-Agent", "pulse-app")
+        .header("User-Agent", "my-github")
         .send()
         .await?;
 

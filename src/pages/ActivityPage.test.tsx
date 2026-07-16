@@ -2,13 +2,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
-import { registerPulseNotificationClickHandler } from "../lib/notifications";
+import { registerAppNotificationClickHandler } from "../lib/notifications";
 import ActivityPage from "./ActivityPage";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("../lib/notifications", () => ({
-  registerPulseNotificationClickHandler: vi.fn().mockResolvedValue(undefined),
-  sendPulseNotification: vi.fn().mockResolvedValue(true),
+  registerAppNotificationClickHandler: vi.fn().mockResolvedValue(undefined),
+  sendAppNotification: vi.fn().mockResolvedValue(true),
 }));
 
 const navigate = vi.fn();
@@ -85,11 +85,10 @@ describe("ActivityPage read state", () => {
     renderPage();
 
     await waitFor(() => {
-      expect(registerPulseNotificationClickHandler).toHaveBeenCalledTimes(1);
+      expect(registerAppNotificationClickHandler).toHaveBeenCalledTimes(1);
     });
-    const onOpenRoute = (
-      registerPulseNotificationClickHandler as ReturnType<typeof vi.fn>
-    ).mock.calls[0][0] as (route: string) => void;
+    const onOpenRoute = (registerAppNotificationClickHandler as ReturnType<typeof vi.fn>).mock
+      .calls[0][0] as (route: string) => void;
     onOpenRoute("/pulls/octocat/hello/9");
 
     expect(navigate).toHaveBeenCalledWith("/pulls/octocat/hello/9");

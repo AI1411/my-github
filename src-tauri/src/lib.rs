@@ -20,7 +20,7 @@ pub fn run() {
         .setup(|app| {
             use tauri::Manager;
             let handle = app.handle().clone();
-            let db_path = db::pulse_db_path(&handle)?;
+            let db_path = db::app_db_path(&handle)?;
             let pool = db::init_pool(&db_path)?;
             db::run_migrations(&pool)?;
             app.manage(pool);

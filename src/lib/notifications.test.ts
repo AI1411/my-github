@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Options } from "@tauri-apps/plugin-notification";
 import {
   ensureNotificationPermission,
-  registerPulseNotificationClickHandler,
-  sendPulseNotification,
+  registerAppNotificationClickHandler,
+  sendAppNotification,
 } from "./notifications";
 
 const notificationPlugin = vi.hoisted(() => ({
@@ -57,14 +57,14 @@ describe("ensureNotificationPermission", () => {
   });
 });
 
-describe("sendPulseNotification", () => {
+describe("sendAppNotification", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     notificationPlugin.isPermissionGranted.mockResolvedValue(true);
   });
 
   it("sends review request notifications with click route payload", async () => {
-    await sendPulseNotification(reviewNotification, settings);
+    await sendAppNotification(reviewNotification, settings);
 
     expect(notificationPlugin.sendNotification).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -77,7 +77,7 @@ describe("sendPulseNotification", () => {
   });
 
   it("skips disabled notification settings", async () => {
-    await sendPulseNotification(reviewNotification, {
+    await sendAppNotification(reviewNotification, {
       ...settings,
       enabled: false,
     });
@@ -86,7 +86,7 @@ describe("sendPulseNotification", () => {
   });
 
   it("skips disabled notification types", async () => {
-    await sendPulseNotification(reviewNotification, {
+    await sendAppNotification(reviewNotification, {
       ...settings,
       reviewRequests: false,
     });
@@ -95,7 +95,7 @@ describe("sendPulseNotification", () => {
   });
 });
 
-describe("registerPulseNotificationClickHandler", () => {
+describe("registerAppNotificationClickHandler", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -108,10 +108,8 @@ describe("registerPulseNotificationClickHandler", () => {
     });
     const onOpenRoute = vi.fn();
 
-    await registerPulseNotificationClickHandler(onOpenRoute);
-    const registeredCallback = callback as unknown as (
-      notification: Options,
-    ) => void;
+    await registerAppNotificationClickHandler(onOpenRoute);
+    const registeredCallback = callback as unknown as (notification: Options) => void;
     expect(registeredCallback).toBeTypeOf("function");
     registeredCallback({
       title: "Review requested",
@@ -121,7 +119,7 @@ describe("registerPulseNotificationClickHandler", () => {
     expect(notificationPlugin.registerActionTypes).toHaveBeenCalledWith([
       {
         id: "pulse-open",
-        actions: [{ id: "open", title: "Open in Pulse", foreground: true }],
+        actions: [{ id: "open", title: "Open in my-github", foreground: true }],
       },
     ]);
     expect(onOpenRoute).toHaveBeenCalledWith("/pulls/AI1411/my-github/189");

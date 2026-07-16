@@ -61,7 +61,7 @@ pub async fn cmd_ping() -> Result<bool, String> {
         .map_err(|error| error.to_string())?;
     let response = client
         .get("https://api.github.com/rate_limit")
-        .header(reqwest::header::USER_AGENT, "Pulse")
+        .header(reqwest::header::USER_AGENT, "my-github")
         .send()
         .await;
     Ok(response

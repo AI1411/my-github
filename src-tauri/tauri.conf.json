@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Pulse",
+  "productName": "my-github",
   "version": "0.1.0",
   "identifier": "dev.ai1411.pulse",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Pulse",
+        "title": "my-github",
         "width": 1280,
         "height": 800,
         "minWidth": 960,
@@ -31,7 +31,7 @@
     "license": "MIT",
     "category": "DeveloperTool",
     "shortDescription": "GitHub cross-repository dashboard",
-    "longDescription": "Pulse is a keyboard-driven GitHub dashboard for reviewing pull requests, issues, CI, and notifications across repositories.",
+    "longDescription": "my-github is a keyboard-driven GitHub dashboard for reviewing pull requests, issues, CI, and notifications across repositories.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
