@@ -5,8 +5,10 @@ use crate::auth::token_store::{load_last_account_id, load_token};
 use crate::commands::sync::run_sync_for_scopes;
 use crate::db::SqlitePool;
 use crate::github::client::GithubClient;
-use crate::github::rest::get_pull_request_files;
-use crate::github::types::{PullRequest, PullRequestFile};
+use crate::github::rest::{
+    get_check_runs, get_pull_request, get_pull_request_files, list_pull_request_reviews,
+};
+use crate::github::types::{CheckRun, PullRequest, PullRequestFile, Review};
 use crate::sync::types::{SyncReport, SyncScope, SyncStepStatus};
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -245,6 +247,133 @@ impl From<PullRequestFile> for FileDiff {
     }
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MergeReadiness {
+    pub mergeable: Option<bool>,
+    pub mergeable_state: Option<String>,
+    pub approvals: u32,
+    pub changes_requested: u32,
+    pub ci_state: Option<String>,
+    pub is_draft: bool,
+    pub ready: bool,
+    pub blockers: Vec<String>,
+}
+
+/// Reduces a chronological review list to each reviewer's latest meaningful
+/// state (APPROVED / CHANGES_REQUESTED). COMMENTED / DISMISSED do not override
+/// an earlier approval the way GitHub's own UI counts them; DISMISSED clears it.
+fn summarize_reviews(reviews: &[Review]) -> (u32, u32) {
+    use std::collections::HashMap;
+    let mut latest: HashMap<&str, &str> = HashMap::new();
+    for review in reviews {
+        match review.state.as_str() {
+            "APPROVED" | "CHANGES_REQUESTED" => {
+                latest.insert(review.user.login.as_str(), review.state.as_str());
+            }
+            "DISMISSED" => {
+                latest.remove(review.user.login.as_str());
+            }
+            _ => {}
+        }
+    }
+    let approvals = latest.values().filter(|s| **s == "APPROVED").count() as u32;
+    let changes_requested = latest
+        .values()
+        .filter(|s| **s == "CHANGES_REQUESTED")
+        .count() as u32;
+    (approvals, changes_requested)
+}
+
+/// Collapses check runs to a single CI state: failure > pending > success.
+/// Returns None when there are no check runs.
+fn summarize_check_runs(runs: &[CheckRun]) -> Option<String> {
+    if runs.is_empty() {
+        return None;
+    }
+    let any_failure = runs.iter().any(|r| {
+        matches!(
+            r.conclusion.as_deref(),
+            Some("failure") | Some("timed_out") | Some("cancelled")
+        )
+    });
+    if any_failure {
+        return Some("failure".to_string());
+    }
+    let any_pending = runs.iter().any(|r| r.status != "completed");
+    if any_pending {
+        return Some("pending".to_string());
+    }
+    Some("success".to_string())
+}
+
+fn compute_merge_readiness(
+    pr: &PullRequest,
+    reviews: &[Review],
+    runs: &[CheckRun],
+) -> MergeReadiness {
+    let (approvals, changes_requested) = summarize_reviews(reviews);
+    let ci_state = summarize_check_runs(runs);
+    let mut blockers: Vec<String> = Vec::new();
+
+    if pr.draft {
+        blockers.push("Draft".to_string());
+    }
+    if pr.mergeable == Some(false) || pr.mergeable_state.as_deref() == Some("dirty") {
+        blockers.push("Merge conflicts".to_string());
+    }
+    match ci_state.as_deref() {
+        Some("failure") => blockers.push("CI failing".to_string()),
+        Some("pending") => blockers.push("CI running".to_string()),
+        _ => {}
+    }
+    if changes_requested > 0 {
+        blockers.push("Changes requested".to_string());
+    }
+    if approvals == 0 {
+        blockers.push("No approvals yet".to_string());
+    }
+    if blockers.is_empty() && pr.mergeable_state.as_deref() == Some("blocked") {
+        blockers.push("Blocked by branch protection".to_string());
+    }
+    if blockers.is_empty() && pr.mergeable_state.as_deref() == Some("behind") {
+        blockers.push("Branch behind base".to_string());
+    }
+
+    MergeReadiness {
+        mergeable: pr.mergeable,
+        mergeable_state: pr.mergeable_state.clone(),
+        approvals,
+        changes_requested,
+        ci_state,
+        is_draft: pr.draft,
+        ready: blockers.is_empty(),
+        blockers,
+    }
+}
+
+#[tauri::command]
+pub async fn cmd_get_merge_readiness(
+    owner: String,
+    repo: String,
+    number: u32,
+) -> Result<MergeReadiness, String> {
+    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
+    let token = load_token(&account_id).ok_or_else(|| "no token for account".to_string())?;
+    let client = GithubClient::new(token);
+    let pr = get_pull_request(&client, &owner, &repo, number)
+        .await
+        .map_err(|e| e.to_string())?;
+    let reviews = list_pull_request_reviews(&client, &owner, &repo, number)
+        .await
+        .unwrap_or_default();
+    let runs = get_check_runs(&client, &owner, &repo, &pr.head.sha)
+        .await
+        .map(|resp| resp.check_runs)
+        .unwrap_or_default();
+    Ok(compute_merge_readiness(&pr, &reviews, &runs))
+}
+
 #[tauri::command]
 pub async fn cmd_get_pull_files(
     owner: String,
@@ -302,6 +431,8 @@ mod tests {
                 repo: None,
             },
             requested_reviewers: vec![],
+            mergeable: None,
+            mergeable_state: None,
         }
     }
 
@@ -456,5 +587,135 @@ mod tests {
             ),
             None
         );
+    }
+
+    fn review(login: &str, state: &str) -> Review {
+        Review {
+            id: 1,
+            user: User {
+                id: 1,
+                login: login.into(),
+                avatar_url: "".into(),
+                html_url: "".into(),
+                name: None,
+            },
+            body: "".into(),
+            state: state.into(),
+            html_url: "".into(),
+            submitted_at: None,
+            commit_id: "abc".into(),
+        }
+    }
+
+    fn check_run(status: &str, conclusion: Option<&str>) -> CheckRun {
+        CheckRun {
+            id: 1,
+            name: "ci".into(),
+            status: status.into(),
+            conclusion: conclusion.map(String::from),
+            started_at: None,
+            completed_at: None,
+            html_url: "".into(),
+            app: crate::github::types::CheckApp {
+                id: 1,
+                name: "Actions".into(),
+            },
+        }
+    }
+
+    #[test]
+    fn summarize_reviews_counts_latest_state_per_reviewer() {
+        let reviews = vec![
+            review("alice", "CHANGES_REQUESTED"),
+            review("alice", "APPROVED"),
+            review("bob", "COMMENTED"),
+            review("carol", "CHANGES_REQUESTED"),
+        ];
+        let (approvals, changes_requested) = summarize_reviews(&reviews);
+        assert_eq!(approvals, 1);
+        assert_eq!(changes_requested, 1);
+    }
+
+    #[test]
+    fn summarize_reviews_dismissed_clears_previous_state() {
+        let reviews = vec![review("alice", "APPROVED"), review("alice", "DISMISSED")];
+        let (approvals, changes_requested) = summarize_reviews(&reviews);
+        assert_eq!(approvals, 0);
+        assert_eq!(changes_requested, 0);
+    }
+
+    #[test]
+    fn summarize_check_runs_failure_wins_over_pending() {
+        let runs = vec![
+            check_run("completed", Some("failure")),
+            check_run("in_progress", None),
+        ];
+        assert_eq!(summarize_check_runs(&runs).as_deref(), Some("failure"));
+    }
+
+    #[test]
+    fn summarize_check_runs_pending_wins_over_success() {
+        let runs = vec![
+            check_run("completed", Some("success")),
+            check_run("queued", None),
+        ];
+        assert_eq!(summarize_check_runs(&runs).as_deref(), Some("pending"));
+    }
+
+    #[test]
+    fn summarize_check_runs_empty_is_none() {
+        assert_eq!(summarize_check_runs(&[]), None);
+    }
+
+    #[test]
+    fn compute_merge_readiness_ready_when_approved_and_green() {
+        let mut pr = sample_pr(1, "Ready PR", "open", false);
+        pr.mergeable = Some(true);
+        pr.mergeable_state = Some("clean".into());
+        let readiness = compute_merge_readiness(
+            &pr,
+            &[review("alice", "APPROVED")],
+            &[check_run("completed", Some("success"))],
+        );
+        assert!(readiness.ready);
+        assert!(readiness.blockers.is_empty());
+        assert_eq!(readiness.approvals, 1);
+    }
+
+    #[test]
+    fn compute_merge_readiness_collects_all_blockers() {
+        let mut pr = sample_pr(1, "Blocked PR", "open", true);
+        pr.mergeable = Some(false);
+        pr.mergeable_state = Some("dirty".into());
+        let readiness = compute_merge_readiness(
+            &pr,
+            &[review("alice", "CHANGES_REQUESTED")],
+            &[check_run("completed", Some("failure"))],
+        );
+        assert!(!readiness.ready);
+        assert_eq!(
+            readiness.blockers,
+            vec![
+                "Draft",
+                "Merge conflicts",
+                "CI failing",
+                "Changes requested",
+                "No approvals yet"
+            ]
+        );
+    }
+
+    #[test]
+    fn compute_merge_readiness_branch_protection_blocked() {
+        let mut pr = sample_pr(1, "Protected PR", "open", false);
+        pr.mergeable = Some(true);
+        pr.mergeable_state = Some("blocked".into());
+        let readiness = compute_merge_readiness(
+            &pr,
+            &[review("alice", "APPROVED")],
+            &[check_run("completed", Some("success"))],
+        );
+        assert!(!readiness.ready);
+        assert_eq!(readiness.blockers, vec!["Blocked by branch protection"]);
     }
 }

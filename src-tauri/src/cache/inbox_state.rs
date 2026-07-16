@@ -62,7 +62,12 @@ pub fn set_snoozed_until(
          ON CONFLICT(account_id, item_id) DO UPDATE SET
              snoozed_until = excluded.snoozed_until,
              updated_at = excluded.updated_at",
-        params![account_id, item_id, snoozed_until, now_epoch_secs().to_string()],
+        params![
+            account_id,
+            item_id,
+            snoozed_until,
+            now_epoch_secs().to_string()
+        ],
     )?;
     Ok(())
 }

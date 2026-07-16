@@ -1,7 +1,7 @@
 use crate::github::client::{ClientError, GithubClient, RateLimitInfo};
 use crate::github::types::{
     CheckRunsResponse, Issue, IssueComment, Notification, PullRequest, PullRequestFile, Repository,
-    SearchIssueItem, SearchIssuesResponse, WorkflowRun, WorkflowRunsResponse,
+    Review, SearchIssueItem, SearchIssuesResponse, WorkflowRun, WorkflowRunsResponse,
 };
 
 fn has_next_page(headers: &reqwest::header::HeaderMap) -> bool {
@@ -251,6 +251,41 @@ pub async fn list_issue_comments(
         page += 1;
     }
     Ok(comments)
+}
+
+pub async fn list_pull_request_reviews(
+    client: &GithubClient,
+    owner: &str,
+    repo: &str,
+    number: u32,
+) -> Result<Vec<Review>, ClientError> {
+    let mut reviews: Vec<Review> = Vec::new();
+    let mut page = 1u32;
+    loop {
+        let resp = client
+            .get(&format!(
+                "/repos/{}/{}/pulls/{}/reviews?per_page=100&page={}",
+                owner, repo, number, page
+            ))
+            .send()
+            .await?;
+        let status = resp.status();
+        if !status.is_success() {
+            let message = resp.text().await.unwrap_or_default();
+            return Err(ClientError::Api {
+                status: status.as_u16(),
+                message,
+            });
+        }
+        let has_next = has_next_page(resp.headers());
+        let page_reviews: Vec<Review> = resp.json().await?;
+        reviews.extend(page_reviews);
+        if !has_next {
+            break;
+        }
+        page += 1;
+    }
+    Ok(reviews)
 }
 
 pub async fn get_check_runs(

@@ -589,7 +589,11 @@ mod tests {
                 snoozed_until: Some(500),
             },
         );
-        let items = vec![make_item("snoozed"), make_item("expired"), make_item("plain")];
+        let items = vec![
+            make_item("snoozed"),
+            make_item("expired"),
+            make_item("plain"),
+        ];
         let out = apply_item_states(items, &states, 1_000);
         let ids: Vec<&str> = out.iter().map(|i| i.id.as_str()).collect();
         assert_eq!(ids, vec!["expired", "plain"]);

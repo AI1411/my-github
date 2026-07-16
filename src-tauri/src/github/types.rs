@@ -60,6 +60,13 @@ pub struct PullRequest {
     pub base: PrRef,
     #[serde(default)]
     pub requested_reviewers: Vec<User>,
+    /// Only present on the single-PR endpoint (`GET /pulls/{number}`).
+    #[serde(default)]
+    pub mergeable: Option<bool>,
+    /// Only present on the single-PR endpoint: clean / dirty / blocked /
+    /// behind / unstable / draft / unknown.
+    #[serde(default)]
+    pub mergeable_state: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

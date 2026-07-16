@@ -6,6 +6,7 @@ import { Spinner } from "../components/common/Spinner";
 import { EmptyState } from "../components/common/EmptyState";
 import { useDataStore } from "../stores/dataStore";
 import { CiBanner } from "../components/pulls/CiBanner";
+import { MergeReadinessBadge } from "../components/pulls/MergeReadinessBadge";
 import { PrSummaryCard } from "../components/pulls/PrSummaryCard";
 import { PrSidebar } from "../components/pulls/PrSidebar";
 import { PrFooterBar } from "../components/pulls/PrFooterBar";
@@ -119,6 +120,9 @@ export default function PullDetailPage() {
         style={{ borderColor: "var(--border-subtle)" }}
       >
         <StatusPill status={statusLabel} />
+        {statusLabel === "open" && owner && repo && num !== undefined && (
+          <MergeReadinessBadge owner={owner} repo={repo} number={num} />
+        )}
         <h1
           className="text-base font-semibold flex-1 min-w-0 truncate"
           style={{ color: "var(--text-primary)" }}

@@ -38,6 +38,7 @@ pub fn run() {
             commands::sync::cmd_get_sync_status,
             commands::pulls::cmd_list_pulls,
             commands::pulls::cmd_get_pull_files,
+            commands::pulls::cmd_get_merge_readiness,
             commands::issues::cmd_list_issues,
             commands::issues::cmd_get_issue,
             commands::issues::cmd_list_issue_comments,
