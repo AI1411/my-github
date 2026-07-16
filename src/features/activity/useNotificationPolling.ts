@@ -23,6 +23,7 @@ export function useNotificationPolling(): NotificationPollingState {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const deliveredIds = useRef(new Set<string>());
+  const deliveringIds = useRef(new Map<string, number>());
   const deliveredAccount = useRef<string | null>(null);
   const generation = useRef(0);
 
@@ -36,15 +37,28 @@ export function useNotificationPolling(): NotificationPollingState {
       useDataStore.getState().setNotifications(notifications);
       const settings = useSettingsStore.getState().notificationSettings;
       for (const notification of notifications) {
-        if (!notification.unread || deliveredIds.current.has(notification.id)) {
+        if (currentGeneration !== generation.current) return;
+        if (
+          !notification.unread ||
+          deliveredIds.current.has(notification.id) ||
+          deliveringIds.current.has(notification.id)
+        ) {
           continue;
         }
+        if (currentGeneration !== generation.current) return;
+        deliveringIds.current.set(notification.id, currentGeneration);
         try {
-          if (await sendAppNotification(notification, settings)) {
+          const sent = await sendAppNotification(notification, settings);
+          if (currentGeneration !== generation.current) return;
+          if (sent) {
             deliveredIds.current.add(notification.id);
           }
         } catch {
           // Delivery failures are retried on a later poll.
+        } finally {
+          if (deliveringIds.current.get(notification.id) === currentGeneration) {
+            deliveringIds.current.delete(notification.id);
+          }
         }
       }
     } catch (cause) {
@@ -58,6 +72,7 @@ export function useNotificationPolling(): NotificationPollingState {
     generation.current += 1;
     if (deliveredAccount.current !== accountId) {
       deliveredIds.current.clear();
+      deliveringIds.current.clear();
       deliveredAccount.current = accountId;
     }
     if (!accountId) return;

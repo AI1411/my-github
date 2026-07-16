@@ -26,6 +26,12 @@ const unreadNotification: NotificationSummary = {
   updatedAt: "2026-07-16T00:00:00Z",
 };
 
+const secondUnreadNotification: NotificationSummary = {
+  ...unreadNotification,
+  id: "review-2",
+  subjectTitle: "Review another PR",
+};
+
 describe("useNotificationPolling", () => {
   beforeEach(() => {
     vi.useRealTimers();
@@ -155,5 +161,59 @@ describe("useNotificationPolling", () => {
     expect(useDataStore.getState().notifications).toEqual([]);
     expect(sendAppNotificationMock).not.toHaveBeenCalled();
     expect(invokeMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops stale delivery when the account changes during notification sending", async () => {
+    useSettingsStore.getState().setPollingInterval("off");
+    let resolveSend!: (sent: boolean) => void;
+    sendAppNotificationMock.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveSend = resolve;
+      }),
+    );
+    invokeMock
+      .mockResolvedValueOnce([unreadNotification, secondUnreadNotification])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([unreadNotification]);
+
+    let result!: { current: NotificationPollingState };
+    await act(async () => {
+      ({ result } = renderHook(() => useNotificationPolling()));
+    });
+    await vi.waitFor(() => expect(sendAppNotificationMock).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      useAuthStore.getState().setUser({ login: "hubot", avatar_url: "" });
+    });
+    await vi.waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(2));
+    await act(async () => resolveSend(true));
+
+    await act(async () => result.current.refetch());
+    await vi.waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(3));
+    await vi.waitFor(() => expect(sendAppNotificationMock).toHaveBeenCalledTimes(2));
+    expect(sendAppNotificationMock).toHaveBeenNthCalledWith(
+      2,
+      unreadNotification,
+      useSettingsStore.getState().notificationSettings,
+    );
+  });
+
+  it("does not send duplicates when refetch calls overlap", async () => {
+    useSettingsStore.getState().setPollingInterval("off");
+    invokeMock.mockResolvedValueOnce([]).mockResolvedValue([unreadNotification]);
+
+    let result!: { current: NotificationPollingState };
+    await act(async () => {
+      ({ result } = renderHook(() => useNotificationPolling()));
+    });
+    await vi.waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      result.current.refetch();
+      result.current.refetch();
+    });
+
+    await vi.waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(3));
+    await vi.waitFor(() => expect(sendAppNotificationMock).toHaveBeenCalledTimes(1));
   });
 });
