@@ -75,8 +75,13 @@ export function useNotificationPolling(): NotificationPollingState {
       deliveringIds.current.clear();
       deliveredAccount.current = accountId;
     }
-    if (!accountId) return;
+    return () => {
+      generation.current += 1;
+    };
+  }, [accountId]);
 
+  useEffect(() => {
+    if (!accountId) return;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const poll = async () => {
@@ -89,7 +94,6 @@ export function useNotificationPolling(): NotificationPollingState {
 
     return () => {
       cancelled = true;
-      generation.current += 1;
       if (timer) clearTimeout(timer);
     };
   }, [accountId, fetchNotifications, pollingInterval]);

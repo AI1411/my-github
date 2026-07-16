@@ -216,4 +216,30 @@ describe("useNotificationPolling", () => {
     await vi.waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(3));
     await vi.waitFor(() => expect(sendAppNotificationMock).toHaveBeenCalledTimes(1));
   });
+
+  it("keeps successful delivery deduplication when the polling interval changes", async () => {
+    vi.useFakeTimers();
+    let resolveSend!: (sent: boolean) => void;
+    sendAppNotificationMock.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveSend = resolve;
+      }),
+    );
+    invokeMock.mockResolvedValue([unreadNotification]);
+
+    await act(async () => {
+      renderHook(() => useNotificationPolling());
+    });
+    await vi.waitFor(() => expect(sendAppNotificationMock).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      useSettingsStore.getState().setPollingInterval("60s");
+    });
+    await vi.waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(2));
+    await act(async () => resolveSend(true));
+
+    await act(() => vi.advanceTimersByTimeAsync(60_000));
+    await vi.waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(3));
+    expect(sendAppNotificationMock).toHaveBeenCalledTimes(1);
+  });
 });
