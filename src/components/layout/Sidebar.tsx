@@ -24,6 +24,8 @@ export function Sidebar({ onSignOut }: SidebarProps) {
   const issues = useDataStore((s) => s.issues);
   const notifications = useDataStore((s) => s.notifications);
   const dockBadgeEnabled = useSettingsStore((s) => s.dockBadgeEnabled);
+  const savedFilters = useSettingsStore((s) => s.savedFilters);
+  const removeSavedFilter = useSettingsStore((s) => s.removeSavedFilter);
   const openSwitcher = useUiStore((s) => s.openWorkspaceSwitcher);
 
   const unreadCount = notifications.filter((n) => n.unread).length;
@@ -92,6 +94,40 @@ export function Sidebar({ onSignOut }: SidebarProps) {
               </li>
             ))}
           </ul>
+
+          {savedFilters.length > 0 && (
+            <div className="mt-4 px-2">
+              <p
+                className="px-3 pb-1 text-[11px] uppercase tracking-wider font-semibold"
+                style={{ color: "var(--text-muted)" }}
+              >
+                Views
+              </p>
+              <ul className="flex flex-col gap-0.5">
+                {savedFilters.map((view) => (
+                  <li key={view.id} className="group flex items-center">
+                    <NavLink
+                      to={`/${view.target}?${view.query}`}
+                      className="flex-1 min-w-0 px-3 py-1.5 rounded-md text-sm truncate transition-colors"
+                      style={{ color: "var(--text-secondary)", fontWeight: 500 }}
+                      title={`${view.target}: ${view.name}`}
+                    >
+                      {view.name}
+                    </NavLink>
+                    <button
+                      type="button"
+                      aria-label={`Remove view ${view.name}`}
+                      onClick={() => removeSavedFilter(view.id)}
+                      className="hidden group-hover:block px-1.5 text-xs"
+                      style={{ color: "var(--text-muted)" }}
+                    >
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </nav>
 
         <div

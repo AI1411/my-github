@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Toolbar } from "../components/common/Toolbar";
 import { EmptyState } from "../components/common/EmptyState";
@@ -9,6 +9,8 @@ import { PullRow } from "../components/pulls/PullRow";
 import { FilterChips } from "../components/pulls/FilterChips";
 import { usePullsQuery, type PullFilter, type PullTab } from "../features/pulls/usePullsQuery";
 import { useListNavigation } from "../hooks/useListNavigation";
+import { pullFilterToQuery, queryToPullFilter } from "../lib/savedFilters";
+import { useSettingsStore } from "../stores/settingsStore";
 
 const TABS: TabItem<PullTab>[] = [
   { id: "created", label: "Created" },
@@ -21,13 +23,22 @@ const TABS: TabItem<PullTab>[] = [
 const ROW_HEIGHT = 56;
 
 export default function PullsPage() {
-  const [filter, setFilter] = useState<PullFilter>({
-    tab: "all",
-    state: "open",
-  });
+  const [searchParams] = useSearchParams();
+  const [filter, setFilter] = useState<PullFilter>(() => queryToPullFilter(searchParams));
+  const searchKey = searchParams.toString();
+  useEffect(() => {
+    setFilter(queryToPullFilter(searchKey));
+  }, [searchKey]);
   const { pulls, loading, refreshing, error } = usePullsQuery(filter);
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const addSavedFilter = useSettingsStore((s) => s.addSavedFilter);
+
+  const handleSaveView = () => {
+    const name = window.prompt("View name");
+    if (!name) return;
+    addSavedFilter({ name, target: "pulls", query: pullFilterToQuery(filter) });
+  };
 
   const availableRepos = useMemo(() => Array.from(new Set(pulls.map((p) => p.repo))), [pulls]);
   const availableAuthors = useMemo(
@@ -57,7 +68,24 @@ export default function PullsPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <Toolbar title="Pull Requests" subtitle={refreshing ? "Refreshing…" : undefined} />
+      <Toolbar
+        title="Pull Requests"
+        subtitle={refreshing ? "Refreshing…" : undefined}
+        actions={
+          <button
+            type="button"
+            onClick={handleSaveView}
+            className="rounded-md px-2.5 py-1.5 text-xs font-medium"
+            style={{
+              backgroundColor: "var(--bg-tertiary)",
+              border: "1px solid var(--border-default)",
+              color: "var(--text-secondary)",
+            }}
+          >
+            Save view
+          </button>
+        }
+      />
       <Tabs
         items={TABS}
         activeId={filter.tab ?? "all"}

@@ -1,18 +1,33 @@
-import { useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Toolbar } from "../components/common/Toolbar";
 import { useIssuesQuery } from "../features/issues/useIssuesQuery";
 import { useUiStore } from "../stores/uiStore";
+import { useSettingsStore } from "../stores/settingsStore";
 import { FilterSidebar, type AvailableLabel } from "../components/issues/FilterSidebar";
 import { AppliedFilters } from "../components/issues/AppliedFilters";
 import { IssueRow } from "../components/issues/IssueRow";
 import { useListNavigation } from "../hooks/useListNavigation";
+import { issueFilterToQuery, queryToIssueFilter } from "../lib/savedFilters";
 
 export default function IssuesPage() {
   const filter = useUiStore((s) => s.issueFilters);
   const setFilter = useUiStore((s) => s.setIssueFilters);
   const { issues, refreshing } = useIssuesQuery(filter);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const searchKey = searchParams.toString();
+  const addSavedFilter = useSettingsStore((s) => s.addSavedFilter);
+
+  useEffect(() => {
+    if (searchKey) setFilter(queryToIssueFilter(searchKey));
+  }, [searchKey, setFilter]);
+
+  const handleSaveView = () => {
+    const name = window.prompt("View name");
+    if (!name) return;
+    addSavedFilter({ name, target: "issues", query: issueFilterToQuery(filter) });
+  };
 
   const availableLabels = useMemo<AvailableLabel[]>(() => {
     const map = new Map<string, AvailableLabel>();
@@ -50,7 +65,24 @@ export default function IssuesPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <Toolbar title="Issues" subtitle={refreshing ? "Refreshing…" : undefined} />
+      <Toolbar
+        title="Issues"
+        subtitle={refreshing ? "Refreshing…" : undefined}
+        actions={
+          <button
+            type="button"
+            onClick={handleSaveView}
+            className="rounded-md px-2.5 py-1.5 text-xs font-medium"
+            style={{
+              backgroundColor: "var(--bg-tertiary)",
+              border: "1px solid var(--border-default)",
+              color: "var(--text-secondary)",
+            }}
+          >
+            Save view
+          </button>
+        }
+      />
       <div
         data-testid="issues-page-root"
         className="flex-1 overflow-hidden"

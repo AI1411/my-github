@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { DEFAULT_STALE_THRESHOLDS, type StaleThresholds } from "../lib/stalePulls";
+import type { SavedFilter } from "../lib/savedFilters";
 
 export type PollingInterval = "30s" | "60s" | "5m" | "off";
 export type AppearanceDensity = "compact" | "comfortable";
@@ -64,7 +65,10 @@ export interface SettingsState {
   density: AppearanceDensity;
   shortcuts: Record<ShortcutId, ShortcutSetting>;
   staleThresholds: StaleThresholds;
+  savedFilters: SavedFilter[];
   addWatchedRepository: (repo: string) => void;
+  addSavedFilter: (filter: Omit<SavedFilter, "id">) => void;
+  removeSavedFilter: (id: string) => void;
   removeWatchedRepository: (repo: string) => void;
   setNotificationSetting: (key: keyof NotificationSettings, enabled: boolean) => void;
   setStaleThreshold: (key: keyof StaleThresholds, days: number) => void;
@@ -85,6 +89,19 @@ export const useSettingsStore = create<SettingsState>()(
       density: "comfortable",
       shortcuts: DEFAULT_SHORTCUTS,
       staleThresholds: DEFAULT_STALE_THRESHOLDS,
+      savedFilters: [],
+      addSavedFilter: (filter) =>
+        set((state) => {
+          const name = filter.name.trim();
+          if (!name) return state;
+          return {
+            savedFilters: [...state.savedFilters, { ...filter, name, id: crypto.randomUUID() }],
+          };
+        }),
+      removeSavedFilter: (id) =>
+        set((state) => ({
+          savedFilters: state.savedFilters.filter((filter) => filter.id !== id),
+        })),
       addWatchedRepository: (repo) =>
         set((state) => {
           const normalized = normalizeRepo(repo);
@@ -143,6 +160,7 @@ export const useSettingsStore = create<SettingsState>()(
         density: state.density,
         shortcuts: state.shortcuts,
         staleThresholds: state.staleThresholds,
+        savedFilters: state.savedFilters,
       }),
     },
   ),
