@@ -5,6 +5,13 @@ use crate::config;
 
 #[tauri::command]
 pub async fn cmd_start_device_flow() -> Result<DeviceCodeResponse, String> {
+    if !config::has_client_id() {
+        return Err(
+            "GITHUB_CLIENT_ID is not configured. Copy .env.example to .env, set your \
+             GitHub OAuth App Client ID, then restart `pnpm tauri dev`."
+                .to_string(),
+        );
+    }
     let client = reqwest::Client::new();
     request_device_code(
         &client,
@@ -17,6 +24,9 @@ pub async fn cmd_start_device_flow() -> Result<DeviceCodeResponse, String> {
 
 #[tauri::command]
 pub async fn cmd_poll_device_flow(device_code: DeviceCodeResponse) -> Result<PatUser, String> {
+    if !config::has_client_id() {
+        return Err("GITHUB_CLIENT_ID is not configured.".to_string());
+    }
     let client = reqwest::Client::new();
     let token =
         crate::auth::device_flow::poll_device_flow(&client, config::CLIENT_ID, &device_code)
