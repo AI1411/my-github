@@ -16,7 +16,7 @@ Full requirements: `docs/requirments.md` | Task breakdown: `docs/tasks.md`
 | Framework | Tauri 2 |
 | Backend | Rust 1.82+ (reqwest + tokio, octocrab, graphql_client) |
 | Local DB | SQLite (rusqlite + r2d2) |
-| Token Storage | keyring crate (OS keychain) |
+| Token Storage | keyring crate (OS keychain; PAT) |
 | Frontend | React 19 + TypeScript 5.x |
 | Build | Vite |
 | Styling | Tailwind CSS v4 (dark theme only in v0.1) |
@@ -27,7 +27,7 @@ Full requirements: `docs/requirments.md` | Task breakdown: `docs/tasks.md`
 
 ```
 React (UI) ↔ Tauri IPC Commands ↔ Rust Core
-                                    ├─ auth    (OAuth Device Flow + PAT + keyring)
+                                    ├─ auth    (PAT + keyring)
                                     ├─ github  (REST via octocrab, GraphQL via graphql_client)
                                     ├─ cache   (SQLite + ETag, stale-while-revalidate)
                                     └─ sync    (60s poller, 5m when unfocused)

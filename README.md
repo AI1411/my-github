@@ -53,17 +53,11 @@ sudo apt-get install libwebkit2gtk-4.1-dev libgtk-3-dev \
 # Install dependencies
 pnpm install
 
-# Configure GitHub OAuth (required for Device Flow)
-cp .env.example .env
-# Edit .env and set GITHUB_CLIENT_ID from:
-#   https://github.com/settings/applications/new
-#   Homepage / callback: http://localhost:1420
-
 # Start dev server (hot reload for frontend + Rust rebuild on save)
 pnpm tauri dev
 ```
 
-> **Note:** `GITHUB_CLIENT_ID` is compiled into the Rust binary. After changing `.env`, restart `pnpm tauri dev`. PAT login works without this.
+Sign in with a GitHub Personal Access Token (PAT).
 
 ## Build
 

@@ -28,7 +28,7 @@ GitHub 横断ダッシュボード デスクトップアプリ。
 
 ### v0.1.0 (MVP)
 
-- **含む**: Inbox / PR一覧・詳細 (diff込) / Issue一覧・詳細 / CI状態 / Activity / 設定 / ⌘K / 複数アカウント / OAuth Device Flow + PAT / ダークテーマ / macOS + Windows ビルド
+- **含む**: Inbox / PR一覧・詳細 (diff込) / Issue一覧・詳細 / CI状態 / Activity / 設定 / ⌘K / 複数アカウント / PAT / ダークテーマ / macOS + Windows ビルド
 - **除外**: PR作成、コメント投稿、マージ・クローズ操作 (view only)、Enterprise GHES、Linuxビルド、ライトテーマ、モバイル対応、プラグイン、webhooks、AI機能
 
 ### 将来拡張候補 (v0.2+)
@@ -83,7 +83,7 @@ GitHub 横断ダッシュボード デスクトップアプリ。
           ↕ Tauri commands (invoke)
 ┌──────────────────────────────────────────────┐
 │ Rust Core                                    │
-│  ├─ auth (OAuth device flow + PAT + keyring) │
+│  ├─ auth (PAT + keyring)                     │
 │  ├─ github (REST + GraphQL client)           │
 │  ├─ cache (SQLite, ETag, stale-while-revalid)│
 │  ├─ sync (poller, rate limit manager)        │
@@ -200,7 +200,7 @@ CREATE TABLE sync_meta (
 
 ### 8.1 認証
 
-- OAuth Device Flow (primary) / PAT (fallback)
+- PAT (Personal Access Token)
 - 必須 scopes: `repo`, `read:org`, `read:user`, `notifications`, `workflow`
 - token は OS keychain に保存 (keyring crate)、ファイル保存しない
 - 複数アカウントを同時保持、切替は ⌘T でモーダル

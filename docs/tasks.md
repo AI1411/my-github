@@ -8,7 +8,7 @@ GitHub cross-repository dashboard (Tauri 2 + Rust + React + TypeScript).
 ## マイルストーン構成
 
 - **M1: プロジェクトセットアップと基盤** (17 tasks)
-- **M2: 認証 (OAuth Device Flow + PAT)** (18 tasks)
+- **M2: 認証 (PAT)** (18 tasks; Device Flow は削除済み)
 - **M3: GitHubクライアント + キャッシュ層** (22 tasks)
 - **M4: 共通UI + レイアウト + ルーティング** (19 tasks)
 - **M5: PR 一覧 + 詳細 (diff含む)** (24 tasks)
@@ -40,24 +40,24 @@ GitHub cross-repository dashboard (Tauri 2 + Rust + React + TypeScript).
 - [ ] M1-016 GitHub Actions: `fmt` / `clippy` / `tsc --noEmit` / `pnpm lint` の lint job 追加 (45m)
 - [x] M1-017 `README.md` のスタブ作成 (スクリーンショット・開発手順) (30m)
 
-## M2: 認証 (OAuth Device Flow + PAT)
+## M2: 認証 (PAT)
 
-- [x] M2-001 GitHub OAuth App を dev 用に作成、`scopes: repo, read:org, read:user, notifications, workflow` 確認 (30m)
-- [ ] M2-002 `src-tauri/src/auth/mod.rs` 作成、認証方式の enum 定義 (`Method::DeviceFlow`, `Method::Pat`) (15m)
-- [x] M2-003 Device Flow: `POST /login/device/code` の型定義と呼び出し関数 (45m)
-- [x] M2-004 Device Flow: ポーリング関数 (`POST /login/oauth/access_token`) を interval + expires_in対応で実装 (1h)
-- [x] M2-005 Device Flow: `authorization_pending` / `slow_down` / `expired_token` エラーハンドリング (30m)
+- [x] M2-001 ~~GitHub OAuth App~~ → 不要 (Device Flow 削除、PAT のみ) (30m)
+- [x] M2-002 `src-tauri/src/auth/mod.rs` 作成、認証方式の enum 定義 (`Method::Pat`) (15m)
+- [x] M2-003 ~~Device Flow~~ 削除済み
+- [x] M2-004 ~~Device Flow~~ 削除済み
+- [x] M2-005 ~~Device Flow~~ 削除済み
 - [x] M2-006 PAT 検証関数: `GET /user` を叩いて 200 なら有効、scopes ヘッダもパース (30m)
 - [x] M2-007 keyring に access token を保存する `save_token(account_id, token)` (30m)
 - [x] M2-008 keyring から token を読む `load_token(account_id) -> Option<String>` (15m)
 - [x] M2-009 keyring から token を削除する `delete_token(account_id)` (15m)
-- [x] M2-010 Tauri command: `cmd_start_device_flow() -> DeviceCode` (15m)
-- [x] M2-011 Tauri command: `cmd_poll_device_flow(device_code) -> AuthResult` (15m)
+- [x] M2-010 ~~cmd_start_device_flow~~ 削除済み
+- [x] M2-011 ~~cmd_poll_device_flow~~ 削除済み
 - [x] M2-012 Tauri command: `cmd_save_pat(pat: String) -> Result<User>` (30m)
 - [x] M2-013 Tauri command: `cmd_logout() -> Result<()>` (15m)
-- [x] M2-014 React: `LoginPage.tsx` 骨組み (OAuth / PAT 切替タブ) (45m)
-- [x] M2-015 React: Device Flow 画面、user_code と verification_uri を大きく表示 + クリップボードコピー (1h)
-- [ ] M2-016 React: Device Flow ポーリング進捗 UI (残り時間・ステータス) (45m)
+- [x] M2-014 React: `LoginPage.tsx` (PAT のみ) (45m)
+- [x] M2-015 ~~Device Flow 画面~~ 削除済み
+- [x] M2-016 ~~Device Flow ポーリング進捗 UI~~ 削除済み
 - [ ] M2-017 React: PAT 入力フォーム、バリデーション + scopes 不足時のエラー表示 (45m)
 - [ ] M2-018 起動時にkeyringを読んでログイン済みならメイン画面へ遷移 (30m)
 

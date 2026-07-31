@@ -1,7 +1,6 @@
 pub mod auth;
 pub mod cache;
 pub mod commands;
-pub mod config;
 pub mod db;
 pub mod github;
 pub mod sync;
@@ -32,8 +31,6 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             greet,
-            commands::auth::cmd_start_device_flow,
-            commands::auth::cmd_poll_device_flow,
             commands::auth::cmd_save_pat,
             commands::auth::cmd_logout,
             commands::auth::cmd_switch_account,
