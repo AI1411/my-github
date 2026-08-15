@@ -53,9 +53,10 @@ describe("InboxPage snooze shortcuts", () => {
   it("opens snooze picker with H and snoozes with number key", async () => {
     render(<InboxPage />);
     await waitFor(() => expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0));
+    fireEvent.click(screen.getAllByText("Needs review")[0]);
 
     fireEvent.keyDown(window, { key: "h" });
-    const dialog = screen.getByRole("dialog", { name: "Snooze until" });
+    const dialog = await screen.findByRole("dialog", { name: "Snooze until" });
     expect(dialog).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: "2" });
@@ -72,6 +73,7 @@ describe("InboxPage snooze shortcuts", () => {
     saveLastSnoozeOption("1h");
     render(<InboxPage />);
     await waitFor(() => expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0));
+    fireEvent.click(screen.getAllByText("Needs review")[0]);
 
     fireEvent.keyDown(window, { key: "h", shiftKey: true });
     await waitFor(() => {
@@ -100,6 +102,24 @@ describe("InboxPage snooze shortcuts", () => {
         "cmd_snooze_inbox_item",
         expect.objectContaining({ itemId: "issue-1" }),
       );
+    });
+  });
+
+  it("moves J/K across Review and Mentions without stopping at empty CI", async () => {
+    render(<InboxPage />);
+    await waitFor(() => expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0));
+
+    // first item is review; one J should land on mention (empty CI is skipped)
+    fireEvent.keyDown(window, { key: "j" });
+    fireEvent.keyDown(window, { key: "Enter" });
+    await waitFor(() => {
+      expect(screen.getAllByText("You were mentioned").length).toBeGreaterThan(1);
+    });
+
+    fireEvent.keyDown(window, { key: "k" });
+    fireEvent.keyDown(window, { key: "Enter" });
+    await waitFor(() => {
+      expect(screen.getAllByText("Needs review").length).toBeGreaterThan(1);
     });
   });
 });
