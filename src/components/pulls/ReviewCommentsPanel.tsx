@@ -142,7 +142,7 @@ export function ReviewCommentsPanel({ owner, repo, number }: ReviewCommentsPanel
                 rows={2}
                 value={replyDrafts[c.id] ?? ""}
                 onChange={(e) =>
-                  setReplyDrafts((d) => ({ ...d, [c.id]: e.currentTarget.value }))
+                  setReplyDrafts((d) => ({ ...d, [c.id]: e.target.value }))
                 }
                 className="w-full rounded-md px-2 py-1.5 text-xs outline-none"
                 style={{
