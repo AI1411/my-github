@@ -45,7 +45,7 @@ export function useListNavigation<T>({
       setActiveIdState(id);
       if (id) {
         const node = itemRefs.current.get(id);
-        node?.scrollIntoView({ block: "nearest" });
+        node?.scrollIntoView?.({ block: "nearest" });
         const item = items.find((i) => getId(i) === id);
         if (item && onSelect) onSelect(item);
       }
