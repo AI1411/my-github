@@ -16,6 +16,8 @@ export type { GithubHost };
 
 export type PollingInterval = "30s" | "60s" | "5m" | "off";
 export type AppearanceDensity = "compact" | "comfortable";
+export type AppearanceTheme = "dark" | "light" | "system";
+export type AppearanceLayout = "inbox-first" | "pulls-first";
 export type ShortcutId =
   | "commandPalette"
   | "workspaceSwitcher"
@@ -165,6 +167,8 @@ export interface SettingsState {
   pushSyncEnabled: boolean;
   dockBadgeEnabled: boolean;
   density: AppearanceDensity;
+  theme: AppearanceTheme;
+  layout: AppearanceLayout;
   shortcuts: Record<ShortcutId, ShortcutSetting>;
   staleThresholds: StaleThresholds;
   savedFilters: SavedFilter[];
@@ -215,6 +219,8 @@ export interface SettingsState {
   setPushSyncEnabled: (enabled: boolean) => void;
   setDockBadgeEnabled: (enabled: boolean) => void;
   setDensity: (density: AppearanceDensity) => void;
+  setTheme: (theme: AppearanceTheme) => void;
+  setLayout: (layout: AppearanceLayout) => void;
   setShortcut: (id: ShortcutId, keys: string) => void;
   resetShortcuts: () => void;
 }
@@ -252,6 +258,8 @@ export const useSettingsStore = create<SettingsState>()(
       pushSyncEnabled: false,
       dockBadgeEnabled: true,
       density: "comfortable",
+      theme: "dark",
+      layout: "inbox-first",
       shortcuts: DEFAULT_SHORTCUTS,
       staleThresholds: DEFAULT_STALE_THRESHOLDS,
       savedFilters: [],
@@ -446,6 +454,8 @@ export const useSettingsStore = create<SettingsState>()(
       setPushSyncEnabled: (enabled) => set({ pushSyncEnabled: enabled }),
       setDockBadgeEnabled: (enabled) => set({ dockBadgeEnabled: enabled }),
       setDensity: (density) => set({ density }),
+      setTheme: (theme) => set({ theme }),
+      setLayout: (layout) => set({ layout }),
       setShortcut: (id, keys) =>
         set((state) => ({
           shortcuts: {
@@ -504,6 +514,8 @@ export const useSettingsStore = create<SettingsState>()(
         pushSyncEnabled: state.pushSyncEnabled,
         dockBadgeEnabled: state.dockBadgeEnabled,
         density: state.density,
+        theme: state.theme,
+        layout: state.layout,
         shortcuts: state.shortcuts,
         staleThresholds: state.staleThresholds,
         savedFilters: state.savedFilters,

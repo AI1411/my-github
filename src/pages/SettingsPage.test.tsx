@@ -37,6 +37,8 @@ describe("SettingsPage", () => {
       pushSyncEnabled: false,
       dockBadgeEnabled: true,
       density: "comfortable",
+      theme: "dark",
+      layout: "inbox-first",
       shortcuts: DEFAULT_SHORTCUTS,
     });
     (invoke as ReturnType<typeof vi.fn>).mockImplementation((cmd: string) => {
@@ -224,6 +226,17 @@ describe("SettingsPage", () => {
     });
 
     expect(useSettingsStore.getState().shortcuts.commandPalette.keys).toBe("Ctrl+K");
+  });
+
+  it("sets theme and home layout", () => {
+    render(<SettingsPage />);
+
+    fireEvent.click(screen.getByRole("tab", { name: "Appearance" }));
+    fireEvent.click(screen.getByRole("button", { name: "Light" }));
+    fireEvent.click(screen.getByRole("button", { name: "Pulls first" }));
+
+    expect(useSettingsStore.getState().theme).toBe("light");
+    expect(useSettingsStore.getState().layout).toBe("pulls-first");
   });
 
   it("warns when shortcuts conflict", () => {

@@ -1,11 +1,13 @@
 import { useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useAppearanceEffect } from "./hooks/useAppearanceEffect";
 import { useAuthStore, type AuthUser } from "./stores/authStore";
 import { useDataStore } from "./stores/dataStore";
 import LoginPage from "./pages/LoginPage";
 import { AppRouter } from "./lib/router";
 
 function App() {
+  useAppearanceEffect();
   const status = useAuthStore((s) => s.status);
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);

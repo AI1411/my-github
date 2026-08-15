@@ -64,6 +64,8 @@ describe("useNotificationPolling", () => {
       pushSyncEnabled: false,
       dockBadgeEnabled: true,
       density: "comfortable",
+      theme: "dark",
+      layout: "inbox-first",
       shortcuts: DEFAULT_SHORTCUTS,
     });
   });

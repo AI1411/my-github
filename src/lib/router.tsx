@@ -2,6 +2,8 @@ import { createBrowserRouter, Navigate, Outlet, RouterProvider } from "react-rou
 import { AppShell } from "../components/layout/AppShell";
 import { Sidebar } from "../components/layout/Sidebar";
 import { ErrorBoundary } from "../components/common/ErrorBoundary";
+import { homePathForLayout } from "./appearance";
+import { useSettingsStore } from "../stores/settingsStore";
 import InboxPage from "../pages/InboxPage";
 import ReviewQueuePage from "../pages/ReviewQueuePage";
 import MyBlockersPage from "../pages/MyBlockersPage";
@@ -24,6 +26,11 @@ interface ShellLayoutProps {
   onSignOut: () => void;
 }
 
+function HomeRedirect() {
+  const layout = useSettingsStore((s) => s.layout);
+  return <Navigate to={homePathForLayout(layout)} replace />;
+}
+
 function ShellLayout({ onSignOut }: ShellLayoutProps) {
   return (
     <AppShell
@@ -43,7 +50,7 @@ export function createAppRouter(onSignOut: () => void) {
       path: "/",
       element: <ShellLayout onSignOut={onSignOut} />,
       children: [
-        { index: true, element: <Navigate to="/inbox" replace /> },
+        { index: true, element: <HomeRedirect /> },
         { path: "inbox", element: <InboxPage /> },
         { path: "review-queue", element: <ReviewQueuePage /> },
         { path: "my-blockers", element: <MyBlockersPage /> },
