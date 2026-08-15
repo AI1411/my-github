@@ -3,9 +3,9 @@ import { invoke } from "@tauri-apps/api/core";
 import { useNavigate } from "react-router-dom";
 import { Toolbar } from "../components/common/Toolbar";
 import { Tabs } from "../components/common/Tabs";
-import { Spinner } from "../components/common/Spinner";
 import { EmptyState } from "../components/common/EmptyState";
 import { ListSearchBar } from "../components/common/ListSearchBar";
+import { ListSkeleton } from "../components/common/ListSkeleton";
 import { ActivityRow } from "../components/activity/ActivityRow";
 import { useNotificationPollingContext } from "../features/activity/NotificationPollingContext";
 import { useReleasesQuery } from "../features/activity/useReleasesQuery";
@@ -174,11 +174,7 @@ export default function ActivityPage() {
         inputRef={listSearch.inputRef}
         placeholder="Filter activity…"
       />
-      {loading && !notifications.length && (
-        <div className="flex-1 flex items-center justify-center">
-          <Spinner />
-        </div>
-      )}
+      {loading && !notifications.length && <ListSkeleton />}
       {error &&
         (notifications.length ? (
           <div

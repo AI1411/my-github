@@ -5,7 +5,7 @@ import { Toolbar } from "../components/common/Toolbar";
 import { SaveViewControl } from "../components/common/SaveViewControl";
 import { EmptyState } from "../components/common/EmptyState";
 import { ListSearchBar } from "../components/common/ListSearchBar";
-import { Spinner } from "../components/common/Spinner";
+import { ListSkeleton } from "../components/common/ListSkeleton";
 import { Tabs, type TabItem } from "../components/common/Tabs";
 import { PullRow } from "../components/pulls/PullRow";
 import { FilterChips } from "../components/pulls/FilterChips";
@@ -125,9 +125,7 @@ export default function PullsPage() {
         placeholder="Filter pull requests…"
       />
       {loading && pulls.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center">
-          <Spinner />
-        </div>
+        <ListSkeleton />
       ) : error ? (
         <EmptyState title="Failed to load pull requests" subtitle={error} />
       ) : visiblePulls.length === 0 ? (

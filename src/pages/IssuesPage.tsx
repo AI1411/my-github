@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Toolbar } from "../components/common/Toolbar";
 import { SaveViewControl } from "../components/common/SaveViewControl";
 import { ListSearchBar } from "../components/common/ListSearchBar";
+import { ListSkeleton } from "../components/common/ListSkeleton";
 import { useIssuesQuery } from "../features/issues/useIssuesQuery";
 import { useAuthStore } from "../stores/authStore";
 import { useUiStore } from "../stores/uiStore";
@@ -19,7 +20,7 @@ import { issueFilterToQuery, queryToIssueFilter } from "../lib/savedFilters";
 export default function IssuesPage() {
   const filter = useUiStore((s) => s.issueFilters);
   const setFilter = useUiStore((s) => s.setIssueFilters);
-  const { issues, refreshing } = useIssuesQuery(filter);
+  const { issues, loading, refreshing } = useIssuesQuery(filter);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const searchKey = searchParams.toString();
@@ -127,15 +128,19 @@ export default function IssuesPage() {
             placeholder="Filter issues…"
           />
           <div data-testid="issues-list" className="flex-1 overflow-auto">
-            {visibleIssues.map((issue, idx) => (
-              <IssueRow
-                key={issue.id}
-                issue={issue}
-                selected={activeIndex === idx}
-                onSelect={() => setActiveId(String(issue.id))}
-                onOpen={() => openIssue(issue)}
-              />
-            ))}
+            {loading && issues.length === 0 ? (
+              <ListSkeleton />
+            ) : (
+              visibleIssues.map((issue, idx) => (
+                <IssueRow
+                  key={issue.id}
+                  issue={issue}
+                  selected={activeIndex === idx}
+                  onSelect={() => setActiveId(String(issue.id))}
+                  onOpen={() => openIssue(issue)}
+                />
+              ))
+            )}
           </div>
         </section>
       </div>

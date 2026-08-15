@@ -29,10 +29,10 @@ const notifications = [
   },
 ];
 
-function renderPage(error: string | null = null) {
+function renderPage(error: string | null = null, loading = false) {
   return render(
     <MemoryRouter>
-      <NotificationPollingContext.Provider value={{ loading: false, error, refetch }}>
+      <NotificationPollingContext.Provider value={{ loading, error, refetch }}>
         <ActivityPage />
       </NotificationPollingContext.Provider>
     </MemoryRouter>,
@@ -87,6 +87,13 @@ describe("ActivityPage read state", () => {
     expect(screen.getByText("Mentioned issue")).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent("Error: offline");
     expect(screen.queryByText("Failed to load activity")).not.toBeInTheDocument();
+  });
+
+  it("shows a list skeleton when loading without cached notifications", () => {
+    useDataStore.setState({ notifications: [] });
+    renderPage(null, true);
+    expect(screen.getByRole("status", { name: "Loading" })).toHaveAttribute("aria-busy", "true");
+    expect(screen.queryByText("No activity")).not.toBeInTheDocument();
   });
 
   it("shows the failed state when loading fails without cached notifications", () => {

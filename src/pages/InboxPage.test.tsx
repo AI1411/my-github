@@ -63,6 +63,12 @@ describe("InboxPage snooze shortcuts", () => {
     });
   });
 
+  it("shows a list skeleton while inbox data is loading", () => {
+    (invoke as ReturnType<typeof vi.fn>).mockImplementation(() => new Promise(() => {}));
+    renderInbox();
+    expect(screen.getByRole("status", { name: "Loading" })).toHaveAttribute("aria-busy", "true");
+  });
+
   it("opens snooze picker with H and snoozes with number key", async () => {
     renderInbox();
     await waitFor(() => expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0));
