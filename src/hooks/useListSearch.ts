@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useKeyboardShortcut } from "../hooks/useKeyboardShortcut";
+import { useSettingsShortcut } from "../hooks/useSettingsShortcut";
 import { loadListSearchQuery, saveListSearchQuery } from "../lib/listSearch";
 
 export function useListSearch(accountId: string, routeKey: string) {
@@ -17,8 +17,8 @@ export function useListSearch(accountId: string, routeKey: string) {
     saveListSearchQuery(accountId, routeKey, query);
   }, [accountId, routeKey, query]);
 
-  useKeyboardShortcut(
-    { key: "f", meta: true, preventDefault: true },
+  useSettingsShortcut(
+    "listSearch",
     () => {
       setOpen(true);
       queueMicrotask(() => inputRef.current?.focus());
@@ -26,15 +26,15 @@ export function useListSearch(accountId: string, routeKey: string) {
     { allowInInputs: true },
   );
 
-  useKeyboardShortcut(
-    { key: "Escape" },
+  useSettingsShortcut(
+    "closeDetail",
     (event) => {
       if (!open) return;
       event.preventDefault();
       setQuery("");
       setOpen(false);
     },
-    { allowInInputs: true },
+    { allowInInputs: true, preventDefault: false },
   );
 
   return { query, setQuery, open, setOpen, inputRef };

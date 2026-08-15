@@ -10,7 +10,7 @@ import { useAuthStore } from "../../stores/authStore";
 import { useSettingsStore, type RecentPullRef } from "../../stores/settingsStore";
 import { useUiStore } from "../../stores/uiStore";
 import { useDataStore } from "../../stores/dataStore";
-import { useKeyboardShortcut } from "../../hooks/useKeyboardShortcut";
+import { useSettingsShortcut } from "../../hooks/useSettingsShortcut";
 
 const EMPTY_RECENT: RecentPullRef[] = [];
 
@@ -78,7 +78,7 @@ export function CommandPalette() {
 
   const advanced = searchMode || isAdvancedSearchQuery(query);
 
-  useKeyboardShortcut({ key: "k", meta: true, preventDefault: true }, toggle, {
+  useSettingsShortcut("commandPalette", toggle, {
     allowInInputs: true,
   });
 

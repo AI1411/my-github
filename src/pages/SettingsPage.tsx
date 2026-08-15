@@ -5,6 +5,7 @@ import { Tabs } from "../components/common/Tabs";
 import { Toolbar } from "../components/common/Toolbar";
 import { useRepoSearchQuery } from "../features/settings/useRepoSearchQuery";
 import { hostDisplayLabel } from "../lib/githubHost";
+import { findShortcutConflicts, formatShortcutEvent } from "../lib/shortcutKeys";
 import { useAuthStore } from "../stores/authStore";
 import { useDataStore } from "../stores/dataStore";
 import {
@@ -217,6 +218,8 @@ export default function SettingsPage() {
   const resetShortcuts = useSettingsStore((state) => state.resetShortcuts);
   const shortcutChipsEnabled = useSettingsStore((state) => state.shortcutChipsEnabled);
   const setShortcutChipsEnabled = useSettingsStore((state) => state.setShortcutChipsEnabled);
+  const [recordingId, setRecordingId] = useState<ShortcutId | null>(null);
+  const shortcutConflicts = useMemo(() => findShortcutConflicts(shortcuts), [shortcuts]);
 
   const repoSuggestions = useMemo(
     () =>
@@ -821,11 +824,30 @@ export default function SettingsPage() {
                 onChange={setShortcutChipsEnabled}
               />
             </Row>
+            {shortcutConflicts.length > 0 && (
+              <div
+                role="alert"
+                className="mb-3 rounded-md border px-3 py-2 text-xs"
+                style={{
+                  borderColor: "var(--accent-orange, #fb923c)",
+                  color: "var(--accent-orange, #fb923c)",
+                  backgroundColor: "rgba(251, 146, 60, 0.08)",
+                }}
+              >
+                Conflicting shortcuts:{" "}
+                {shortcutConflicts
+                  .map(
+                    (c) =>
+                      `${shortcuts[c.id].label} and ${shortcuts[c.otherId].label} both use ${c.keys}`,
+                  )
+                  .join("; ")}
+              </div>
+            )}
             <div className="divide-y" style={sectionStyle()}>
               {SHORTCUT_IDS.map((id) => (
                 <div
                   key={id}
-                  className="grid min-h-12 grid-cols-[220px_1fr] items-center gap-4 py-2"
+                  className="grid min-h-12 grid-cols-[220px_1fr_auto] items-center gap-4 py-2"
                 >
                   <label
                     htmlFor={`shortcut-${id}`}
@@ -839,13 +861,33 @@ export default function SettingsPage() {
                     aria-label={`${shortcuts[id].label} shortcut`}
                     value={shortcuts[id].keys}
                     onChange={(event) => setShortcut(id, event.target.value)}
+                    onKeyDown={(event) => {
+                      if (recordingId !== id) return;
+                      event.preventDefault();
+                      event.stopPropagation();
+                      const formatted = formatShortcutEvent(event.nativeEvent);
+                      if (!formatted) return;
+                      setShortcut(id, formatted);
+                      setRecordingId(null);
+                    }}
                     className="max-w-xs rounded-md px-3 py-1.5 font-mono text-sm outline-none"
                     style={{
                       backgroundColor: "var(--bg-secondary)",
-                      border: "1px solid var(--border-default)",
+                      border: `1px solid ${
+                        recordingId === id
+                          ? "var(--accent-blue)"
+                          : "var(--border-default)"
+                      }`,
                       color: "var(--text-primary)",
                     }}
+                    placeholder={recordingId === id ? "Press a key…" : undefined}
                   />
+                  <InlineButton
+                    active={recordingId === id}
+                    onClick={() => setRecordingId((cur) => (cur === id ? null : id))}
+                  >
+                    {recordingId === id ? "Listening…" : "Record"}
+                  </InlineButton>
                 </div>
               ))}
             </div>

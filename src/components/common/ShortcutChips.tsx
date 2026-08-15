@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { useKeyboardShortcut } from "../../hooks/useKeyboardShortcut";
+import { useSettingsShortcut } from "../../hooks/useSettingsShortcut";
 import {
   useSettingsStore,
   type ShortcutId,
@@ -9,19 +9,12 @@ import {
 import { useUiStore } from "../../stores/uiStore";
 
 const ROUTE_CHIPS: Record<string, ShortcutId[]> = {
-  "/inbox": ["listUp", "listDown", "openDetail", "markRead", "markAllRead"],
-  "/review-queue": ["openDetail", "commandPalette"],
-  "/pulls": ["listUp", "listDown", "openDetail", "commandPalette"],
-  "/issues": ["listUp", "listDown", "openDetail", "commandPalette"],
-  "/activity": ["markAllRead", "commandPalette"],
+  "/inbox": ["listUp", "listDown", "openDetail", "markRead", "markAllRead", "snooze", "snoozeLast"],
+  "/review-queue": ["openDetail", "commandPalette", "nextQueue"],
+  "/pulls": ["listUp", "listDown", "openDetail", "commandPalette", "listSearch"],
+  "/issues": ["listUp", "listDown", "openDetail", "commandPalette", "listSearch"],
+  "/activity": ["markAllRead", "commandPalette", "listSearch"],
   "/settings": ["shortcutHelp", "commandPalette"],
-};
-
-const EXTRA_LABELS: Record<string, { label: string; keys: string }> = {
-  snooze: { label: "Snooze", keys: "H" },
-  snoozeLast: { label: "Snooze last", keys: "Shift+H" },
-  listSearch: { label: "Find in list", keys: "Cmd+F" },
-  nextQueue: { label: "Next", keys: "] / N" },
 };
 
 function chipsForPath(
@@ -34,25 +27,11 @@ function chipsForPath(
       ? ROUTE_CHIPS["/issues"]
       : (ROUTE_CHIPS[pathname] ?? ["commandPalette", "shortcutHelp"]);
 
-  const items = base.map((id) => ({
+  return base.map((id) => ({
     id,
     label: shortcuts[id]?.label ?? id,
     keys: shortcuts[id]?.keys ?? "",
   }));
-
-  if (pathname === "/inbox") {
-    items.push(
-      { id: "snooze", ...EXTRA_LABELS.snooze },
-      { id: "snoozeLast", ...EXTRA_LABELS.snoozeLast },
-    );
-  }
-  if (pathname === "/review-queue") {
-    items.push({ id: "nextQueue", ...EXTRA_LABELS.nextQueue });
-  }
-  if (pathname === "/pulls" || pathname === "/issues" || pathname === "/activity") {
-    items.push({ id: "listSearch", ...EXTRA_LABELS.listSearch });
-  }
-  return items;
 }
 
 export function ShortcutChips() {
@@ -63,11 +42,7 @@ export function ShortcutChips() {
   const location = useLocation();
   const [helpOpen, setHelpOpen] = useState(false);
 
-  useKeyboardShortcut(
-    { key: "?", shift: true, preventDefault: true },
-    () => setHelpOpen((open) => !open),
-    {},
-  );
+  useSettingsShortcut("shortcutHelp", () => setHelpOpen((open) => !open));
 
   const chips = useMemo(
     () => chipsForPath(location.pathname, shortcuts),

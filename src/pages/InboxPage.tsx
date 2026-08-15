@@ -7,6 +7,7 @@ import { InboxList } from "../components/inbox/InboxList";
 import { InboxDetailPanel } from "../components/inbox/InboxDetailPanel";
 import { SnoozePicker } from "../components/inbox/SnoozePicker";
 import { useInboxQuery } from "../features/inbox/useInboxQuery";
+import { useSettingsShortcut } from "../hooks/useSettingsShortcut";
 import { useKeyboardShortcut } from "../hooks/useKeyboardShortcut";
 import { useListNavigation } from "../hooks/useListNavigation";
 import { focusAfterRemoval } from "../lib/inboxFocus";
@@ -153,47 +154,31 @@ export default function InboxPage() {
     }
   }
 
-  useKeyboardShortcut(
-    { key: "h", preventDefault: true },
-    () => {
-      if (!targetForSnooze()) return;
+  useSettingsShortcut("snooze", () => {
+    if (!targetForSnooze()) return;
+    setPickerOpen(true);
+  });
+
+  useSettingsShortcut("snoozeLast", () => {
+    const target = targetForSnooze();
+    if (!target) return;
+    const last = loadLastSnoozeOption();
+    if (last) {
+      void handleSnooze(target, last);
+    } else {
       setPickerOpen(true);
-    },
-    {},
-  );
+    }
+  });
 
-  useKeyboardShortcut(
-    { key: "h", shift: true, preventDefault: true },
-    () => {
-      const target = targetForSnooze();
-      if (!target) return;
-      const last = loadLastSnoozeOption();
-      if (last) {
-        void handleSnooze(target, last);
-      } else {
-        setPickerOpen(true);
-      }
-    },
-    {},
-  );
+  useSettingsShortcut("markRead", () => {
+    const current = activeItem ?? selected;
+    if (!current) return;
+    void handleDismiss(current);
+  });
 
-  useKeyboardShortcut(
-    { key: "x", preventDefault: true },
-    () => {
-      const current = activeItem ?? selected;
-      if (!current) return;
-      void handleDismiss(current);
-    },
-    {},
-  );
-
-  useKeyboardShortcut(
-    { key: "x", shift: true, preventDefault: true },
-    () => {
-      void handleDismissAll();
-    },
-    {},
-  );
+  useSettingsShortcut("markAllRead", () => {
+    void handleDismissAll();
+  });
 
   useEffect(() => {
     if (!pickerOpen) return;
