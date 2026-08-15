@@ -1,5 +1,7 @@
+import type { ReactElement } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 import { useUiStore } from "../../stores/uiStore";
@@ -10,10 +12,21 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn().mockResolvedValue(null),
 }));
 
+const navigateMock = vi.fn();
+
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual<typeof import("react-router-dom")>("react-router-dom");
+  return { ...actual, useNavigate: () => navigateMock };
+});
+
+function renderSwitcher(ui: ReactElement = <WorkspaceSwitcher />) {
+  return render(<MemoryRouter>{ui}</MemoryRouter>);
+}
+
 describe("WorkspaceSwitcher", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    useUiStore.setState({ workspaceSwitcherOpen: false });
+    useUiStore.setState({ workspaceSwitcherOpen: false, commandPaletteOpen: false });
     useAuthStore.setState({
       user: { login: "octocat", avatar_url: "" },
       token: null,
@@ -24,32 +37,72 @@ describe("WorkspaceSwitcher", () => {
 
   it("renders Accounts header when open", () => {
     useUiStore.setState({ workspaceSwitcherOpen: true });
-    render(<WorkspaceSwitcher />);
+    renderSwitcher();
     expect(screen.getByText("Accounts")).toBeInTheDocument();
   });
 
   it("renders the current user login", () => {
     useUiStore.setState({ workspaceSwitcherOpen: true });
-    render(<WorkspaceSwitcher />);
+    renderSwitcher();
     expect(screen.getByText("octocat")).toBeInTheDocument();
   });
 
   it("shows Active badge for current user", () => {
     useUiStore.setState({ workspaceSwitcherOpen: true });
-    render(<WorkspaceSwitcher />);
+    renderSwitcher();
     expect(screen.getByText("Active")).toBeInTheDocument();
   });
 
   it("shows Sign out button", () => {
     useUiStore.setState({ workspaceSwitcherOpen: true });
-    render(<WorkspaceSwitcher />);
+    renderSwitcher();
     expect(screen.getByText("Sign out")).toBeInTheDocument();
+  });
+
+  it("shows Add another account and navigates to settings", () => {
+    useUiStore.setState({ workspaceSwitcherOpen: true });
+    renderSwitcher();
+    fireEvent.click(screen.getByRole("button", { name: "Add another account" }));
+    expect(navigateMock).toHaveBeenCalledWith("/settings");
+    expect(useUiStore.getState().workspaceSwitcherOpen).toBe(false);
+  });
+
+  it("shows ⌘1–⌘4 hints for listed accounts", async () => {
+    (invoke as ReturnType<typeof vi.fn>).mockImplementation((cmd: string) => {
+      if (cmd === "cmd_get_account_attention_summaries") {
+        return Promise.resolve([
+          {
+            login: "octocat",
+            avatarUrl: null,
+            isActive: true,
+            reviewRequests: 0,
+            ciFailures: 0,
+            mentions: 0,
+          },
+          {
+            login: "work",
+            avatarUrl: null,
+            isActive: false,
+            reviewRequests: 0,
+            ciFailures: 0,
+            mentions: 0,
+          },
+        ]);
+      }
+      return Promise.resolve(null);
+    });
+    useUiStore.setState({ workspaceSwitcherOpen: true });
+    renderSwitcher();
+    await waitFor(() => {
+      expect(screen.getByText("⌘1")).toBeInTheDocument();
+    });
+    expect(screen.getByText("⌘2")).toBeInTheDocument();
   });
 
   it("passes current account id to logout and resets stores", async () => {
     const onSignOut = vi.fn();
     useUiStore.setState({ workspaceSwitcherOpen: true });
-    render(<WorkspaceSwitcher onSignOut={onSignOut} />);
+    renderSwitcher(<WorkspaceSwitcher onSignOut={onSignOut} />);
 
     fireEvent.click(screen.getByText("Sign out"));
 
@@ -93,7 +146,7 @@ describe("WorkspaceSwitcher", () => {
       lastSyncedAt: null,
     });
 
-    render(<WorkspaceSwitcher />);
+    renderSwitcher();
 
     expect(screen.getByText("Recent workspaces")).toBeInTheDocument();
     expect(screen.getByText("octocat/hello")).toBeInTheDocument();
@@ -101,8 +154,28 @@ describe("WorkspaceSwitcher", () => {
 
   it("switches account, resets data, and triggers sync", async () => {
     (invoke as ReturnType<typeof vi.fn>).mockImplementation((cmd: string) => {
+      if (cmd === "cmd_get_account_attention_summaries") {
+        return Promise.resolve([
+          {
+            login: "octocat",
+            avatarUrl: null,
+            isActive: true,
+            reviewRequests: 0,
+            ciFailures: 0,
+            mentions: 0,
+          },
+          {
+            login: "work",
+            avatarUrl: "w.png",
+            isActive: false,
+            reviewRequests: 0,
+            ciFailures: 0,
+            mentions: 0,
+          },
+        ]);
+      }
       if (cmd === "cmd_switch_account") {
-        return Promise.resolve({ login: "octocat", avatar_url: "avatar.png" });
+        return Promise.resolve({ login: "work", avatar_url: "w.png" });
       }
       return Promise.resolve(null);
     });
@@ -135,18 +208,114 @@ describe("WorkspaceSwitcher", () => {
       notifications: [],
       lastSyncedAt: null,
     });
-    render(<WorkspaceSwitcher />);
+    renderSwitcher();
 
-    fireEvent.click(screen.getByRole("button", { name: /octocat/ }));
+    await waitFor(() => {
+      expect(screen.getByText("work")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole("button", { name: /work/ }));
 
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith("cmd_switch_account", {
-        accountId: "octocat",
+        accountId: "work",
       });
     });
     expect(invoke).toHaveBeenCalledWith("cmd_sync_now");
     expect(useDataStore.getState().pulls).toHaveLength(0);
-    expect(useAuthStore.getState().user?.avatar_url).toBe("avatar.png");
+    expect(useAuthStore.getState().user?.login).toBe("work");
+  });
+
+  it("switches via ⌘2 when switcher is open", async () => {
+    (invoke as ReturnType<typeof vi.fn>).mockImplementation((cmd: string) => {
+      if (cmd === "cmd_get_account_attention_summaries") {
+        return Promise.resolve([
+          {
+            login: "octocat",
+            avatarUrl: null,
+            isActive: true,
+            reviewRequests: 0,
+            ciFailures: 0,
+            mentions: 0,
+          },
+          {
+            login: "work",
+            avatarUrl: null,
+            isActive: false,
+            reviewRequests: 0,
+            ciFailures: 0,
+            mentions: 0,
+          },
+        ]);
+      }
+      if (cmd === "cmd_switch_account") {
+        return Promise.resolve({ login: "work", avatar_url: "" });
+      }
+      return Promise.resolve(null);
+    });
+    useUiStore.setState({ workspaceSwitcherOpen: true });
+    renderSwitcher();
+
+    await waitFor(() => {
+      expect(screen.getByText("work")).toBeInTheDocument();
+    });
+
+    fireEvent.keyDown(window, { key: "2", metaKey: true });
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("cmd_switch_account", {
+        accountId: "work",
+      });
+    });
+  });
+
+  it("switches via ⌘2 globally when switcher is closed", async () => {
+    (invoke as ReturnType<typeof vi.fn>).mockImplementation((cmd: string) => {
+      if (cmd === "cmd_get_account_attention_summaries") {
+        return Promise.resolve([
+          {
+            login: "octocat",
+            avatarUrl: null,
+            isActive: true,
+            reviewRequests: 0,
+            ciFailures: 0,
+            mentions: 0,
+          },
+          {
+            login: "work",
+            avatarUrl: null,
+            isActive: false,
+            reviewRequests: 0,
+            ciFailures: 0,
+            mentions: 0,
+          },
+        ]);
+      }
+      if (cmd === "cmd_switch_account") {
+        return Promise.resolve({ login: "work", avatar_url: "" });
+      }
+      return Promise.resolve(null);
+    });
+    useUiStore.setState({ workspaceSwitcherOpen: false });
+    renderSwitcher();
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("cmd_get_account_attention_summaries");
+    });
+
+    fireEvent.keyDown(window, { key: "2", metaKey: true });
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("cmd_switch_account", {
+        accountId: "work",
+      });
+    });
+  });
+
+  it("opens with ⌘T", () => {
+    useUiStore.setState({ workspaceSwitcherOpen: false });
+    renderSwitcher();
+    fireEvent.keyDown(window, { key: "t", metaKey: true });
+    expect(useUiStore.getState().workspaceSwitcherOpen).toBe(true);
   });
 
   it("shows attention badge per account from cache summary", async () => {
@@ -174,7 +343,7 @@ describe("WorkspaceSwitcher", () => {
       return Promise.resolve(null);
     });
     useUiStore.setState({ workspaceSwitcherOpen: true });
-    render(<WorkspaceSwitcher />);
+    renderSwitcher();
 
     await waitFor(() => {
       expect(screen.getByText("work")).toBeInTheDocument();
@@ -185,7 +354,7 @@ describe("WorkspaceSwitcher", () => {
 
   it("does not render when closed", () => {
     useUiStore.setState({ workspaceSwitcherOpen: false });
-    render(<WorkspaceSwitcher />);
+    renderSwitcher();
     expect(screen.queryByText("Accounts")).not.toBeInTheDocument();
   });
 });

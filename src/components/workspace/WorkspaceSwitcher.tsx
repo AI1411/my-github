@@ -1,18 +1,35 @@
+import { useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../../stores/authStore";
 import { useDataStore } from "../../stores/dataStore";
 import { useUiStore } from "../../stores/uiStore";
 import { Avatar } from "../common/Avatar";
 import { useAccountAttentionSummaries } from "../../hooks/useAccountAttentionSummaries";
+import { useKeyboardShortcut } from "../../hooks/useKeyboardShortcut";
 import { attentionTotal } from "../../lib/accountAttention";
+import {
+  accountIndexFromDigitKey,
+  accountSwitchShortcutLabel,
+  resolveAccountSwitchTarget,
+} from "../../lib/accountSwitcherShortcut";
 
 interface WorkspaceSwitcherProps {
   onSignOut?: () => void;
 }
 
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+  return target.isContentEditable;
+}
+
 export function WorkspaceSwitcher({ onSignOut }: WorkspaceSwitcherProps) {
   const isOpen = useUiStore((s) => s.workspaceSwitcherOpen);
+  const open = useUiStore((s) => s.openWorkspaceSwitcher);
   const close = useUiStore((s) => s.closeWorkspaceSwitcher);
+  const closeCommandPalette = useUiStore((s) => s.closeCommandPalette);
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
   const reset = useAuthStore((s) => s.reset);
@@ -20,17 +37,9 @@ export function WorkspaceSwitcher({ onSignOut }: WorkspaceSwitcherProps) {
   const pulls = useDataStore((s) => s.pulls);
   const issues = useDataStore((s) => s.issues);
   const notifications = useDataStore((s) => s.notifications);
-  const { summaries } = useAccountAttentionSummaries(isOpen);
-
-  if (!isOpen) return null;
-
-  const recentWorkspaces = Array.from(
-    new Set([
-      ...pulls.map((p) => p.repo),
-      ...issues.map((i) => i.repo),
-      ...notifications.map((n) => n.repo),
-    ]),
-  ).slice(0, 6);
+  // Keep summaries warm so ⌘1–4 works globally, not only while the switcher is open.
+  const { summaries } = useAccountAttentionSummaries(true);
+  const navigate = useNavigate();
 
   const accounts =
     summaries.length > 0
@@ -49,6 +58,10 @@ export function WorkspaceSwitcher({ onSignOut }: WorkspaceSwitcherProps) {
         : [];
 
   const handleSwitchAccount = async (accountId: string) => {
+    if (accountId === user?.login) {
+      close();
+      return;
+    }
     const nextUser = await invoke<{ login: string; avatar_url: string }>("cmd_switch_account", {
       accountId,
     });
@@ -65,6 +78,50 @@ export function WorkspaceSwitcher({ onSignOut }: WorkspaceSwitcherProps) {
     close();
     onSignOut?.();
   };
+
+  const handleAddAccount = () => {
+    close();
+    navigate("/settings");
+  };
+
+  const switchRef = useRef(handleSwitchAccount);
+  switchRef.current = handleSwitchAccount;
+  const accountsRef = useRef(accounts);
+  accountsRef.current = accounts;
+
+  useKeyboardShortcut({ key: "t", meta: true, preventDefault: true }, () => {
+    if (isOpen) {
+      close();
+      return;
+    }
+    closeCommandPalette();
+    open();
+  });
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return;
+      if (isEditableTarget(event.target)) return;
+      const index = accountIndexFromDigitKey(event.key);
+      if (index === null) return;
+      const target = resolveAccountSwitchTarget(accountsRef.current, index);
+      if (!target) return;
+      event.preventDefault();
+      void switchRef.current(target.login);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  if (!isOpen) return null;
+
+  const recentWorkspaces = Array.from(
+    new Set([
+      ...pulls.map((p) => p.repo),
+      ...issues.map((i) => i.repo),
+      ...notifications.map((n) => n.repo),
+    ]),
+  ).slice(0, 6);
 
   return (
     <div
@@ -90,9 +147,10 @@ export function WorkspaceSwitcher({ onSignOut }: WorkspaceSwitcherProps) {
             Accounts
           </p>
         </div>
-        {accounts.map((acct) => {
+        {accounts.map((acct, index) => {
           const total = attentionTotal(acct);
           const isActive = acct.login === user?.login || acct.isActive;
+          const shortcut = accountSwitchShortcutLabel(index);
           return (
             <button
               key={acct.login}
@@ -130,9 +188,35 @@ export function WorkspaceSwitcher({ onSignOut }: WorkspaceSwitcherProps) {
                   {total}
                 </span>
               )}
+              {shortcut && (
+                <kbd
+                  className="text-[10px] px-1 py-0.5 rounded font-mono"
+                  style={{
+                    backgroundColor: "var(--bg-tertiary)",
+                    color: "var(--text-muted)",
+                  }}
+                >
+                  {shortcut}
+                </kbd>
+              )}
             </button>
           );
         })}
+        <div className="px-2 py-1.5 border-t" style={{ borderColor: "var(--border-subtle)" }}>
+          <button
+            type="button"
+            onClick={handleAddAccount}
+            className="w-full text-left text-sm px-3 py-2 rounded-md"
+            style={{
+              color: "var(--accent-blue, #58a6ff)",
+              backgroundColor: "transparent",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            Add another account
+          </button>
+        </div>
         <div className="px-4 py-2.5 border-t" style={{ borderColor: "var(--border-subtle)" }}>
           <p className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
             Recent workspaces
