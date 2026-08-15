@@ -2,6 +2,22 @@ import type { InboxItem } from "../../stores/dataStore";
 import { formatRelativeTime } from "../../lib/relativeTime";
 import { SNOOZE_OPTIONS, type SnoozeOption } from "../../lib/snooze";
 
+export function inboxReasonLabel(kind: string): string {
+  switch (kind) {
+    case "review_requested":
+      return "Review requested";
+    case "ci_failure":
+      return "CI failing";
+    case "mention":
+      return "Mentioned";
+    case "stale_review_request":
+    case "stale_own_pull":
+      return "Stale";
+    default:
+      return kind.replaceAll("_", " ");
+  }
+}
+
 export interface InboxItemRowProps {
   item: InboxItem;
   selected?: boolean;
@@ -59,6 +75,8 @@ export function InboxItemRow({
         <p className="text-xs mt-0.5 truncate" style={{ color: "var(--text-muted)" }}>
           {item.repo}
           {item.number !== null && ` #${item.number}`}
+          {" · "}
+          {inboxReasonLabel(item.kind)}
           {" · "}
           {formatRelativeTime(item.updatedAt)}
         </p>
