@@ -49,6 +49,13 @@ pub const V5_RELEASES: Migration = Migration {
     sql: include_str!("sql/v5_releases.sql"),
 };
 
+/// v6: local Done/dismiss flag for inbox items.
+pub const V6_INBOX_ITEM_DISMISSED: Migration = Migration {
+    version: 6,
+    name: "v6_inbox_item_dismissed",
+    sql: include_str!("sql/v6_inbox_item_dismissed.sql"),
+};
+
 /// All migrations known to the application, ordered by version.
 pub const MIGRATIONS: &[Migration] = &[
     V1_INITIAL,
@@ -56,6 +63,7 @@ pub const MIGRATIONS: &[Migration] = &[
     V3_ERROR_LOGS,
     V4_INBOX_ITEM_STATE,
     V5_RELEASES,
+    V6_INBOX_ITEM_DISMISSED,
 ];
 
 #[cfg(test)]
@@ -231,7 +239,26 @@ mod tests {
 
     #[test]
     fn migrations_include_v5() {
-        assert_eq!(MIGRATIONS.len(), 5);
         assert_eq!(MIGRATIONS[4].version, 5);
+    }
+
+    #[test]
+    fn v6_inbox_item_dismissed_applies_after_v5() {
+        let conn = Connection::open_in_memory().unwrap();
+        apply_through(&conn, 6);
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('inbox_item_state') WHERE name='dismissed'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 1, "dismissed column should exist after v6");
+    }
+
+    #[test]
+    fn migrations_include_v6() {
+        assert_eq!(MIGRATIONS.len(), 6);
+        assert_eq!(MIGRATIONS[5].version, 6);
     }
 }

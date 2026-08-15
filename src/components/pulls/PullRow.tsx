@@ -8,21 +8,33 @@ import { ReviewerGroup } from "./ReviewerGroup";
 export interface PullRowProps {
   pull: PullSummary;
   selected?: boolean;
+  stale?: boolean;
+  pinned?: boolean;
   onSelect?: () => void;
   onOpen?: () => void;
+  onTogglePin?: () => void;
   style?: CSSProperties;
 }
 
 const GRID: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "24px 56px minmax(0,1fr) 140px 140px 100px 100px 72px",
+  gridTemplateColumns: "24px 56px minmax(0,1fr) 140px 140px 100px 100px 72px 32px",
   alignItems: "center",
   gap: 12,
 };
 
-export function PullRow({ pull, selected, onSelect, onOpen, style }: PullRowProps) {
+export function PullRow({
+  pull,
+  selected,
+  stale,
+  pinned,
+  onSelect,
+  onOpen,
+  onTogglePin,
+  style,
+}: PullRowProps) {
   const kind = classifyPull(pull);
-  const bg = selected ? "var(--bg-overlay)" : "transparent";
+  const bg = selected ? "var(--bg-overlay)" : stale ? "rgba(251, 146, 60, 0.08)" : "transparent";
   return (
     <div
       role="row"
@@ -34,13 +46,15 @@ export function PullRow({ pull, selected, onSelect, onOpen, style }: PullRowProp
           onOpen?.();
         }
       }}
-      className="px-4 py-2 cursor-pointer border-b outline-none"
+      className="px-4 cursor-pointer border-b outline-none"
       style={{
         ...GRID,
         ...style,
         backgroundColor: bg,
-        borderColor: "var(--border-subtle)",
+        borderColor: stale ? "rgba(251, 146, 60, 0.35)" : "var(--border-subtle)",
+        paddingBlock: "var(--row-pad-y)",
       }}
+      aria-label={stale ? `${pull.title} (stale)` : undefined}
     >
       <div style={{ justifySelf: "center" }}>
         <StatusDot kind={kind} />
@@ -58,6 +72,22 @@ export function PullRow({ pull, selected, onSelect, onOpen, style }: PullRowProp
           title={pull.title}
         >
           {pull.title}
+          {stale && (
+            <span
+              className="ml-2 text-[10px] uppercase tracking-wide"
+              style={{ color: "var(--accent-orange, #fb923c)" }}
+            >
+              Stale
+            </span>
+          )}
+          {pinned && (
+            <span
+              className="ml-2 text-[10px] uppercase tracking-wide"
+              style={{ color: "var(--accent-blue)" }}
+            >
+              Pinned
+            </span>
+          )}
         </span>
         <span className="truncate text-[11px]" style={{ color: "var(--text-muted)" }}>
           {pull.repo} · {pull.headRef} → {pull.baseRef}
@@ -86,6 +116,28 @@ export function PullRow({ pull, selected, onSelect, onOpen, style }: PullRowProp
       </div>
       <div className="text-xs text-right tabular-nums" style={{ color: "var(--text-muted)" }}>
         {formatRelativeTime(pull.updatedAt)}
+      </div>
+      <div style={{ justifySelf: "center" }}>
+        {onTogglePin && (
+          <button
+            type="button"
+            aria-label={pinned ? `Unpin ${pull.title}` : `Pin ${pull.title}`}
+            aria-pressed={pinned}
+            onClick={(e) => {
+              e.stopPropagation();
+              onTogglePin();
+            }}
+            className="text-xs px-1.5 py-0.5 rounded"
+            style={{
+              color: pinned ? "var(--accent-blue)" : "var(--text-muted)",
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            {pinned ? "★" : "☆"}
+          </button>
+        )}
       </div>
     </div>
   );

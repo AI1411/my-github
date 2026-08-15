@@ -13,8 +13,12 @@ pub async fn sync_repositories(
     now: &str,
 ) -> SyncStepReport {
     match list_repos_for_authenticated_user(client).await {
-        Ok(repos) => persist_repositories(pool, user, &repos, now)
-            .unwrap_or_else(|message| repository_persistence_error_report(repos.len(), message)),
+        Ok(repos) => {
+            let host = crate::github::host::host_label_from_api_base(client.base_url());
+            persist_repositories(pool, user, &repos, now, &host).unwrap_or_else(|message| {
+                repository_persistence_error_report(repos.len(), message)
+            })
+        }
         Err(err) => SyncStepReport::from_errors(
             SyncScope::Repositories,
             0,
@@ -47,8 +51,9 @@ pub fn persist_repositories(
     user: &PatUser,
     repos: &[Repository],
     now: &str,
+    host: &str,
 ) -> Result<SyncStepReport, String> {
-    let account_id = upsert_account(pool, user, now).map_err(|err| err.to_string())?;
+    let account_id = upsert_account(pool, user, now, host).map_err(|err| err.to_string())?;
     let mut written = 0usize;
     let mut errors = Vec::new();
 
@@ -137,7 +142,9 @@ mod tests {
             sample_repo(101, "octocat/beta"),
         ];
 
-        let report = persist_repositories(&pool, &user, &repos, "2026-04-30T00:00:00Z").unwrap();
+        let report =
+            persist_repositories(&pool, &user, &repos, "2026-04-30T00:00:00Z", "github.com")
+                .unwrap();
 
         assert_eq!(report.scope, SyncScope::Repositories);
         assert_eq!(report.status, SyncStepStatus::Success);

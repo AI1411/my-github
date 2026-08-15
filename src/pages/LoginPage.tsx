@@ -7,9 +7,10 @@ interface AuthUser {
 
 interface LoginPageProps {
   onSuccess?: (user: AuthUser) => void;
+  expired?: boolean;
 }
 
-export default function LoginPage({ onSuccess }: LoginPageProps) {
+export default function LoginPage({ onSuccess, expired = false }: LoginPageProps) {
   return (
     <div
       className="min-h-screen flex items-center justify-center"
@@ -26,6 +27,11 @@ export default function LoginPage({ onSuccess }: LoginPageProps) {
           <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
             GitHub cross-repository dashboard
           </p>
+          {expired && (
+            <p className="mt-3 text-sm" style={{ color: "var(--accent-orange, #d29922)" }}>
+              Token expired. Paste a new PAT.
+            </p>
+          )}
         </div>
 
         <div className="mt-6" data-testid="pat-tab">

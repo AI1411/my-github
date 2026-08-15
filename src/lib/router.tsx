@@ -2,11 +2,20 @@ import { createBrowserRouter, Navigate, Outlet, RouterProvider } from "react-rou
 import { AppShell } from "../components/layout/AppShell";
 import { Sidebar } from "../components/layout/Sidebar";
 import { ErrorBoundary } from "../components/common/ErrorBoundary";
+import { homePathForLayout } from "./appearance";
+import { useSettingsStore } from "../stores/settingsStore";
 import InboxPage from "../pages/InboxPage";
+import ReviewQueuePage from "../pages/ReviewQueuePage";
+import MyBlockersPage from "../pages/MyBlockersPage";
 import PullsPage from "../pages/PullsPage";
 import IssuesPage from "../pages/IssuesPage";
 import ActivityPage from "../pages/ActivityPage";
 import DigestPage from "../pages/DigestPage";
+import UnitDashboardPage from "../pages/UnitDashboardPage";
+import ReleasesPage from "../pages/ReleasesPage";
+import DiscussionsPage from "../pages/DiscussionsPage";
+import ProjectsPage from "../pages/ProjectsPage";
+import CodeSearchPage from "../pages/CodeSearchPage";
 import SettingsPage from "../pages/SettingsPage";
 import PullDetailPage from "../pages/PullDetailPage";
 import IssueDetailPage from "../pages/IssueDetailPage";
@@ -15,6 +24,11 @@ import NotFoundPage from "../pages/NotFoundPage";
 
 interface ShellLayoutProps {
   onSignOut: () => void;
+}
+
+function HomeRedirect() {
+  const layout = useSettingsStore((s) => s.layout);
+  return <Navigate to={homePathForLayout(layout)} replace />;
 }
 
 function ShellLayout({ onSignOut }: ShellLayoutProps) {
@@ -36,14 +50,21 @@ export function createAppRouter(onSignOut: () => void) {
       path: "/",
       element: <ShellLayout onSignOut={onSignOut} />,
       children: [
-        { index: true, element: <Navigate to="/inbox" replace /> },
+        { index: true, element: <HomeRedirect /> },
         { path: "inbox", element: <InboxPage /> },
+        { path: "review-queue", element: <ReviewQueuePage /> },
+        { path: "my-blockers", element: <MyBlockersPage /> },
         { path: "pulls", element: <PullsPage /> },
         { path: "pulls/:owner/:repo/:number", element: <PullDetailPage /> },
         { path: "issues", element: <IssuesPage /> },
         { path: "issues/:owner/:repo/:number", element: <IssueDetailPage /> },
         { path: "activity", element: <ActivityPage /> },
         { path: "digest", element: <DigestPage /> },
+        { path: "dashboards", element: <UnitDashboardPage /> },
+        { path: "releases", element: <ReleasesPage /> },
+        { path: "discussions", element: <DiscussionsPage /> },
+        { path: "projects", element: <ProjectsPage /> },
+        { path: "code-search", element: <CodeSearchPage /> },
         { path: "ci", element: <CiStatusPage /> },
         { path: "settings", element: <SettingsPage /> },
         { path: "*", element: <NotFoundPage /> },

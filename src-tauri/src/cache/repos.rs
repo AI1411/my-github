@@ -14,19 +14,26 @@ pub fn upsert_account(
     pool: &SqlitePool,
     user: &PatUser,
     created_at: &str,
+    host: &str,
 ) -> Result<i64, CacheError> {
     let mut conn = pool.get()?;
     let account_id = user.id as i64;
+    let host_label = if host.trim().is_empty() {
+        "github.com"
+    } else {
+        host
+    };
     let tx = conn.transaction()?;
     tx.execute("UPDATE accounts SET is_active = 0", [])?;
     tx.execute(
         "INSERT INTO accounts (id, login, host, avatar_url, is_active, created_at)
-         VALUES (?1, ?2, 'github.com', ?3, 1, ?4)
+         VALUES (?1, ?2, ?3, ?4, 1, ?5)
          ON CONFLICT(id) DO UPDATE SET
             login = excluded.login,
+            host = excluded.host,
             avatar_url = excluded.avatar_url,
             is_active = 1",
-        params![account_id, user.login, user.avatar_url, created_at],
+        params![account_id, user.login, host_label, user.avatar_url, created_at],
     )?;
     tx.commit()?;
     Ok(account_id)
@@ -133,7 +140,7 @@ mod tests {
     fn upsert_repo_preserves_existing_watch_choice() {
         let pool = test_pool();
         let user = sample_pat_user();
-        let account_id = upsert_account(&pool, &user, "2026-04-30T00:00:00Z").unwrap();
+        let account_id = upsert_account(&pool, &user, "2026-04-30T00:00:00Z", "github.com").unwrap();
         upsert_repo(
             &pool,
             account_id,

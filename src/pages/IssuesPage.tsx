@@ -1,31 +1,38 @@
 import { useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Toolbar } from "../components/common/Toolbar";
+import { SaveViewControl } from "../components/common/SaveViewControl";
+import { ListSearchBar } from "../components/common/ListSearchBar";
+import { ListSkeleton } from "../components/common/ListSkeleton";
 import { useIssuesQuery } from "../features/issues/useIssuesQuery";
+import { useAuthStore } from "../stores/authStore";
 import { useUiStore } from "../stores/uiStore";
 import { useSettingsStore } from "../stores/settingsStore";
 import { FilterSidebar, type AvailableLabel } from "../components/issues/FilterSidebar";
 import { AppliedFilters } from "../components/issues/AppliedFilters";
 import { IssueRow } from "../components/issues/IssueRow";
 import { useListNavigation } from "../hooks/useListNavigation";
+import { useListSearch } from "../hooks/useListSearch";
+import { useDetailPrefetch } from "../hooks/useDetailPrefetch";
+import { matchesListSearch } from "../lib/listSearch";
 import { issueFilterToQuery, queryToIssueFilter } from "../lib/savedFilters";
 
 export default function IssuesPage() {
   const filter = useUiStore((s) => s.issueFilters);
   const setFilter = useUiStore((s) => s.setIssueFilters);
-  const { issues, refreshing } = useIssuesQuery(filter);
+  const { issues, loading, refreshing } = useIssuesQuery(filter);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const searchKey = searchParams.toString();
   const addSavedFilter = useSettingsStore((s) => s.addSavedFilter);
+  const accountId = useAuthStore((s) => s.user?.login ?? "");
+  const listSearch = useListSearch(accountId, "issues");
 
   useEffect(() => {
     if (searchKey) setFilter(queryToIssueFilter(searchKey));
   }, [searchKey, setFilter]);
 
-  const handleSaveView = () => {
-    const name = window.prompt("View name");
-    if (!name) return;
+  const handleSaveView = (name: string) => {
     addSavedFilter({ name, target: "issues", query: issueFilterToQuery(filter) });
   };
 
@@ -51,37 +58,35 @@ export default function IssuesPage() {
     [issues],
   );
 
+  const visibleIssues = useMemo(
+    () =>
+      issues.filter((i) => matchesListSearch(`${i.title} ${i.repo} ${i.number}`, listSearch.query)),
+    [issues, listSearch.query],
+  );
+
   const openIssue = (i: (typeof issues)[number]) => {
     const [owner, repo] = i.repo.split("/");
     navigate(`/issues/${owner}/${repo}/${i.number}`);
   };
 
-  const { activeIndex, setActiveId } = useListNavigation({
-    items: issues,
+  const { activeIndex, setActiveId, activeItem } = useListNavigation({
+    items: visibleIssues,
     getId: (i) => String(i.id),
     onOpen: openIssue,
-    enabled: issues.length > 0,
+    enabled: visibleIssues.length > 0,
   });
+
+  useDetailPrefetch(
+    "issue",
+    activeItem ? { repo: activeItem.repo, number: activeItem.number } : null,
+  );
 
   return (
     <div className="flex flex-col h-full">
       <Toolbar
         title="Issues"
         subtitle={refreshing ? "Refreshing…" : undefined}
-        actions={
-          <button
-            type="button"
-            onClick={handleSaveView}
-            className="rounded-md px-2.5 py-1.5 text-xs font-medium"
-            style={{
-              backgroundColor: "var(--bg-tertiary)",
-              border: "1px solid var(--border-default)",
-              color: "var(--text-secondary)",
-            }}
-          >
-            Save view
-          </button>
-        }
+        actions={<SaveViewControl onSave={handleSaveView} />}
       />
       <div
         data-testid="issues-page-root"
@@ -115,16 +120,27 @@ export default function IssuesPage() {
           >
             <AppliedFilters filter={filter} onChange={setFilter} />
           </div>
+          <ListSearchBar
+            open={listSearch.open}
+            query={listSearch.query}
+            onQueryChange={listSearch.setQuery}
+            inputRef={listSearch.inputRef}
+            placeholder="Filter issues…"
+          />
           <div data-testid="issues-list" className="flex-1 overflow-auto">
-            {issues.map((issue, idx) => (
-              <IssueRow
-                key={issue.id}
-                issue={issue}
-                selected={activeIndex === idx}
-                onSelect={() => setActiveId(String(issue.id))}
-                onOpen={() => openIssue(issue)}
-              />
-            ))}
+            {loading && issues.length === 0 ? (
+              <ListSkeleton />
+            ) : (
+              visibleIssues.map((issue, idx) => (
+                <IssueRow
+                  key={issue.id}
+                  issue={issue}
+                  selected={activeIndex === idx}
+                  onSelect={() => setActiveId(String(issue.id))}
+                  onOpen={() => openIssue(issue)}
+                />
+              ))
+            )}
           </div>
         </section>
       </div>

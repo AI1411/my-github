@@ -180,8 +180,10 @@ mod tests {
                 repo: None,
             },
             requested_reviewers: vec![],
+            requested_teams: vec![],
             mergeable: None,
             mergeable_state: None,
+            labels: vec![],
         }
     }
 

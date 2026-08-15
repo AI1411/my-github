@@ -20,10 +20,38 @@ vi.mock("@tauri-apps/api/core", () => ({
         updatedAt: "2026-04-21T00:00:00Z",
         htmlUrl: "https://github.com/octocat/alpha/issues/7",
         body: "## Steps\n- repro",
+        reactions: [
+          { content: "+1", count: 0, viewerHasReacted: false },
+          { content: "-1", count: 0, viewerHasReacted: false },
+          { content: "laugh", count: 0, viewerHasReacted: false },
+          { content: "hooray", count: 0, viewerHasReacted: false },
+          { content: "confused", count: 0, viewerHasReacted: false },
+          { content: "heart", count: 0, viewerHasReacted: false },
+          { content: "rocket", count: 0, viewerHasReacted: false },
+          { content: "eyes", count: 0, viewerHasReacted: false },
+        ],
       });
     }
     if (name === "cmd_list_issue_comments") {
       return Promise.resolve([]);
+    }
+    if (name === "cmd_list_issue_timeline") {
+      return Promise.resolve([
+        {
+          id: 1,
+          event: "labeled",
+          createdAt: "2026-04-20T00:00:00Z",
+          actorLogin: "octocat",
+          labelName: "bug",
+          labelColor: "d73a4a",
+          assigneeLogin: null,
+          milestoneTitle: null,
+          crossRefTitle: null,
+          crossRefNumber: null,
+          crossRefUrl: null,
+          body: null,
+        },
+      ]);
     }
     return Promise.resolve(null);
   }),
@@ -66,5 +94,11 @@ describe("IssueDetailPage", () => {
     renderAt("/issues/octocat/alpha/7");
     expect(await screen.findByText("Assignees")).toBeInTheDocument();
     expect(await screen.findByText("alice")).toBeInTheDocument();
+  });
+
+  it("renders timeline event separators", async () => {
+    renderAt("/issues/octocat/alpha/7");
+    expect(await screen.findByRole("list", { name: /issue timeline/i })).toBeInTheDocument();
+    expect(await screen.findByText(/added label/i)).toBeInTheDocument();
   });
 });

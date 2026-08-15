@@ -1,6 +1,7 @@
 pub mod auth;
 pub mod ci;
 pub mod digest;
+pub mod editor;
 pub mod inbox;
 pub mod issues;
 pub mod pulls;

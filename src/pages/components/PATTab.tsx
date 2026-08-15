@@ -1,5 +1,10 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import {
+  DEFAULT_GITHUB_WEB_BASE,
+  normalizeGithubApiBaseUrl,
+  normalizeGithubWebBaseUrl,
+} from "../../lib/githubHost";
 
 interface AuthUser {
   login: string;
@@ -7,13 +12,16 @@ interface AuthUser {
 }
 
 interface Props {
-  onSuccess: (user: AuthUser) => void;
+  onSuccess: (user: AuthUser, hostWebBase: string) => void;
+  /** When true, show the custom host URL field (Settings → Add account). */
+  showHostField?: boolean;
 }
 
 type State = "idle" | "loading" | "error";
 
-export function PATTab({ onSuccess }: Props) {
+export function PATTab({ onSuccess, showHostField = true }: Props) {
   const [token, setToken] = useState("");
+  const [hostUrl, setHostUrl] = useState("");
   const [state, setState] = useState<State>("idle");
   const [error, setError] = useState<string | null>(null);
   const [showToken, setShowToken] = useState(false);
@@ -23,9 +31,16 @@ export function PATTab({ onSuccess }: Props) {
     if (!token.trim()) return;
     setState("loading");
     setError(null);
+    const webBase = hostUrl.trim()
+      ? normalizeGithubWebBaseUrl(hostUrl)
+      : DEFAULT_GITHUB_WEB_BASE;
+    const apiBase = normalizeGithubApiBaseUrl(webBase);
     try {
-      const user = await invoke<AuthUser>("cmd_save_pat", { pat: token.trim() });
-      onSuccess(user);
+      const user = await invoke<AuthUser>("cmd_save_pat", {
+        pat: token.trim(),
+        baseUrl: apiBase === "https://api.github.com" ? null : apiBase,
+      });
+      onSuccess(user, webBase);
     } catch (err) {
       setError(String(err));
       setState("error");
@@ -59,8 +74,41 @@ export function PATTab({ onSuccess }: Props) {
         >
           notifications
         </code>{" "}
-        scopes.
+        scopes. For GitHub Enterprise Server, enter the host URL below.
       </p>
+
+      {showHostField && (
+        <div>
+          <label
+            htmlFor="ghes-host-url"
+            className="mb-1.5 block text-xs font-medium"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            Host URL (optional)
+          </label>
+          <input
+            id="ghes-host-url"
+            type="url"
+            value={hostUrl}
+            onChange={(e) => setHostUrl(e.target.value)}
+            placeholder="https://github.com or https://github.example.com"
+            className="w-full py-2.5 px-3 rounded-md text-sm font-mono"
+            style={{
+              backgroundColor: "var(--bg-secondary)",
+              color: "var(--text-primary)",
+              border: "1px solid var(--border-default)",
+              outline: "none",
+            }}
+            disabled={state === "loading"}
+            autoComplete="off"
+            spellCheck={false}
+          />
+          <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
+            Leave blank for github.com. GHES hosts map to{" "}
+            <code className="text-[11px]">/api/v3</code>.
+          </p>
+        </div>
+      )}
 
       <div className="relative">
         <input

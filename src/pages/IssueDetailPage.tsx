@@ -1,18 +1,105 @@
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { invoke } from "@tauri-apps/api/core";
 import { Spinner } from "../components/common/Spinner";
 import { EmptyState } from "../components/common/EmptyState";
 import { StatusPill } from "../components/common/StatusPill";
+import { Button } from "../components/common/Button";
 import { IssueOriginalPost } from "../components/issues/IssueOriginalPost";
+import { IssueTimeline } from "../components/issues/IssueTimeline";
 import { CommentThread } from "../components/issues/CommentThread";
 import { IssueSidebar } from "../components/issues/IssueSidebar";
+import type { ReactionInfo } from "../components/issues/ReactionPills";
 import { useIssueQuery } from "../features/issues/useIssueQuery";
 import { useIssueCommentsQuery } from "../features/issues/useIssueCommentsQuery";
+import { useIssueTimelineQuery } from "../features/issues/useIssueTimelineQuery";
+import { enqueueWrite } from "../lib/writeQueue";
+import { useDataStore, type IssueSummary } from "../stores/dataStore";
+import { useCloseDetailShortcut } from "../hooks/useCloseDetailShortcut";
+import { useInboxQueueAdvance } from "../hooks/useInboxQueueAdvance";
+import { useOpenInBrowserShortcut } from "../hooks/useOpenInBrowserShortcut";
 
 export default function IssueDetailPage() {
+  useCloseDetailShortcut();
+  useInboxQueueAdvance();
   const { owner, repo, number } = useParams();
   const num = number ? Number.parseInt(number, 10) : undefined;
-  const { issue, loading, error } = useIssueQuery(owner, repo, num);
+  const { issue: fetched, loading, error } = useIssueQuery(owner, repo, num);
   const { comments } = useIssueCommentsQuery(owner, repo, num);
+  const { events: timeline } = useIssueTimelineQuery(owner, repo, num);
+  const patchIssue = useDataStore((s) => s.patchIssue);
+  const [issue, setIssue] = useState<IssueSummary | null>(null);
+  const [reactions, setReactions] = useState<ReactionInfo[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [reactionBusy, setReactionBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setIssue(fetched);
+    setReactions(fetched?.reactions ?? []);
+  }, [fetched]);
+
+  useOpenInBrowserShortcut(issue?.htmlUrl ?? fetched?.htmlUrl ?? null);
+
+  const updateIssue = async (payload: {
+    state?: string;
+    labels?: string[];
+    assignees?: string[];
+  }) => {
+    if (!owner || !repo || !num) return;
+    setBusy(true);
+    setActionError(null);
+    const args = {
+      owner,
+      repo,
+      number: num,
+      state: payload.state ?? null,
+      labels: payload.labels ?? null,
+      assignees: payload.assignees ?? null,
+    };
+    try {
+      const updated = await invoke<IssueSummary>("cmd_update_issue", args);
+      setIssue(updated);
+      patchIssue(updated.repo, updated.number, {
+        state: updated.state,
+        labels: updated.labels,
+        assignees: updated.assignees,
+      });
+    } catch (e) {
+      if (typeof navigator !== "undefined" && navigator.onLine === false) {
+        enqueueWrite({ command: "cmd_update_issue", args });
+        setActionError("Offline — update queued for retry");
+      } else {
+        setActionError(e instanceof Error ? e.message : String(e));
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggleReaction = async (content: string) => {
+    if (!owner || !repo || !num) return;
+    setReactionBusy(true);
+    setActionError(null);
+    try {
+      const result = await invoke<{
+        content: string;
+        reacted: boolean;
+        reactions: ReactionInfo[];
+      }>("cmd_toggle_issue_reaction", {
+        owner,
+        repo,
+        number: num,
+        content,
+        commentId: null,
+      });
+      setReactions(result.reactions);
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setReactionBusy(false);
+    }
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -65,7 +152,11 @@ export default function IssueDetailPage() {
                 }}
                 body={issue.body}
                 createdAt={issue.updatedAt}
+                reactions={reactions}
+                reactionsBusy={reactionBusy}
+                onToggleReaction={(content) => void toggleReaction(content)}
               />
+              <IssueTimeline events={timeline} />
               <CommentThread comments={comments} />
             </div>
             <IssueSidebar
@@ -83,8 +174,63 @@ export default function IssueDetailPage() {
               linkedPrs={[]}
               participants={[]}
               subscribed={false}
+              onAddAssignee={() => {
+                const login = window.prompt("Assignee login");
+                if (!login) return;
+                void updateIssue({
+                  assignees: [...issue.assignees.map((a) => a.login), login.trim()],
+                });
+              }}
+              onRemoveAssignee={(login) => {
+                void updateIssue({
+                  assignees: issue.assignees.map((a) => a.login).filter((l) => l !== login),
+                });
+              }}
+              onAddLabel={() => {
+                const name = window.prompt("Label name");
+                if (!name) return;
+                void updateIssue({
+                  labels: [...issue.labels.map((l) => l.name), name.trim()],
+                });
+              }}
+              onRemoveLabel={(name) => {
+                void updateIssue({
+                  labels: issue.labels.map((l) => l.name).filter((n) => n !== name),
+                });
+              }}
             />
           </div>
+
+          <footer
+            className="flex items-center justify-end gap-2 px-4 py-3 border-t"
+            style={{
+              borderColor: "var(--border-subtle)",
+              backgroundColor: "var(--bg-secondary)",
+            }}
+          >
+            {actionError && (
+              <span className="mr-auto text-xs" style={{ color: "var(--accent-red)" }} role="alert">
+                {actionError}
+              </span>
+            )}
+            {issue.state === "open" ? (
+              <Button
+                variant="ghost"
+                disabled={busy}
+                onClick={() => void updateIssue({ state: "closed" })}
+              >
+                {busy ? "Working…" : "Close issue"}
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                disabled={busy}
+                onClick={() => void updateIssue({ state: "open" })}
+              >
+                {busy ? "Working…" : "Reopen issue"}
+              </Button>
+            )}
+          </footer>
         </>
       )}
     </div>

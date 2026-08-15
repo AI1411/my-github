@@ -25,6 +25,7 @@ export interface PullSummary {
   additions: number | null;
   deletions: number | null;
   changedFiles: number | null;
+  labels?: string[];
 }
 
 export interface IssueLabelInfo {
@@ -51,6 +52,11 @@ export interface IssueSummary {
   updatedAt: string;
   htmlUrl: string | null;
   body: string | null;
+  reactions?: {
+    content: string;
+    count: number;
+    viewerHasReacted: boolean;
+  }[];
 }
 
 export interface NotificationSummary {
@@ -115,6 +121,19 @@ export interface DataState {
   setIssues: (issues: IssueSummary[]) => void;
   setNotifications: (notifications: NotificationSummary[]) => void;
   setReleases: (releases: ReleaseSummary[]) => void;
+  patchPullReviewState: (repo: string, number: number, reviewState: string) => void;
+  patchPullState: (repo: string, number: number, state: string) => void;
+  patchPullDraft: (repo: string, number: number, isDraft: boolean) => void;
+  patchPullReviewers: (
+    repo: string,
+    number: number,
+    reviewers: { login: string; avatarUrl: string }[],
+  ) => void;
+  patchIssue: (
+    repo: string,
+    number: number,
+    patch: Partial<Pick<IssueSummary, "state" | "labels" | "assignees">>,
+  ) => void;
   markLastSynced: () => void;
   reset: () => void;
 }
@@ -129,6 +148,42 @@ export const useDataStore = create<DataState>((set) => ({
   setIssues: (issues) => set({ issues }),
   setNotifications: (notifications) => set({ notifications }),
   setReleases: (releases) => set({ releases }),
+  patchPullReviewState: (repo, number, reviewState) =>
+    set((state) => ({
+      pulls: state.pulls.map((p) =>
+        p.repo === repo && p.number === number ? { ...p, reviewState } : p,
+      ),
+    })),
+  patchPullState: (repo, number, nextState) =>
+    set((state) => ({
+      pulls: state.pulls.map((p) =>
+        p.repo === repo && p.number === number
+          ? {
+              ...p,
+              state: nextState,
+              mergedAt: nextState === "closed" && p.mergedAt ? p.mergedAt : p.mergedAt,
+            }
+          : p,
+      ),
+    })),
+  patchPullDraft: (repo, number, isDraft) =>
+    set((state) => ({
+      pulls: state.pulls.map((p) =>
+        p.repo === repo && p.number === number ? { ...p, isDraft } : p,
+      ),
+    })),
+  patchPullReviewers: (repo, number, reviewers) =>
+    set((state) => ({
+      pulls: state.pulls.map((p) =>
+        p.repo === repo && p.number === number ? { ...p, requestedReviewers: reviewers } : p,
+      ),
+    })),
+  patchIssue: (repo, number, patch) =>
+    set((state) => ({
+      issues: state.issues.map((i) =>
+        i.repo === repo && i.number === number ? { ...i, ...patch } : i,
+      ),
+    })),
   markLastSynced: () => set({ lastSyncedAt: new Date().toISOString() }),
   reset: () => set({ pulls: [], issues: [], notifications: [], releases: [], lastSyncedAt: null }),
 }));

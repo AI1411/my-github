@@ -1,8 +1,6 @@
 use serde::Serialize;
 use tauri::{AppHandle, Runtime};
 
-use crate::auth::token_store::{load_last_account_id, load_token};
-use crate::github::client::GithubClient;
 use crate::github::rest::{
     get_workflow_run_logs_url, list_workflow_runs as rest_list_workflow_runs,
 };
@@ -45,9 +43,7 @@ pub async fn cmd_get_workflow_runs<R: Runtime>(
     repo: String,
     branch: Option<String>,
 ) -> Result<Vec<WorkflowRunSummary>, String> {
-    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
-    let token = load_token(&account_id).ok_or_else(|| "no token".to_string())?;
-    let client = GithubClient::new(token);
+    let client = crate::github::client::client_for_active_account()?;
     let repo_full = format!("{}/{}", owner, repo);
     let runs = rest_list_workflow_runs(&client, &owner, &repo, branch.as_deref())
         .await
@@ -70,10 +66,7 @@ pub async fn cmd_open_run_logs<R: Runtime>(
         let owner = owner.ok_or_else(|| "owner is required".to_string())?;
         let repo = repo.ok_or_else(|| "repo is required".to_string())?;
         let run_id = run_id.ok_or_else(|| "run id is required".to_string())?;
-        let account_id =
-            load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
-        let token = load_token(&account_id).ok_or_else(|| "no token".to_string())?;
-        let client = GithubClient::new(token);
+        let client = crate::github::client::client_for_active_account()?;
         get_workflow_run_logs_url(&client, &owner, &repo, run_id)
             .await
             .map_err(|e| e.to_string())?

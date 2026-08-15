@@ -1,6 +1,8 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { saveDigestLastSeen } from "../../lib/digest";
+import { useSettingsStore } from "../../stores/settingsStore";
 import { useUiStore } from "../../stores/uiStore";
 import { AppShell } from "./AppShell";
 
@@ -14,8 +16,22 @@ const notificationLifecycle = vi.hoisted(() => ({
   })),
 }));
 
+const writeQueueMock = vi.hoisted(() => ({
+  useWriteQueue: vi.fn(() => ({
+    queue: [],
+    pendingCount: 0,
+    flushing: false,
+    retry: vi.fn(),
+    discard: vi.fn(),
+    discardAll: vi.fn(),
+  })),
+}));
+
 vi.mock("../../hooks/useOnlineStatus", () => ({
   useOnlineStatus: vi.fn(),
+}));
+vi.mock("../../hooks/useWriteQueue", () => ({
+  useWriteQueue: writeQueueMock.useWriteQueue,
 }));
 vi.mock("../../features/activity/useNotificationPolling", () => ({
   useNotificationPolling: notificationLifecycle.useNotificationPolling,
@@ -23,14 +39,38 @@ vi.mock("../../features/activity/useNotificationPolling", () => ({
 vi.mock("../../lib/notifications", () => ({
   registerAppNotificationClickHandler: notificationLifecycle.registerAppNotificationClickHandler,
 }));
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn(() => Promise.resolve(() => undefined)),
+}));
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: vi.fn().mockResolvedValue({ lastRateLimit: null }),
+}));
+
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="path">{location.pathname}</div>;
+}
 
 describe("AppShell offline banner", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    writeQueueMock.useWriteQueue.mockReturnValue({
+      queue: [],
+      pendingCount: 0,
+      flushing: false,
+      retry: vi.fn(),
+      discard: vi.fn(),
+      discardAll: vi.fn(),
+    });
     notificationLifecycle.registerAppNotificationClickHandler.mockResolvedValue(
       notificationLifecycle.disposeClickHandler,
     );
-    useUiStore.setState({ offline: false, sidebarCollapsed: false });
+    useUiStore.setState({ offline: false, sidebarCollapsed: false, rateLimitHit: null });
+    useSettingsStore.setState({
+      pushSyncEnabled: false,
+      digestAutoShowEnabled: true,
+      watchOnboardingDismissed: true,
+    });
   });
 
   it("shows an offline banner when uiStore is offline", () => {
@@ -42,7 +82,77 @@ describe("AppShell offline banner", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText("Offline")).toBeInTheDocument();
+    expect(screen.getByText("Offline · showing cache")).toBeInTheDocument();
+  });
+
+  it("retries ping and sync from the offline banner", async () => {
+    const { invoke } = await import("@tauri-apps/api/core");
+    (invoke as ReturnType<typeof vi.fn>).mockImplementation(async (cmd: string) => {
+      if (cmd === "cmd_ping") return true;
+      if (cmd === "cmd_sync_now") return null;
+      return { lastRateLimit: null };
+    });
+    useUiStore.setState({ offline: true });
+
+    render(
+      <MemoryRouter>
+        <AppShell sidebar={<div />} main={<div>Main</div>} />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("cmd_ping");
+      expect(invoke).toHaveBeenCalledWith("cmd_sync_now");
+    });
+  });
+
+  it("shows a pending writes banner with Retry when the queue is non-empty", () => {
+    const retry = vi.fn();
+    writeQueueMock.useWriteQueue.mockReturnValue({
+      queue: [{ id: "1", command: "cmd_update_issue", args: {}, createdAt: 1 }],
+      pendingCount: 2,
+      flushing: false,
+      retry,
+      discard: vi.fn(),
+      discardAll: vi.fn(),
+    });
+
+    render(
+      <MemoryRouter>
+        <AppShell sidebar={<div />} main={<div>Main</div>} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByTestId("pending-writes-banner")).toHaveTextContent("2 pending writes");
+    screen.getByRole("button", { name: "Retry" }).click();
+    expect(retry).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows a rate limit banner when uiStore has rateLimitHit", () => {
+    useUiStore.setState({
+      rateLimitHit: { remaining: 12, reset: Math.floor(Date.now() / 1000) + 3600 },
+    });
+
+    render(
+      <MemoryRouter>
+        <AppShell sidebar={<div />} main={<div>Main</div>} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText(/rate limit low \(12 remaining\)/i)).toBeInTheDocument();
+  });
+
+  it("shows a push-assisted banner when the setting is enabled", () => {
+    useSettingsStore.setState({ pushSyncEnabled: true });
+
+    render(
+      <MemoryRouter>
+        <AppShell sidebar={<div />} main={<div>Main</div>} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByTestId("push-assisted-banner")).toHaveTextContent(/no GitHub webhooks/i);
   });
 
   it("starts notification polling and click handling without mounting Activity", () => {
@@ -112,5 +222,111 @@ describe("AppShell offline banner", () => {
 
     expect(notificationLifecycle.registerAppNotificationClickHandler).toHaveBeenCalledTimes(1);
     vi.useRealTimers();
+  });
+});
+
+describe("AppShell startup digest", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    notificationLifecycle.registerAppNotificationClickHandler.mockResolvedValue(
+      notificationLifecycle.disposeClickHandler,
+    );
+    useUiStore.setState({ offline: false, sidebarCollapsed: false, rateLimitHit: null });
+    useSettingsStore.setState({ digestAutoShowEnabled: true });
+  });
+
+  it("shows a Digest banner instead of navigating away from inbox", async () => {
+    saveDigestLastSeen(new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString());
+
+    render(
+      <MemoryRouter initialEntries={["/inbox"]}>
+        <Routes>
+          <Route
+            path="*"
+            element={
+              <AppShell
+                sidebar={<div />}
+                main={
+                  <>
+                    <LocationProbe />
+                    <div>Main</div>
+                  </>
+                }
+              />
+            }
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("digest-ready-banner")).toHaveTextContent("Digest is ready");
+    });
+    expect(screen.getByRole("link", { name: "Open Digest" })).toHaveAttribute("href", "/digest");
+    expect(screen.getByTestId("path")).toHaveTextContent("/inbox");
+  });
+
+  it("dismisses the Digest banner without navigating", async () => {
+    saveDigestLastSeen(new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString());
+
+    render(
+      <MemoryRouter initialEntries={["/inbox"]}>
+        <Routes>
+          <Route
+            path="*"
+            element={
+              <AppShell
+                sidebar={<div />}
+                main={
+                  <>
+                    <LocationProbe />
+                    <div>Main</div>
+                  </>
+                }
+              />
+            }
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("digest-ready-banner")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    await waitFor(() => {
+      expect(screen.queryByTestId("digest-ready-banner")).not.toBeInTheDocument();
+    });
+    expect(screen.getByTestId("path")).toHaveTextContent("/inbox");
+  });
+
+  it("stays on inbox when auto digest is disabled", async () => {
+    useSettingsStore.setState({ digestAutoShowEnabled: false });
+    saveDigestLastSeen(new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString());
+
+    render(
+      <MemoryRouter initialEntries={["/inbox"]}>
+        <Routes>
+          <Route
+            path="*"
+            element={
+              <AppShell
+                sidebar={<div />}
+                main={
+                  <>
+                    <LocationProbe />
+                    <div>Main</div>
+                  </>
+                }
+              />
+            }
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByTestId("path")).toHaveTextContent("/inbox");
+    expect(screen.queryByTestId("digest-ready-banner")).not.toBeInTheDocument();
   });
 });

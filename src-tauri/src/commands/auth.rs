@@ -1,14 +1,24 @@
-use crate::auth::pat::{check_required_scopes, validate_pat, PatUser};
-use crate::auth::token_store::{save_last_account_id, save_token};
+use crate::auth::pat::{check_required_scopes, validate_pat, PatError, PatUser};
+use crate::auth::token_store::{load_host, save_host, save_last_account_id, save_token};
+use crate::github::host::normalize_api_base_url;
 
 #[tauri::command]
-pub async fn cmd_save_pat(pat: String) -> Result<PatUser, String> {
+pub async fn cmd_save_pat(pat: String, base_url: Option<String>) -> Result<PatUser, String> {
     let client = reqwest::Client::new();
-    let (user, scopes) = validate_pat(&client, &pat)
+    let api_base = base_url
+        .as_deref()
+        .map(normalize_api_base_url)
+        .filter(|u| u != "https://api.github.com");
+    let (user, scopes) = validate_pat(&client, &pat, api_base.as_deref())
         .await
         .map_err(|e| e.to_string())?;
     check_required_scopes(&scopes)?;
     save_token(&user.login, &pat).map_err(|e| e.to_string())?;
+    if let Some(base) = api_base.as_deref() {
+        save_host(&user.login, base).map_err(|e| e.to_string())?;
+    } else {
+        let _ = crate::auth::token_store::delete_host(&user.login);
+    }
     save_last_account_id(&user.login).map_err(|e| e.to_string())?;
     Ok(user)
 }
@@ -24,19 +34,30 @@ pub async fn cmd_switch_account(account_id: String) -> Result<PatUser, String> {
         .ok_or_else(|| "no token for account".to_string())?;
     crate::auth::token_store::save_last_account_id(&account_id).map_err(|e| e.to_string())?;
     let client = reqwest::Client::new();
-    let (user, _) = validate_pat(&client, &token)
+    let api_base = load_host(&account_id);
+    let (user, _) = validate_pat(&client, &token, api_base.as_deref())
         .await
         .map_err(|e| e.to_string())?;
     Ok(user)
 }
 
 #[tauri::command]
-pub async fn cmd_get_current_user() -> Option<PatUser> {
-    let account_id = crate::auth::token_store::load_last_account_id()?;
-    let token = crate::auth::token_store::load_token(&account_id)?;
+pub async fn cmd_get_current_user() -> Result<Option<PatUser>, String> {
+    let Some(account_id) = crate::auth::token_store::load_last_account_id() else {
+        return Ok(None);
+    };
+    let Some(token) = crate::auth::token_store::load_token(&account_id) else {
+        return Ok(None);
+    };
     let client = reqwest::Client::new();
-    let (user, _) = validate_pat(&client, &token).await.ok()?;
-    Some(user)
+    let api_base = load_host(&account_id);
+    match validate_pat(&client, &token, api_base.as_deref()).await {
+        Ok((user, _)) => Ok(Some(user)),
+        Err(PatError::Unauthorized { status }) => {
+            Err(format!("invalid or expired PAT (HTTP {status})"))
+        }
+        Err(_) => Ok(None),
+    }
 }
 
 #[cfg(test)]

@@ -21,10 +21,26 @@ describe("InboxItemRow", () => {
     expect(screen.getByText("Fix critical bug")).toBeInTheDocument();
   });
 
+  it("uses density-aware vertical padding", () => {
+    render(<InboxItemRow item={item} />);
+    expect(screen.getByRole("row")).toHaveStyle({ paddingBlock: "var(--row-pad-y)" });
+  });
+
   it("renders repo and number", () => {
     render(<InboxItemRow item={item} />);
     expect(screen.getByText(/octocat\/hello/)).toBeInTheDocument();
     expect(screen.getByText(/#5/)).toBeInTheDocument();
+  });
+
+  it("shows why the item is in Inbox", () => {
+    const { rerender } = render(<InboxItemRow item={item} />);
+    expect(screen.getByText(/Review requested/)).toBeInTheDocument();
+    rerender(<InboxItemRow item={{ ...item, kind: "ci_failure" }} />);
+    expect(screen.getByText(/CI failing/)).toBeInTheDocument();
+    rerender(<InboxItemRow item={{ ...item, kind: "mention" }} />);
+    expect(screen.getByText(/Mentioned/)).toBeInTheDocument();
+    rerender(<InboxItemRow item={{ ...item, kind: "stale_review_request" }} />);
+    expect(screen.getByText(/Stale/)).toBeInTheDocument();
   });
 
   it("shows Unread indicator when unread=true", () => {
@@ -66,5 +82,15 @@ describe("InboxItemRow", () => {
     render(<InboxItemRow item={item} onSnooze={onSnooze} />);
     fireEvent.click(screen.getByLabelText("Snooze until Tomorrow"));
     expect(onSnooze).toHaveBeenCalledWith(item, "tomorrow");
+  });
+
+  it("keeps pin and snooze hover-only until the row is selected", () => {
+    const { rerender } = render(
+      <InboxItemRow item={item} onTogglePin={vi.fn()} onSnooze={vi.fn()} />,
+    );
+    expect(screen.getByLabelText("Pin").parentElement).toHaveClass("hidden", "group-hover:flex");
+    rerender(<InboxItemRow item={item} selected onTogglePin={vi.fn()} onSnooze={vi.fn()} />);
+    expect(screen.getByLabelText("Pin").parentElement).toHaveClass("flex");
+    expect(screen.getByLabelText("Pin").parentElement).not.toHaveClass("hidden");
   });
 });

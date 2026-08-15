@@ -47,7 +47,7 @@ export function useReleasesQuery(): ReleasesQueryState {
       ) {
         for (const release of fresh) {
           try {
-            await sendReleaseNotification(release);
+            await sendReleaseNotification(release, settings.quietHours);
           } catch {
             // 通知失敗は無視（Activity上には表示される）
           }

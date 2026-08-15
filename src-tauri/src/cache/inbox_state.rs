@@ -1,9 +1,10 @@
-//! Local pin / snooze state for inbox items.
+//! Local pin / snooze / dismiss state for inbox items.
 //!
 //! State is keyed by `(account_id, item_id)` where `item_id` is the inbox
 //! item's stable ID (GraphQL node ID or synthetic `ci-{repo}-{number}`).
 //! Snooze is stored as an epoch-seconds deadline; items whose deadline has
-//! passed behave as if they were never snoozed.
+//! passed behave as if they were never snoozed. Dismissed items stay hidden
+//! until the underlying GitHub subject disappears from the feed.
 
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -17,6 +18,7 @@ use crate::db::SqlitePool;
 pub struct InboxItemState {
     pub pinned: bool,
     pub snoozed_until: Option<i64>,
+    pub dismissed: bool,
 }
 
 pub fn now_epoch_secs() -> i64 {
@@ -72,14 +74,49 @@ pub fn set_snoozed_until(
     Ok(())
 }
 
-/// Returns all pin / snooze state for an account keyed by item ID.
+pub fn set_dismissed(
+    pool: &SqlitePool,
+    account_id: i64,
+    item_id: &str,
+    dismissed: bool,
+) -> Result<(), CacheError> {
+    let conn = pool.get()?;
+    conn.execute(
+        "INSERT INTO inbox_item_state (account_id, item_id, dismissed, updated_at)
+         VALUES (?1, ?2, ?3, ?4)
+         ON CONFLICT(account_id, item_id) DO UPDATE SET
+             dismissed = excluded.dismissed,
+             updated_at = excluded.updated_at",
+        params![
+            account_id,
+            item_id,
+            if dismissed { 1i32 } else { 0i32 },
+            now_epoch_secs().to_string(),
+        ],
+    )?;
+    Ok(())
+}
+
+pub fn set_dismissed_many(
+    pool: &SqlitePool,
+    account_id: i64,
+    item_ids: &[String],
+    dismissed: bool,
+) -> Result<(), CacheError> {
+    for item_id in item_ids {
+        set_dismissed(pool, account_id, item_id, dismissed)?;
+    }
+    Ok(())
+}
+
+/// Returns all pin / snooze / dismiss state for an account keyed by item ID.
 pub fn get_states(
     pool: &SqlitePool,
     account_id: i64,
 ) -> Result<HashMap<String, InboxItemState>, CacheError> {
     let conn = pool.get()?;
     let mut stmt = conn.prepare(
-        "SELECT item_id, pinned, snoozed_until
+        "SELECT item_id, pinned, snoozed_until, dismissed
          FROM inbox_item_state
          WHERE account_id = ?1",
     )?;
@@ -89,6 +126,7 @@ pub fn get_states(
             InboxItemState {
                 pinned: row.get::<_, i32>(1)? == 1,
                 snoozed_until: row.get(2)?,
+                dismissed: row.get::<_, i32>(3).unwrap_or(0) == 1,
             },
         ))
     })?;
@@ -100,12 +138,12 @@ pub fn get_states(
     Ok(out)
 }
 
-/// Deletes expired snoozes with no pin so the table does not grow unbounded.
+/// Deletes expired snoozes with no pin and not dismissed so the table does not grow unbounded.
 pub fn purge_expired(pool: &SqlitePool, account_id: i64, now: i64) -> Result<(), CacheError> {
     let conn = pool.get()?;
     conn.execute(
         "DELETE FROM inbox_item_state
-         WHERE account_id = ?1 AND pinned = 0
+         WHERE account_id = ?1 AND pinned = 0 AND dismissed = 0
            AND (snoozed_until IS NULL OR snoozed_until < ?2)",
         params![account_id, now],
     )?;
@@ -139,6 +177,7 @@ mod tests {
         let states = get_states(&pool, 1).unwrap();
         assert!(states["item-1"].pinned);
         assert_eq!(states["item-1"].snoozed_until, None);
+        assert!(!states["item-1"].dismissed);
     }
 
     #[test]
@@ -170,6 +209,23 @@ mod tests {
     }
 
     #[test]
+    fn set_dismissed_marks_and_reads_back() {
+        let pool = test_pool();
+        set_dismissed(&pool, 1, "item-1", true).unwrap();
+        let states = get_states(&pool, 1).unwrap();
+        assert!(states["item-1"].dismissed);
+    }
+
+    #[test]
+    fn set_dismissed_many_marks_all() {
+        let pool = test_pool();
+        set_dismissed_many(&pool, 1, &["a".to_string(), "b".to_string()], true).unwrap();
+        let states = get_states(&pool, 1).unwrap();
+        assert!(states["a"].dismissed);
+        assert!(states["b"].dismissed);
+    }
+
+    #[test]
     fn get_states_scoped_to_account() {
         let pool = test_pool();
         let conn = pool.get().unwrap();
@@ -194,10 +250,13 @@ mod tests {
         set_snoozed_until(&pool, 1, "active", Some(9_999_999_999)).unwrap();
         set_pinned(&pool, 1, "pinned-expired", true).unwrap();
         set_snoozed_until(&pool, 1, "pinned-expired", Some(100)).unwrap();
+        set_dismissed(&pool, 1, "dismissed-expired", true).unwrap();
+        set_snoozed_until(&pool, 1, "dismissed-expired", Some(100)).unwrap();
         purge_expired(&pool, 1, 1_000_000).unwrap();
         let states = get_states(&pool, 1).unwrap();
         assert!(!states.contains_key("expired"));
         assert!(states.contains_key("active"));
         assert!(states.contains_key("pinned-expired"));
+        assert!(states.contains_key("dismissed-expired"));
     }
 }

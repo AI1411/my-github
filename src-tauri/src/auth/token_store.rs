@@ -11,6 +11,8 @@ const LAST_ACCOUNT_KEY: &str = "__last_account__";
 #[derive(Default)]
 struct AuthCache {
     tokens: HashMap<String, String>,
+    /// Per-account REST API base URL (e.g. https://host/api/v3). Absent = github.com.
+    hosts: HashMap<String, String>,
     last_account_id: Option<String>,
 }
 
@@ -52,6 +54,55 @@ pub fn save_token(account_id: &str, token: &str) -> Result<(), TokenStoreError> 
     Ok(())
 }
 
+/// Persist the REST API base URL for an account (GHES or github.com).
+pub fn save_host(account_id: &str, api_base: &str) -> Result<(), TokenStoreError> {
+    let normalized = api_base.trim().trim_end_matches('/');
+    if normalized.is_empty() || normalized == "https://api.github.com" {
+        delete_host(account_id)?;
+        return Ok(());
+    }
+    if dev_file_store_enabled() {
+        return dev_file_store::save_host_at(&dev_store_path()?, account_id, normalized);
+    }
+    let entry = Entry::new(SERVICE, &format!("host:{account_id}"))?;
+    entry.set_password(normalized)?;
+    if let Ok(mut cache) = CACHE.write() {
+        cache
+            .hosts
+            .insert(account_id.to_string(), normalized.to_string());
+    }
+    Ok(())
+}
+
+pub fn load_host(account_id: &str) -> Option<String> {
+    if dev_file_store_enabled() {
+        return dev_file_store::load_host_at(&dev_store_path().ok()?, account_id);
+    }
+    if let Ok(cache) = CACHE.read() {
+        if let Some(host) = cache.hosts.get(account_id) {
+            return Some(host.clone());
+        }
+    }
+    let entry = Entry::new(SERVICE, &format!("host:{account_id}")).ok()?;
+    let host = entry.get_password().ok()?;
+    if let Ok(mut cache) = CACHE.write() {
+        cache.hosts.insert(account_id.to_string(), host.clone());
+    }
+    Some(host)
+}
+
+pub fn delete_host(account_id: &str) -> Result<(), TokenStoreError> {
+    if dev_file_store_enabled() {
+        return dev_file_store::delete_host_at(&dev_store_path()?, account_id);
+    }
+    if let Ok(mut cache) = CACHE.write() {
+        cache.hosts.remove(account_id);
+    }
+    let entry = Entry::new(SERVICE, &format!("host:{account_id}"))?;
+    let _ = entry.delete_credential();
+    Ok(())
+}
+
 pub fn load_token(account_id: &str) -> Option<String> {
     if dev_file_store_enabled() {
         return dev_file_store::load_token_at(&dev_store_path().ok()?, account_id);
@@ -70,6 +121,7 @@ pub fn load_token(account_id: &str) -> Option<String> {
 }
 
 pub fn delete_token(account_id: &str) -> Result<(), TokenStoreError> {
+    let _ = delete_host(account_id);
     if dev_file_store_enabled() {
         return dev_file_store::delete_token_at(&dev_store_path()?, account_id);
     }
@@ -122,6 +174,8 @@ mod dev_file_store {
         last_account_id: Option<String>,
         #[serde(default)]
         tokens: HashMap<String, String>,
+        #[serde(default)]
+        hosts: HashMap<String, String>,
     }
 
     pub fn default_path() -> Option<PathBuf> {
@@ -167,6 +221,28 @@ mod dev_file_store {
     pub fn delete_token_at(path: &Path, account_id: &str) -> Result<(), TokenStoreError> {
         let mut data = read(path);
         data.tokens.remove(account_id);
+        data.hosts.remove(account_id);
+        write(path, &data)
+    }
+
+    pub fn save_host_at(
+        path: &Path,
+        account_id: &str,
+        api_base: &str,
+    ) -> Result<(), TokenStoreError> {
+        let mut data = read(path);
+        data.hosts
+            .insert(account_id.to_string(), api_base.to_string());
+        write(path, &data)
+    }
+
+    pub fn load_host_at(path: &Path, account_id: &str) -> Option<String> {
+        read(path).hosts.get(account_id).cloned()
+    }
+
+    pub fn delete_host_at(path: &Path, account_id: &str) -> Result<(), TokenStoreError> {
+        let mut data = read(path);
+        data.hosts.remove(account_id);
         write(path, &data)
     }
 

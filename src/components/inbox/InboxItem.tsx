@@ -2,12 +2,29 @@ import type { InboxItem } from "../../stores/dataStore";
 import { formatRelativeTime } from "../../lib/relativeTime";
 import { SNOOZE_OPTIONS, type SnoozeOption } from "../../lib/snooze";
 
+export function inboxReasonLabel(kind: string): string {
+  switch (kind) {
+    case "review_requested":
+      return "Review requested";
+    case "ci_failure":
+      return "CI failing";
+    case "mention":
+      return "Mentioned";
+    case "stale_review_request":
+    case "stale_own_pull":
+      return "Stale";
+    default:
+      return kind.replaceAll("_", " ");
+  }
+}
+
 export interface InboxItemRowProps {
   item: InboxItem;
   selected?: boolean;
   onSelect?: () => void;
   onTogglePin?: (item: InboxItem) => void;
   onSnooze?: (item: InboxItem, option: SnoozeOption) => void;
+  rowRef?: (el: HTMLElement | null) => void;
 }
 
 export function InboxItemRow({
@@ -16,19 +33,22 @@ export function InboxItemRow({
   onSelect,
   onTogglePin,
   onSnooze,
+  rowRef,
 }: InboxItemRowProps) {
   return (
     <div
+      ref={rowRef}
       role="row"
       tabIndex={0}
       onClick={onSelect}
       onKeyDown={(e) => {
         if (e.key === "Enter") onSelect?.();
       }}
-      className="group px-4 py-3 flex items-start gap-3 cursor-pointer border-b outline-none"
+      className="group px-4 flex items-start gap-3 cursor-pointer border-b outline-none"
       style={{
         backgroundColor: selected ? "var(--bg-overlay)" : "transparent",
         borderColor: "var(--border-subtle)",
+        paddingBlock: "var(--row-pad-y)",
       }}
     >
       {item.unread ? (
@@ -57,12 +77,14 @@ export function InboxItemRow({
           {item.repo}
           {item.number !== null && ` #${item.number}`}
           {" · "}
+          {inboxReasonLabel(item.kind)}
+          {" · "}
           {formatRelativeTime(item.updatedAt)}
         </p>
       </div>
       {(onTogglePin || onSnooze) && (
         <div
-          className="hidden group-hover:flex items-center gap-1 flex-shrink-0"
+          className={`${selected ? "flex" : "hidden group-hover:flex"} items-center gap-1 flex-shrink-0`}
           onClick={(e) => e.stopPropagation()}
           onKeyDown={(e) => e.stopPropagation()}
         >

@@ -56,13 +56,16 @@ describe("useNotificationPolling", () => {
       watchedRepositories: [],
       notificationSettings: {
         enabled: true,
-        ciFailures: true,
-        reviewRequests: true,
-        mentions: true,
+        ciFailures: "immediate",
+        reviewRequests: "immediate",
+        mentions: "immediate",
       },
       pollingInterval: "30s",
+      pushSyncEnabled: false,
       dockBadgeEnabled: true,
       density: "comfortable",
+      theme: "dark",
+      layout: "inbox-first",
       shortcuts: DEFAULT_SHORTCUTS,
     });
   });
@@ -92,6 +95,8 @@ describe("useNotificationPolling", () => {
       unreadNotification,
       useSettingsStore.getState().notificationSettings,
       useSettingsStore.getState().repoNotificationRules,
+      useSettingsStore.getState().notificationRules,
+      useSettingsStore.getState().quietHours,
     );
 
     await act(() => vi.advanceTimersByTimeAsync(30_000));
@@ -133,6 +138,24 @@ describe("useNotificationPolling", () => {
 
     await act(() => vi.advanceTimersByTimeAsync(30_000));
     await vi.waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(3));
+  });
+
+  it("uses a 30s poll when push-assisted sync is on and focused", async () => {
+    vi.useFakeTimers();
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => "visible",
+    });
+    useSettingsStore.setState({ pollingInterval: "60s", pushSyncEnabled: true });
+    invokeMock.mockResolvedValue([]);
+
+    await act(async () => {
+      renderHook(() => useNotificationPolling());
+    });
+    await vi.waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(1));
+
+    await act(() => vi.advanceTimersByTimeAsync(30_000));
+    await vi.waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(2));
   });
 
   it("clears deduplication when the account changes", async () => {
@@ -207,6 +230,8 @@ describe("useNotificationPolling", () => {
       unreadNotification,
       useSettingsStore.getState().notificationSettings,
       useSettingsStore.getState().repoNotificationRules,
+      useSettingsStore.getState().notificationRules,
+      useSettingsStore.getState().quietHours,
     );
   });
 

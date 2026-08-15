@@ -53,12 +53,19 @@ pub fn check_required_scopes(scopes: &[String]) -> Result<(), String> {
 /// Validates a GitHub Personal Access Token.
 ///
 /// Returns user information and the list of granted OAuth scopes.
+/// `api_base` defaults to `https://api.github.com` when `None`.
 pub async fn validate_pat(
     client: &Client,
     token: &str,
+    api_base: Option<&str>,
 ) -> Result<(PatUser, Vec<String>), PatError> {
+    let base = api_base
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or("https://api.github.com")
+        .trim_end_matches('/');
     let resp = client
-        .get("https://api.github.com/user")
+        .get(format!("{base}/user"))
         .header("Accept", "application/vnd.github+json")
         .header("Authorization", format!("Bearer {}", token))
         .header("User-Agent", "my-github")

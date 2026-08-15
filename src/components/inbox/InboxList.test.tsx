@@ -97,4 +97,31 @@ describe("InboxList", () => {
     expect(screen.queryByText("CI Failures")).not.toBeInTheDocument();
     expect(screen.queryByText("Mentions")).not.toBeInTheDocument();
   });
+
+  it("passes pin and snooze actions into the Stale section", () => {
+    const stale = {
+      id: "stale-1",
+      kind: "stale_review_request" as const,
+      repo: "o/r",
+      number: 2,
+      title: "Stale review",
+      htmlUrl: null,
+      updatedAt: "2026-04-01T00:00:00Z",
+      unread: true,
+      pinned: false,
+    };
+    render(
+      <InboxList
+        data={empty}
+        staleItems={[stale]}
+        selectedId="stale-1"
+        onSelect={() => {}}
+        onTogglePin={() => {}}
+        onSnooze={() => {}}
+      />,
+    );
+    expect(screen.getByText("Stale")).toBeInTheDocument();
+    expect(screen.getByLabelText("Pin")).toBeInTheDocument();
+    expect(screen.getByLabelText("Snooze until Tomorrow")).toBeInTheDocument();
+  });
 });

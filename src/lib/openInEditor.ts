@@ -12,10 +12,6 @@ const EDITOR_BIN: Record<EditorKind, string> = {
 /**
  * Open the given repo-relative path at a specific line inside the configured
  * editor. Falls back to `code` (VS Code) when no preference is stored.
- *
- * This relies on `shell:allow-execute` being granted for the specific binary
- * in `tauri.conf.json`. In environments without a shell grant, this function
- * rejects with the underlying error string.
  */
 export async function openInEditor(
   path: string,
@@ -29,6 +25,30 @@ export async function openInEditor(
   });
 }
 
+export interface OpenPrInEditorArgs {
+  localPath: string;
+  headRef: string;
+  editor: EditorKind;
+  useWorktree: boolean;
+}
+
+export interface OpenPrInEditorResult {
+  path: string;
+  branch: string;
+  usedWorktree: boolean;
+  editor: string;
+}
+
+/** Checkout/worktree PR branch under a mapped local clone, then open editor. */
+export async function openPrInEditor(args: OpenPrInEditorArgs): Promise<OpenPrInEditorResult> {
+  return invoke<OpenPrInEditorResult>("cmd_open_pr_in_editor", {
+    localPath: args.localPath,
+    headRef: args.headRef,
+    editor: args.editor,
+    useWorktree: args.useWorktree,
+  });
+}
+
 export function readStoredEditor(): EditorKind {
   if (typeof window === "undefined") return "vscode";
   const v = window.localStorage.getItem("pulse.settings.editor");
@@ -39,4 +59,15 @@ export function readStoredEditor(): EditorKind {
 export function storeEditor(editor: EditorKind): void {
   if (typeof window === "undefined") return;
   window.localStorage.setItem("pulse.settings.editor", editor);
+}
+
+export function normalizeRepoPathMap(raw: unknown): Record<string, string> {
+  if (!raw || typeof raw !== "object") return {};
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof k === "string" && typeof v === "string" && k.includes("/") && v.trim()) {
+      out[k.trim()] = v.trim();
+    }
+  }
+  return out;
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useNavigate } from "react-router-dom";
 import { Toolbar } from "../components/common/Toolbar";
 import { Spinner } from "../components/common/Spinner";
 import { EmptyState } from "../components/common/EmptyState";
@@ -25,6 +26,7 @@ interface DigestData {
   mergedPulls: DigestPullItem[];
   ciFailures: DigestPullItem[];
   reviewRequests: DigestNotificationItem[];
+  mentions: DigestNotificationItem[];
   releases: ReleaseSummary[];
 }
 
@@ -83,6 +85,7 @@ function DigestRow({
 }
 
 export default function DigestPage() {
+  const navigate = useNavigate();
   const [since] = useState(() => digestSince(loadDigestLastSeen(), new Date()));
   const [data, setData] = useState<DigestData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -113,6 +116,7 @@ export default function DigestPage() {
     data.mergedPulls.length === 0 &&
     data.ciFailures.length === 0 &&
     data.reviewRequests.length === 0 &&
+    (data.mentions?.length ?? 0) === 0 &&
     data.releases.length === 0;
 
   return (
@@ -125,6 +129,20 @@ export default function DigestPage() {
           hour: "2-digit",
           minute: "2-digit",
         })}`}
+        actions={
+          <button
+            type="button"
+            onClick={() => navigate("/inbox")}
+            className="rounded-md px-2.5 py-1.5 text-xs font-medium"
+            style={{
+              backgroundColor: "var(--bg-tertiary)",
+              border: "1px solid var(--border-default)",
+              color: "var(--text-secondary)",
+            }}
+          >
+            Skip to Inbox
+          </button>
+        }
       />
       {loading && !data && (
         <div className="flex-1 flex items-center justify-center">
@@ -143,6 +161,18 @@ export default function DigestPage() {
               {data.reviewRequests.map((item, index) => (
                 <DigestRow
                   key={`${item.repo}-${index}`}
+                  primary={item.title ?? "(untitled)"}
+                  secondary={`${item.repo ?? "unknown"} · ${formatRelativeTime(item.updatedAt)}`}
+                />
+              ))}
+            </>
+          )}
+          {(data.mentions?.length ?? 0) > 0 && (
+            <>
+              <SectionHeading title="Mentions" count={data.mentions.length} />
+              {data.mentions.map((item, index) => (
+                <DigestRow
+                  key={`mention-${item.repo}-${index}`}
                   primary={item.title ?? "(untitled)"}
                   secondary={`${item.repo ?? "unknown"} · ${formatRelativeTime(item.updatedAt)}`}
                 />

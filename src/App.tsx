@@ -1,11 +1,16 @@
 import { useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useAppearanceEffect } from "./hooks/useAppearanceEffect";
+import { useWindowTitle } from "./hooks/useWindowTitle";
 import { useAuthStore, type AuthUser } from "./stores/authStore";
+import { isAuthExpiredError } from "./lib/authErrors";
 import { useDataStore } from "./stores/dataStore";
 import LoginPage from "./pages/LoginPage";
 import { AppRouter } from "./lib/router";
 
 function App() {
+  useAppearanceEffect();
+  useWindowTitle();
   const status = useAuthStore((s) => s.status);
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
@@ -21,8 +26,10 @@ function App() {
         if (u) setUser(u);
         else setStatus("unauthenticated");
       })
-      .catch(() => {
-        if (!cancelled) setStatus("unauthenticated");
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        if (isAuthExpiredError(error)) useAuthStore.getState().setExpired();
+        else setStatus("unauthenticated");
       });
     return () => {
       cancelled = true;
@@ -56,7 +63,7 @@ function App() {
     return <AppRouter onSignOut={handleLogout} />;
   }
 
-  return <LoginPage onSuccess={handleLoginSuccess} />;
+  return <LoginPage expired={status === "expired"} onSuccess={handleLoginSuccess} />;
 }
 
 export default App;

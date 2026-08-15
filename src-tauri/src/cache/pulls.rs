@@ -61,6 +61,59 @@ pub fn upsert_pull(
     Ok(())
 }
 
+/// Update only `review_state` for a pull identified by repo full name + number.
+pub fn update_pull_review_state(
+    pool: &SqlitePool,
+    repo_full_name: &str,
+    number: i64,
+    review_state: &str,
+) -> Result<(), CacheError> {
+    let conn = pool.get()?;
+    conn.execute(
+        "UPDATE pulls
+         SET review_state = ?1
+         WHERE number = ?2
+           AND repo_id = (SELECT id FROM repos WHERE full_name = ?3 LIMIT 1)",
+        params![review_state, number, repo_full_name],
+    )?;
+    Ok(())
+}
+
+/// Update pull `state` (and optionally mark merged via raw_json leave-as-is).
+pub fn update_pull_state(
+    pool: &SqlitePool,
+    repo_full_name: &str,
+    number: i64,
+    state: &str,
+) -> Result<(), CacheError> {
+    let conn = pool.get()?;
+    conn.execute(
+        "UPDATE pulls
+         SET state = ?1
+         WHERE number = ?2
+           AND repo_id = (SELECT id FROM repos WHERE full_name = ?3 LIMIT 1)",
+        params![state, number, repo_full_name],
+    )?;
+    Ok(())
+}
+
+pub fn update_pull_draft(
+    pool: &SqlitePool,
+    repo_full_name: &str,
+    number: i64,
+    is_draft: bool,
+) -> Result<(), CacheError> {
+    let conn = pool.get()?;
+    conn.execute(
+        "UPDATE pulls
+         SET is_draft = ?1
+         WHERE number = ?2
+           AND repo_id = (SELECT id FROM repos WHERE full_name = ?3 LIMIT 1)",
+        params![if is_draft { 1i64 } else { 0i64 }, number, repo_full_name],
+    )?;
+    Ok(())
+}
+
 pub fn get_pull(
     pool: &SqlitePool,
     repo_id: i64,
@@ -204,8 +257,10 @@ mod tests {
                 repo: None,
             },
             requested_reviewers: vec![],
+            requested_teams: vec![],
             mergeable: None,
             mergeable_state: None,
+            labels: vec![],
         }
     }
 
@@ -304,5 +359,21 @@ mod tests {
 
         assert_eq!(deleted, 1);
         assert_eq!(numbers, vec![2]);
+    }
+
+    #[test]
+    fn update_pull_review_state_sets_column() {
+        let pool = test_pool();
+        upsert_pull(&pool, 1, &sample_pr(1, "hello", "2026-04-21T00:00:00Z"), "t1").unwrap();
+        update_pull_review_state(&pool, "octocat/hello", 1, "approved").unwrap();
+        let conn = pool.get().unwrap();
+        let state: String = conn
+            .query_row(
+                "SELECT review_state FROM pulls WHERE repo_id = 1 AND number = 1",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(state, "approved");
     }
 }

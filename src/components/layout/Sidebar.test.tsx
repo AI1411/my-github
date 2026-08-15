@@ -16,8 +16,11 @@ vi.mock("../../lib/badge", () => ({
 }));
 
 describe("Sidebar badge integration", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    const { invoke } = await import("@tauri-apps/api/core");
+    vi.mocked(invoke).mockReset();
+    vi.mocked(invoke).mockResolvedValue(null);
     useAuthStore.setState({
       user: { login: "octocat", avatar_url: "" },
       token: null,
@@ -28,14 +31,18 @@ describe("Sidebar badge integration", () => {
       watchedRepositories: [],
       notificationSettings: {
         enabled: true,
-        ciFailures: true,
-        reviewRequests: true,
-        mentions: true,
+        ciFailures: "immediate",
+        reviewRequests: "immediate",
+        mentions: "immediate",
       },
       pollingInterval: "60s",
       dockBadgeEnabled: true,
       density: "comfortable",
+      theme: "dark",
+      layout: "inbox-first",
       shortcuts: DEFAULT_SHORTCUTS,
+      pinnedPullsByAccount: {},
+      recentPullsByAccount: {},
     });
     useDataStore.setState({
       pulls: [],
@@ -86,5 +93,161 @@ describe("Sidebar badge integration", () => {
     );
 
     expect(screen.getByText("my-github")).toBeInTheDocument();
+  });
+
+  it("lists saved filters in the sidebar", () => {
+    useSettingsStore.setState({
+      savedFilters: [{ id: "v1", name: "My reviews", target: "pulls", query: "tab=review" }],
+    });
+    render(
+      <MemoryRouter>
+        <Sidebar />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText("Views")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "My reviews" })).toHaveAttribute(
+      "href",
+      "/pulls?tab=review",
+    );
+  });
+
+  it("lists pinned pulls with live CI/review status", () => {
+    useSettingsStore.setState({
+      pinnedPullsByAccount: {
+        octocat: [{ repo: "o/r", number: 7 }],
+      },
+    });
+    useDataStore.setState({
+      pulls: [
+        {
+          id: 7,
+          number: 7,
+          title: "Watch me",
+          repo: "o/r",
+          author: "octocat",
+          state: "open",
+          isDraft: false,
+          headRef: "feat",
+          baseRef: "main",
+          updatedAt: "2026-04-29T00:00:00Z",
+          htmlUrl: null,
+          ciState: "failure",
+          reviewState: null,
+          hasMention: false,
+          requestedReviewers: [],
+          mergedAt: null,
+          additions: 1,
+          deletions: 0,
+          changedFiles: 1,
+        },
+      ],
+    });
+    render(
+      <MemoryRouter>
+        <Sidebar />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText("Pinned")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Watch me/ })).toHaveAttribute("href", "/pulls/o/r/7");
+    expect(screen.getByLabelText("CI failing")).toBeInTheDocument();
+  });
+
+  it("lists recent pulls for the active account", () => {
+    useSettingsStore.setState({
+      recentPullsByAccount: {
+        octocat: [
+          {
+            repo: "o/r",
+            number: 3,
+            title: "Recent work",
+            openedAt: "2026-08-15T00:00:00.000Z",
+          },
+        ],
+      },
+    });
+    render(
+      <MemoryRouter>
+        <Sidebar />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText("Recent")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Recent work/ })).toHaveAttribute(
+      "href",
+      "/pulls/o/r/3",
+    );
+  });
+
+  it("shows cross-account attention total in the workspace header", async () => {
+    const { invoke } = await import("@tauri-apps/api/core");
+    (invoke as ReturnType<typeof vi.fn>).mockImplementation((cmd: string) => {
+      if (cmd === "cmd_get_account_attention_summaries") {
+        return Promise.resolve([
+          {
+            login: "octocat",
+            avatarUrl: null,
+            isActive: true,
+            reviewRequests: 1,
+            ciFailures: 0,
+            mentions: 0,
+          },
+          {
+            login: "work",
+            avatarUrl: null,
+            isActive: false,
+            reviewRequests: 0,
+            ciFailures: 2,
+            mentions: 1,
+          },
+        ]);
+      }
+      return Promise.resolve(null);
+    });
+    render(
+      <MemoryRouter>
+        <Sidebar />
+      </MemoryRouter>,
+    );
+    await waitFor(() => {
+      expect(screen.getByText(/All accounts · 4/)).toBeInTheDocument();
+    });
+  });
+
+  it("does not use unread notifications as the Inbox badge", async () => {
+    render(
+      <MemoryRouter>
+        <Sidebar />
+      </MemoryRouter>,
+    );
+    await waitFor(() => {
+      expect(screen.getByRole("link", { name: "Inbox" })).toBeInTheDocument();
+    });
+    expect(screen.getByRole("link", { name: "Inbox" })).not.toHaveTextContent("1");
+  });
+
+  it("shows Inbox badge from active-account review + CI + mentions", async () => {
+    const { invoke } = await import("@tauri-apps/api/core");
+    (invoke as ReturnType<typeof vi.fn>).mockImplementation((cmd: string) => {
+      if (cmd === "cmd_get_account_attention_summaries") {
+        return Promise.resolve([
+          {
+            login: "octocat",
+            avatarUrl: null,
+            isActive: true,
+            reviewRequests: 2,
+            ciFailures: 1,
+            mentions: 0,
+          },
+        ]);
+      }
+      return Promise.resolve(null);
+    });
+    render(
+      <MemoryRouter>
+        <Sidebar />
+      </MemoryRouter>,
+    );
+    await waitFor(() => {
+      expect(screen.getByRole("link", { name: /Inbox/ })).toHaveTextContent("3");
+    });
   });
 });

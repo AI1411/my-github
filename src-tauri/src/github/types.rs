@@ -60,6 +60,9 @@ pub struct PullRequest {
     pub base: PrRef,
     #[serde(default)]
     pub requested_reviewers: Vec<User>,
+    /// Teams requested to review (single-PR endpoint and list when present).
+    #[serde(default)]
+    pub requested_teams: Vec<Team>,
     /// Only present on the single-PR endpoint (`GET /pulls/{number}`).
     #[serde(default)]
     pub mergeable: Option<bool>,
@@ -67,6 +70,23 @@ pub struct PullRequest {
     /// behind / unstable / draft / unknown.
     #[serde(default)]
     pub mergeable_state: Option<String>,
+    #[serde(default)]
+    pub labels: Vec<Label>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Team {
+    pub id: u64,
+    pub name: String,
+    pub slug: String,
+    /// Present when nested under an organization context.
+    #[serde(default)]
+    pub organization: Option<TeamOrg>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TeamOrg {
+    pub login: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -86,6 +106,87 @@ pub struct Milestone {
     pub closed_issues: u32,
     #[serde(default)]
     pub due_on: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct ReactionCounts {
+    #[serde(default)]
+    pub total_count: u32,
+    #[serde(rename = "+1", default)]
+    pub plus_one: u32,
+    #[serde(rename = "-1", default)]
+    pub minus_one: u32,
+    #[serde(default)]
+    pub laugh: u32,
+    #[serde(default)]
+    pub hooray: u32,
+    #[serde(default)]
+    pub confused: u32,
+    #[serde(default)]
+    pub heart: u32,
+    #[serde(default)]
+    pub rocket: u32,
+    #[serde(default)]
+    pub eyes: u32,
+}
+
+impl ReactionCounts {
+    pub fn count_for(&self, content: &str) -> u32 {
+        match content {
+            "+1" => self.plus_one,
+            "-1" => self.minus_one,
+            "laugh" => self.laugh,
+            "hooray" => self.hooray,
+            "confused" => self.confused,
+            "heart" => self.heart,
+            "rocket" => self.rocket,
+            "eyes" => self.eyes,
+            _ => 0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Reaction {
+    pub id: u64,
+    pub user: User,
+    pub content: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CrossReferenceSource {
+    #[serde(rename = "type", default)]
+    pub source_type: Option<String>,
+    #[serde(default)]
+    pub issue: Option<Box<Issue>>,
+}
+
+/// Heterogeneous issue timeline event from
+/// `GET /repos/{owner}/{repo}/issues/{number}/timeline`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TimelineEvent {
+    #[serde(default)]
+    pub id: Option<u64>,
+    #[serde(default)]
+    pub event: Option<String>,
+    #[serde(default)]
+    pub created_at: Option<String>,
+    #[serde(default)]
+    pub actor: Option<User>,
+    #[serde(default)]
+    pub label: Option<Label>,
+    #[serde(default)]
+    pub assignee: Option<User>,
+    #[serde(default)]
+    pub milestone: Option<Milestone>,
+    #[serde(default)]
+    pub source: Option<CrossReferenceSource>,
+    /// Present on `commented` events (and issue comment payloads).
+    #[serde(default)]
+    pub user: Option<User>,
+    #[serde(default)]
+    pub body: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -114,6 +215,8 @@ pub struct Issue {
     pub closed_at: Option<String>,
     #[serde(default)]
     pub pull_request: Option<PullRequestRef>,
+    #[serde(default)]
+    pub reactions: Option<ReactionCounts>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -126,6 +229,35 @@ pub struct IssueComment {
     pub html_url: String,
     #[serde(default)]
     pub author_association: Option<String>,
+    #[serde(default)]
+    pub reactions: Option<ReactionCounts>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PullReviewComment {
+    pub id: u64,
+    pub user: User,
+    pub body: String,
+    pub path: String,
+    #[serde(default)]
+    pub diff_hunk: Option<String>,
+    #[serde(default)]
+    pub commit_id: Option<String>,
+    #[serde(default)]
+    pub original_commit_id: Option<String>,
+    #[serde(default)]
+    pub in_reply_to_id: Option<u64>,
+    pub created_at: String,
+    pub updated_at: String,
+    pub html_url: String,
+    #[serde(default)]
+    pub line: Option<u64>,
+    #[serde(default)]
+    pub original_line: Option<u64>,
+    #[serde(default)]
+    pub side: Option<String>,
+    #[serde(default)]
+    pub subject_type: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -138,6 +270,31 @@ pub struct Review {
     #[serde(default)]
     pub submitted_at: Option<String>,
     pub commit_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct GitCommitUser {
+    pub name: String,
+    #[serde(default)]
+    pub email: Option<String>,
+    #[serde(default)]
+    pub date: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct GitCommitDetail {
+    pub message: String,
+    pub author: Option<GitCommitUser>,
+    pub committer: Option<GitCommitUser>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PullCommit {
+    pub sha: String,
+    pub html_url: String,
+    pub commit: GitCommitDetail,
+    #[serde(default)]
+    pub author: Option<User>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -173,6 +330,33 @@ pub struct CheckRun {
     pub completed_at: Option<String>,
     pub html_url: String,
     pub app: CheckApp,
+    #[serde(default)]
+    pub output: Option<CheckRunOutput>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct CheckRunOutput {
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub summary: Option<String>,
+    #[serde(default)]
+    pub text: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CheckAnnotation {
+    pub path: String,
+    #[serde(default)]
+    pub start_line: Option<u32>,
+    #[serde(default)]
+    pub end_line: Option<u32>,
+    #[serde(default)]
+    pub annotation_level: Option<String>,
+    #[serde(default)]
+    pub message: Option<String>,
+    #[serde(default)]
+    pub title: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -270,6 +454,28 @@ pub struct RepoSearchItem {
 pub struct RepoSearchResponse {
     pub total_count: u32,
     pub items: Vec<RepoSearchItem>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct CodeSearchTextMatch {
+    pub fragment: Option<String>,
+    pub property: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct CodeSearchItem {
+    pub name: String,
+    pub path: String,
+    pub sha: String,
+    pub html_url: String,
+    #[serde(default)]
+    pub text_matches: Vec<CodeSearchTextMatch>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct CodeSearchResponse {
+    pub total_count: u32,
+    pub items: Vec<CodeSearchItem>,
 }
 
 #[cfg(test)]
@@ -503,6 +709,48 @@ mod tests {
         }"#;
         let issue: Issue = serde_json::from_str(json).unwrap();
         assert!(issue.pull_request.is_some());
+    }
+
+    #[test]
+    fn deserialize_reaction_counts_with_plus_minus_keys() {
+        let json = r#"{
+            "url": "https://api.github.com/repos/o/r/issues/1/reactions",
+            "total_count": 3,
+            "+1": 2,
+            "-1": 0,
+            "laugh": 0,
+            "hooray": 1,
+            "confused": 0,
+            "heart": 0,
+            "rocket": 0,
+            "eyes": 0
+        }"#;
+        let c: ReactionCounts = serde_json::from_str(json).unwrap();
+        assert_eq!(c.total_count, 3);
+        assert_eq!(c.plus_one, 2);
+        assert_eq!(c.hooray, 1);
+        assert_eq!(c.count_for("+1"), 2);
+        assert_eq!(c.count_for("hooray"), 1);
+    }
+
+    #[test]
+    fn deserialize_timeline_labeled_event() {
+        let json = r#"{
+            "id": 1,
+            "event": "labeled",
+            "created_at": "2026-04-20T00:00:00Z",
+            "actor": {
+                "id": 1,
+                "login": "octocat",
+                "avatar_url": "https://a/1",
+                "html_url": "https://u/octocat"
+            },
+            "label": { "id": 10, "name": "bug", "color": "d73a4a" }
+        }"#;
+        let ev: TimelineEvent = serde_json::from_str(json).unwrap();
+        assert_eq!(ev.event.as_deref(), Some("labeled"));
+        assert_eq!(ev.label.as_ref().unwrap().name, "bug");
+        assert_eq!(ev.actor.as_ref().unwrap().login, "octocat");
     }
 
     #[test]
@@ -864,6 +1112,25 @@ mod tests {
         assert_eq!(item.id, 500);
         assert_eq!(item.number, 7);
         assert_eq!(item.title, "Fix the thing");
+    }
+
+    #[test]
+    fn code_search_item_deserializes_with_snippet() {
+        let json = r#"{
+            "name": "lib.rs",
+            "path": "src/lib.rs",
+            "sha": "abc123",
+            "html_url": "https://github.com/octocat/hello/blob/main/src/lib.rs",
+            "text_matches": [
+                {
+                    "fragment": "pub fn ping() {}",
+                    "property": "content"
+                }
+            ]
+        }"#;
+        let item: CodeSearchItem = serde_json::from_str(json).unwrap();
+        assert_eq!(item.path, "src/lib.rs");
+        assert_eq!(item.text_matches[0].fragment.as_deref(), Some("pub fn ping() {}"));
     }
 
     #[test]

@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import SettingsPage from "./SettingsPage";
@@ -7,6 +8,14 @@ import { useDataStore } from "../stores/dataStore";
 import { DEFAULT_SHORTCUTS, useSettingsStore } from "../stores/settingsStore";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+
+function renderPage() {
+  return render(
+    <MemoryRouter>
+      <SettingsPage />
+    </MemoryRouter>,
+  );
+}
 
 describe("SettingsPage", () => {
   beforeEach(() => {
@@ -25,16 +34,22 @@ describe("SettingsPage", () => {
     });
     useSettingsStore.setState({
       watchedRepositories: [],
+      hosts: [{ id: "github.com", baseUrl: "https://api.github.com", label: "github.com" }],
+      accountHosts: {},
       notificationSettings: {
         enabled: true,
-        ciFailures: true,
-        reviewRequests: true,
-        mentions: true,
+        ciFailures: "immediate",
+        reviewRequests: "immediate",
+        mentions: "immediate",
       },
       pollingInterval: "60s",
+      pushSyncEnabled: false,
       dockBadgeEnabled: true,
       density: "comfortable",
+      theme: "dark",
+      layout: "inbox-first",
       shortcuts: DEFAULT_SHORTCUTS,
+      quietHours: { enabled: false, start: "22:00", end: "08:00" },
     });
     (invoke as ReturnType<typeof vi.fn>).mockImplementation((cmd: string) => {
       if (cmd === "cmd_get_sync_status") {
@@ -52,7 +67,7 @@ describe("SettingsPage", () => {
   });
 
   it("renders the M8 settings tabs", () => {
-    render(<SettingsPage />);
+    renderPage();
 
     for (const tab of [
       "Accounts",
@@ -67,16 +82,23 @@ describe("SettingsPage", () => {
   });
 
   it("shows the active account controls", () => {
-    render(<SettingsPage />);
+    renderPage();
 
     expect(screen.getByText("octocat")).toBeInTheDocument();
+    expect(screen.getByTestId("active-account-host")).toHaveTextContent("github.com");
     expect(screen.getByRole("button", { name: "Add account" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Reauth" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Remove" })).toBeEnabled();
   });
 
+  it("shows host URL field when adding an account", () => {
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "Add account" }));
+    expect(screen.getByLabelText("Host URL (optional)")).toBeInTheDocument();
+  });
+
   it("adds and removes watched repositories", () => {
-    render(<SettingsPage />);
+    renderPage();
 
     fireEvent.click(screen.getByRole("tab", { name: "Repositories" }));
     fireEvent.change(screen.getByLabelText("Repository full name"), {
@@ -103,7 +125,7 @@ describe("SettingsPage", () => {
       return Promise.resolve(null);
     });
 
-    render(<SettingsPage />);
+    renderPage();
     fireEvent.click(screen.getByRole("tab", { name: "Repositories" }));
     fireEvent.change(screen.getByLabelText("Repository full name"), {
       target: { value: "octo" },
@@ -131,7 +153,7 @@ describe("SettingsPage", () => {
       return Promise.resolve(null);
     });
 
-    render(<SettingsPage />);
+    renderPage();
     fireEvent.click(screen.getByRole("tab", { name: "Repositories" }));
     const input = screen.getByLabelText("Repository full name");
     fireEvent.change(input, { target: { value: "octo" } });
@@ -159,7 +181,7 @@ describe("SettingsPage", () => {
       return Promise.resolve(null);
     });
 
-    render(<SettingsPage />);
+    renderPage();
     fireEvent.click(screen.getByRole("tab", { name: "Repositories" }));
     fireEvent.change(screen.getByLabelText("Repository full name"), {
       target: { value: "octo" },
@@ -172,7 +194,7 @@ describe("SettingsPage", () => {
   });
 
   it("still adds manual input with Enter when no suggestion is highlighted", () => {
-    render(<SettingsPage />);
+    renderPage();
     fireEvent.click(screen.getByRole("tab", { name: "Repositories" }));
     const input = screen.getByLabelText("Repository full name");
     fireEvent.change(input, { target: { value: "AI1411/manual-repo" } });
@@ -182,7 +204,7 @@ describe("SettingsPage", () => {
   });
 
   it("changes notification polling interval", () => {
-    render(<SettingsPage />);
+    renderPage();
 
     fireEvent.click(screen.getByRole("tab", { name: "Notifications" }));
     fireEvent.click(screen.getByRole("button", { name: "5 min" }));
@@ -190,8 +212,45 @@ describe("SettingsPage", () => {
     expect(useSettingsStore.getState().pollingInterval).toBe("5m");
   });
 
+  it("toggles quiet hours on the notifications tab", () => {
+    renderPage();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Notifications" }));
+    expect(useSettingsStore.getState().quietHours.enabled).toBe(false);
+
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: "Skip OS notifications during quiet hours" }),
+    );
+
+    expect(useSettingsStore.getState().quietHours.enabled).toBe(true);
+    fireEvent.change(screen.getByLabelText("Quiet hours start"), {
+      target: { value: "21:00" },
+    });
+    fireEvent.change(screen.getByLabelText("Quiet hours end"), {
+      target: { value: "07:30" },
+    });
+    expect(useSettingsStore.getState().quietHours).toMatchObject({
+      enabled: true,
+      start: "21:00",
+      end: "07:30",
+    });
+  });
+
+  it("toggles push-assisted sync without claiming real webhooks", () => {
+    renderPage();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Notifications" }));
+    expect(useSettingsStore.getState().pushSyncEnabled).toBe(false);
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Enable push-assisted sync" }));
+
+    expect(useSettingsStore.getState().pushSyncEnabled).toBe(true);
+    expect(screen.getByText(/cannot host a durable public GitHub webhook/i)).toBeInTheDocument();
+    expect(screen.getByText(/not inbound webhooks/i)).toBeInTheDocument();
+  });
+
   it("customizes shortcuts", () => {
-    render(<SettingsPage />);
+    renderPage();
 
     fireEvent.click(screen.getByRole("tab", { name: "Shortcuts" }));
     fireEvent.change(screen.getByLabelText("Command palette shortcut"), {
@@ -201,8 +260,55 @@ describe("SettingsPage", () => {
     expect(useSettingsStore.getState().shortcuts.commandPalette.keys).toBe("Ctrl+K");
   });
 
+  it("sets theme and home layout", () => {
+    renderPage();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Appearance" }));
+    fireEvent.click(screen.getByRole("button", { name: "Light" }));
+    fireEvent.click(screen.getByRole("button", { name: "Pulls first" }));
+
+    expect(useSettingsStore.getState().theme).toBe("light");
+    expect(useSettingsStore.getState().layout).toBe("pulls-first");
+  });
+
+  it("saves and activates a work mode from current settings", () => {
+    useSettingsStore.setState({
+      watchedRepositories: ["acme/app"],
+      notificationRules: [
+        { id: "r1", repo: "acme/app", kind: "ciFailures", priority: "immediate" },
+      ],
+    });
+    renderPage();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Repositories" }));
+    fireEvent.change(screen.getByLabelText("New work mode name"), {
+      target: { value: "Work" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save current as mode" }));
+
+    expect(useSettingsStore.getState().workModes).toHaveLength(1);
+    expect(useSettingsStore.getState().workModes[0].name).toBe("Work");
+    expect(useSettingsStore.getState().workModes[0].watchedRepositories).toEqual(["acme/app"]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Activate" }));
+    expect(useSettingsStore.getState().activeWorkModeId).toBeTruthy();
+  });
+
+  it("warns when shortcuts conflict", () => {
+    renderPage();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Shortcuts" }));
+    fireEvent.change(screen.getByLabelText("Move up shortcut"), {
+      target: { value: "J" },
+    });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(/Conflicting shortcuts/i);
+    expect(screen.getByRole("alert")).toHaveTextContent(/Move up/);
+    expect(screen.getByRole("alert")).toHaveTextContent(/Move down/);
+  });
+
   it("shows about version and GitHub API rate limit", async () => {
-    render(<SettingsPage />);
+    renderPage();
 
     fireEvent.click(screen.getByRole("tab", { name: "About" }));
 
@@ -230,7 +336,7 @@ describe("SettingsPage", () => {
       return Promise.resolve(null);
     });
 
-    render(<SettingsPage />);
+    renderPage();
 
     fireEvent.click(screen.getByRole("tab", { name: "About" }));
 

@@ -1,33 +1,54 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
+import {
+  defaultSavedSearchName,
+  isAdvancedSearchQuery,
+  shouldRunGithubSearch,
+} from "../../lib/advancedSearch";
+import { useAuthStore } from "../../stores/authStore";
+import { useSettingsStore, type RecentPullRef } from "../../stores/settingsStore";
 import { useUiStore } from "../../stores/uiStore";
 import { useDataStore } from "../../stores/dataStore";
-import { useKeyboardShortcut } from "../../hooks/useKeyboardShortcut";
+import { useSettingsShortcut } from "../../hooks/useSettingsShortcut";
+
+const EMPTY_RECENT: RecentPullRef[] = [];
 
 interface CommandItem {
   id: string;
   label: string;
   subtitle?: string;
-  kind: "nav" | "pr" | "issue" | "search";
+  kind: "nav" | "pr" | "issue" | "search" | "next" | "saved" | "action" | "recent" | "mode";
   href?: string;
+  /** When true, selecting fills the query and keeps the palette open. */
+  keepOpen?: boolean;
   action?: () => void;
 }
 
 const NAV_COMMANDS: CommandItem[] = [
   { id: "nav-inbox", label: "Go to Inbox", kind: "nav", href: "/inbox" },
+  { id: "nav-review-queue", label: "Go to Review queue", kind: "nav", href: "/review-queue" },
   { id: "nav-pulls", label: "Go to Pull Requests", kind: "nav", href: "/pulls" },
   { id: "nav-issues", label: "Go to Issues", kind: "nav", href: "/issues" },
   { id: "nav-activity", label: "Go to Activity", kind: "nav", href: "/activity" },
+  { id: "nav-dashboards", label: "Go to Dashboards", kind: "nav", href: "/dashboards" },
+  { id: "nav-releases", label: "Go to Releases", kind: "nav", href: "/releases" },
+  { id: "nav-discussions", label: "Go to Discussions", kind: "nav", href: "/discussions" },
+  { id: "nav-projects", label: "Go to Projects", kind: "nav", href: "/projects" },
+  { id: "nav-code-search", label: "Go to Code search", kind: "nav", href: "/code-search" },
   { id: "nav-ci", label: "Go to CI Status", kind: "nav", href: "/ci" },
   { id: "nav-settings", label: "Go to Settings", kind: "nav", href: "/settings" },
 ];
-
 const KIND_LABEL: Record<CommandItem["kind"], string> = {
   nav: "→",
   pr: "PR",
   issue: "ISS",
   search: "GH",
+  next: "!",
+  saved: "★",
+  action: "+",
+  recent: "R",
+  mode: "M",
 };
 
 function fuzzyMatch(query: string, target: string): boolean {
@@ -38,24 +59,36 @@ export function CommandPalette() {
   const isOpen = useUiStore((s) => s.commandPaletteOpen);
   const close = useUiStore((s) => s.closeCommandPalette);
   const toggle = useUiStore((s) => s.toggleCommandPalette);
+  const openWorkspaceSwitcher = useUiStore((s) => s.openWorkspaceSwitcher);
   const pulls = useDataStore((s) => s.pulls);
   const issues = useDataStore((s) => s.issues);
+  const markLastSynced = useDataStore((s) => s.markLastSynced);
+  const accountId = useAuthStore((s) => s.user?.login ?? "");
+  const recentPulls = useSettingsStore((s) => s.recentPullsByAccount[accountId] ?? EMPTY_RECENT);
+  const savedSearches = useSettingsStore((s) => s.savedSearches);
+  const addSavedSearch = useSettingsStore((s) => s.addSavedSearch);
+  const workModes = useSettingsStore((s) => s.workModes);
+  const activateWorkMode = useSettingsStore((s) => s.activateWorkMode);
   const navigate = useNavigate();
 
   const [query, setQuery] = useState("");
+  const [searchMode, setSearchMode] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [remoteResults, setRemoteResults] = useState<CommandItem[]>([]);
   const [searching, setSearching] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useKeyboardShortcut({ key: "k", meta: true, preventDefault: true }, toggle, {
+  const advanced = searchMode || isAdvancedSearchQuery(query);
+
+  useSettingsShortcut("commandPalette", toggle, {
     allowInInputs: true,
   });
 
   useEffect(() => {
     if (isOpen) {
       setQuery("");
+      setSearchMode(false);
       setSelectedIndex(0);
       setRemoteResults([]);
       setTimeout(() => inputRef.current?.focus(), 0);
@@ -63,8 +96,169 @@ export function CommandPalette() {
   }, [isOpen]);
 
   const localItems = useMemo((): CommandItem[] => {
-    if (!query) return NAV_COMMANDS;
+    if (advanced && query.trim()) {
+      const alreadySaved = savedSearches.some((s) => s.query === query.trim());
+      const saveItem: CommandItem | null = alreadySaved
+        ? null
+        : {
+            id: "action-save-search",
+            label: "Save this search",
+            subtitle: query.trim(),
+            kind: "action",
+            keepOpen: true,
+            action: () => {
+              addSavedSearch(defaultSavedSearchName(query), query);
+            },
+          };
+      return saveItem ? [saveItem] : [];
+    }
+
+    if (!query) {
+      const actionItems: CommandItem[] = [
+        { id: "nav-digest", label: "Go to Digest", kind: "nav", href: "/digest" },
+        {
+          id: "action-sync",
+          label: "Sync now",
+          kind: "action",
+          action: () => {
+            void invoke("cmd_sync_now").then(() => markLastSynced());
+          },
+        },
+        {
+          id: "action-mark-all",
+          label: "Mark all as read",
+          kind: "action",
+          action: () => {
+            void invoke("cmd_mark_all_notifications_read");
+          },
+        },
+        {
+          id: "action-switch-account",
+          label: "Switch account",
+          kind: "action",
+          action: () => {
+            openWorkspaceSwitcher();
+          },
+        },
+      ];
+      const savedItems: CommandItem[] = savedSearches.map((s) => ({
+        id: `saved-${s.id}`,
+        label: s.name,
+        subtitle: s.query,
+        kind: "saved" as const,
+        keepOpen: true,
+        action: () => {
+          setSearchMode(true);
+          setQuery(s.query);
+        },
+      }));
+      const recentItems: CommandItem[] = recentPulls.slice(0, 8).map((r) => ({
+        id: `recent-${r.repo}-${r.number}`,
+        label: r.title,
+        subtitle: `Recent · ${r.repo} #${r.number}`,
+        kind: "recent" as const,
+        href: `/pulls/${r.repo}/${r.number}`,
+      }));
+      const nextActions: CommandItem[] = [];
+      for (const pull of pulls) {
+        if (pull.state !== "open" || pull.isDraft) continue;
+        if (pull.ciState === "failure") {
+          nextActions.push({
+            id: `next-ci-${pull.id}`,
+            label: pull.title,
+            subtitle: `CI failing · ${pull.repo} #${pull.number}`,
+            kind: "next",
+            href: `/pulls/${pull.repo}/${pull.number}`,
+          });
+        } else if (
+          pull.reviewState === "pending" ||
+          pull.reviewState === "changes_requested" ||
+          pull.hasMention
+        ) {
+          nextActions.push({
+            id: `next-review-${pull.id}`,
+            label: pull.title,
+            subtitle: `Needs attention · ${pull.repo} #${pull.number}`,
+            kind: "next",
+            href: `/pulls/${pull.repo}/${pull.number}`,
+          });
+        }
+        if (nextActions.length >= 5) break;
+      }
+      const modeItems: CommandItem[] = workModes.map((mode) => ({
+        id: `mode-${mode.id}`,
+        label: `Switch to ${mode.name}`,
+        subtitle: `Work mode · ${mode.watchedRepositories.length} repos`,
+        kind: "mode",
+        action: () => {
+          const path = activateWorkMode(mode.id);
+          if (path) navigate(path);
+        },
+      }));
+      return [
+        ...modeItems,
+        ...savedItems,
+        ...recentItems,
+        ...nextActions,
+        ...actionItems,
+        ...NAV_COMMANDS,
+      ];
+    }
+
+    const modeMatches = workModes
+      .filter((m) => fuzzyMatch(query, m.name) || fuzzyMatch(query, "mode"))
+      .map(
+        (mode): CommandItem => ({
+          id: `mode-${mode.id}`,
+          label: `Switch to ${mode.name}`,
+          subtitle: `Work mode · ${mode.homePath}`,
+          kind: "mode",
+          action: () => {
+            const path = activateWorkMode(mode.id);
+            if (path) navigate(path);
+          },
+        }),
+      );
     const navMatches = NAV_COMMANDS.filter((c) => fuzzyMatch(query, c.label));
+    const actionMatches: CommandItem[] = [
+      { id: "nav-digest", label: "Go to Digest", kind: "nav" as const, href: "/digest" },
+      {
+        id: "action-sync",
+        label: "Sync now",
+        kind: "action" as const,
+        action: () => {
+          void invoke("cmd_sync_now").then(() => markLastSynced());
+        },
+      },
+      {
+        id: "action-mark-all",
+        label: "Mark all as read",
+        kind: "action" as const,
+        action: () => {
+          void invoke("cmd_mark_all_notifications_read");
+        },
+      },
+      {
+        id: "action-switch-account",
+        label: "Switch account",
+        kind: "action" as const,
+        action: () => {
+          openWorkspaceSwitcher();
+        },
+      },
+    ].filter((c) => fuzzyMatch(query, c.label));
+    const recentMatches = recentPulls
+      .filter((r) => fuzzyMatch(query, r.title) || fuzzyMatch(query, r.repo))
+      .slice(0, 5)
+      .map(
+        (r): CommandItem => ({
+          id: `recent-${r.repo}-${r.number}`,
+          label: r.title,
+          subtitle: `Recent · ${r.repo} #${r.number}`,
+          kind: "recent",
+          href: `/pulls/${r.repo}/${r.number}`,
+        }),
+      );
     const prMatches = pulls
       .filter((p) => fuzzyMatch(query, p.title) || fuzzyMatch(query, p.repo))
       .slice(0, 5)
@@ -89,17 +283,42 @@ export function CommandPalette() {
           href: `/issues/${i.repo}/${i.number}`,
         }),
       );
-    return [...navMatches, ...prMatches, ...issueMatches];
-  }, [query, pulls, issues]);
+    return [
+      ...modeMatches,
+      ...actionMatches,
+      ...navMatches,
+      ...recentMatches,
+      ...prMatches,
+      ...issueMatches,
+    ];
+  }, [
+    query,
+    pulls,
+    issues,
+    advanced,
+    savedSearches,
+    addSavedSearch,
+    recentPulls,
+    workModes,
+    activateWorkMode,
+    navigate,
+    markLastSynced,
+    openWorkspaceSwitcher,
+  ]);
 
-  const allItems = useMemo(() => [...localItems, ...remoteResults], [localItems, remoteResults]);
+  const allItems = useMemo(() => {
+    if (advanced && query.trim()) {
+      return [...remoteResults, ...localItems];
+    }
+    return [...localItems, ...remoteResults];
+  }, [localItems, remoteResults, advanced, query]);
 
   useEffect(() => {
     setSelectedIndex(0);
   }, [allItems.length]);
 
   useEffect(() => {
-    if (!query || query.length < 3) {
+    if (!shouldRunGithubSearch(query, searchMode)) {
       setRemoteResults([]);
       return;
     }
@@ -116,10 +335,11 @@ export function CommandPalette() {
           repo: string;
           kind: string;
         }[]
-      >("cmd_search_github", { query })
+      >("cmd_search_github", { query: query.trim() })
         .then((results) => {
+          const limit = advanced ? 10 : 5;
           setRemoteResults(
-            results.slice(0, 5).map((r) => ({
+            results.slice(0, limit).map((r) => ({
               id: `gh-${r.id}`,
               label: r.title,
               subtitle: `#${r.number} · ${r.repo} · GitHub`,
@@ -137,10 +357,14 @@ export function CommandPalette() {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query]);
+  }, [query, searchMode, advanced]);
 
   const handleSelect = (item: CommandItem) => {
     item.action?.();
+    if (item.keepOpen) {
+      setSelectedIndex(0);
+      return;
+    }
     if (item.href) navigate(item.href);
     close();
   };
@@ -148,6 +372,11 @@ export function CommandPalette() {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Escape") {
       close();
+      return;
+    }
+    if (e.key === "Tab") {
+      e.preventDefault();
+      setSearchMode((mode) => !mode);
       return;
     }
     if (e.key === "ArrowDown") {
@@ -187,10 +416,23 @@ export function CommandPalette() {
           <span className="mr-2 text-sm" style={{ color: "var(--text-muted)" }}>
             ⌘
           </span>
+          {searchMode && (
+            <span
+              className="mr-2 text-xs px-1.5 py-0.5 rounded"
+              style={{
+                color: "var(--text-primary)",
+                backgroundColor: "var(--bg-tertiary)",
+              }}
+            >
+              Search
+            </span>
+          )}
           <input
             ref={inputRef}
             type="text"
-            placeholder="Search or jump to…"
+            placeholder={
+              searchMode ? "GitHub search (is:pr, repo:…)" : "Search or jump to… (Tab: search mode)"
+            }
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -204,9 +446,29 @@ export function CommandPalette() {
           )}
         </div>
         <div className="max-h-80 overflow-y-auto py-1">
+          {!query && savedSearches.length > 0 && (
+            <p
+              className="px-4 pt-2 pb-1 text-xs font-medium uppercase tracking-wide"
+              style={{ color: "var(--text-muted)" }}
+            >
+              Saved searches
+            </p>
+          )}
+          {!query && recentPulls.length > 0 && (
+            <p
+              className="px-4 pt-2 pb-1 text-xs font-medium uppercase tracking-wide"
+              style={{ color: "var(--text-muted)" }}
+            >
+              Recent
+            </p>
+          )}
           {allItems.length === 0 && (
             <p className="px-4 py-3 text-sm" style={{ color: "var(--text-muted)" }}>
-              No results
+              {advanced && query.trim()
+                ? searching
+                  ? "Searching…"
+                  : "No GitHub results"
+                : "No results"}
             </p>
           )}
           {allItems.map((item, i) => (
@@ -248,6 +510,7 @@ export function CommandPalette() {
         >
           <span>↑↓ navigate</span>
           <span>↵ select</span>
+          <span>Tab search</span>
           <span>Esc close</span>
         </div>
       </div>

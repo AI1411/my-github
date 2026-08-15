@@ -28,25 +28,32 @@ export interface PrSidebarProps {
   milestone: string | null;
   linkedIssues: LinkedIssue[];
   checks: CheckSummary[];
+  onAddReviewer?: () => void;
+  onRemoveReviewer?: (login: string) => void;
 }
 
 function Section({
   title,
   children,
   empty,
+  action,
 }: {
   title: string;
   children: React.ReactNode;
   empty?: boolean;
+  action?: React.ReactNode;
 }) {
   return (
     <section className="px-3 py-3 border-b" style={{ borderColor: "var(--border-subtle)" }}>
-      <h3
-        className="text-[11px] uppercase tracking-wide mb-2"
-        style={{ color: "var(--text-muted)" }}
-      >
-        {title}
-      </h3>
+      <div className="flex items-center justify-between mb-2">
+        <h3
+          className="text-[11px] uppercase tracking-wide"
+          style={{ color: "var(--text-muted)" }}
+        >
+          {title}
+        </h3>
+        {action}
+      </div>
       {empty ? (
         <p className="text-xs" style={{ color: "var(--text-muted)" }}>
           None
@@ -58,16 +65,33 @@ function Section({
   );
 }
 
-function PeopleList({ people }: { people: ReviewerInfo[] }) {
+function PeopleList({
+  people,
+  onRemove,
+}: {
+  people: ReviewerInfo[];
+  onRemove?: (login: string) => void;
+}) {
   if (people.length === 0) return null;
   return (
     <ul className="flex flex-col gap-1.5">
       {people.map((p) => (
-        <li key={p.login} className="flex items-center gap-2">
+        <li key={p.login} className="flex items-center gap-2 group">
           <Avatar login={p.login} src={p.avatarUrl} size="sm" />
-          <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
+          <span className="text-xs flex-1" style={{ color: "var(--text-secondary)" }}>
             {p.login}
           </span>
+          {onRemove && (
+            <button
+              type="button"
+              aria-label={`Remove reviewer ${p.login}`}
+              className="text-xs opacity-0 group-hover:opacity-100"
+              style={{ color: "var(--text-muted)" }}
+              onClick={() => onRemove(p.login)}
+            >
+              ×
+            </button>
+          )}
         </li>
       ))}
     </ul>
@@ -89,6 +113,8 @@ export function PrSidebar({
   milestone,
   linkedIssues,
   checks,
+  onAddReviewer,
+  onRemoveReviewer,
 }: PrSidebarProps) {
   return (
     <aside
@@ -99,8 +125,23 @@ export function PrSidebar({
         width: 280,
       }}
     >
-      <Section title="Reviewers" empty={reviewers.length === 0}>
-        <PeopleList people={reviewers} />
+      <Section
+        title="Reviewers"
+        empty={reviewers.length === 0}
+        action={
+          onAddReviewer ? (
+            <button
+              type="button"
+              className="text-[11px]"
+              style={{ color: "var(--accent-blue)" }}
+              onClick={onAddReviewer}
+            >
+              Add
+            </button>
+          ) : null
+        }
+      >
+        <PeopleList people={reviewers} onRemove={onRemoveReviewer} />
       </Section>
       <Section title="Assignees" empty={assignees.length === 0}>
         <PeopleList people={assignees} />

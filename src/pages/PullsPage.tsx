@@ -2,15 +2,26 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Toolbar } from "../components/common/Toolbar";
+import { SaveViewControl } from "../components/common/SaveViewControl";
 import { EmptyState } from "../components/common/EmptyState";
-import { Spinner } from "../components/common/Spinner";
+import { ListSearchBar } from "../components/common/ListSearchBar";
+import { ListSkeleton } from "../components/common/ListSkeleton";
 import { Tabs, type TabItem } from "../components/common/Tabs";
 import { PullRow } from "../components/pulls/PullRow";
 import { FilterChips } from "../components/pulls/FilterChips";
 import { usePullsQuery, type PullFilter, type PullTab } from "../features/pulls/usePullsQuery";
 import { useListNavigation } from "../hooks/useListNavigation";
+import { useListSearch } from "../hooks/useListSearch";
+import { useDetailPrefetch } from "../hooks/useDetailPrefetch";
+import { matchesListSearch } from "../lib/listSearch";
+import { pullMatchesLabels, uniquePullLabels } from "../lib/pullLabels";
+import { isOwnPullStale } from "../lib/stalePulls";
+import { listRowHeight } from "../lib/appearance";
 import { pullFilterToQuery, queryToPullFilter } from "../lib/savedFilters";
-import { useSettingsStore } from "../stores/settingsStore";
+import { useAuthStore } from "../stores/authStore";
+import { useSettingsStore, type PinnedPullRef } from "../stores/settingsStore";
+
+const EMPTY_PINS: PinnedPullRef[] = [];
 
 const TABS: TabItem<PullTab>[] = [
   { id: "created", label: "Created" },
@@ -19,8 +30,6 @@ const TABS: TabItem<PullTab>[] = [
   { id: "mentioned", label: "Mentioned" },
   { id: "all", label: "All" },
 ];
-
-const ROW_HEIGHT = 56;
 
 export default function PullsPage() {
   const [searchParams] = useSearchParams();
@@ -33,10 +42,18 @@ export default function PullsPage() {
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const addSavedFilter = useSettingsStore((s) => s.addSavedFilter);
+  const accountId = useAuthStore((s) => s.user?.login ?? "");
+  const currentUser = useAuthStore((s) => s.user?.login ?? null);
+  const staleThresholds = useSettingsStore((s) => s.staleThresholds);
+  const density = useSettingsStore((s) => s.density);
+  const pinnedRefs = useSettingsStore((s) => s.pinnedPullsByAccount[accountId] ?? EMPTY_PINS);
+  const togglePinnedPull = useSettingsStore((s) => s.togglePinnedPull);
+  const listSearch = useListSearch(accountId, "pulls");
 
-  const handleSaveView = () => {
-    const name = window.prompt("View name");
-    if (!name) return;
+  const isPinned = (repo: string, number: number) =>
+    pinnedRefs.some((p) => p.repo === repo && p.number === number);
+
+  const handleSaveView = (name: string) => {
     addSavedFilter({ name, target: "pulls", query: pullFilterToQuery(filter) });
   };
 
@@ -45,24 +62,39 @@ export default function PullsPage() {
     () => Array.from(new Set(pulls.map((p) => p.author).filter((a): a is string => !!a))),
     [pulls],
   );
-  const availableLabels: string[] = [];
+  const availableLabels = useMemo(() => uniquePullLabels(pulls), [pulls]);
+
+  const visiblePulls = useMemo(
+    () =>
+      pulls.filter(
+        (p) =>
+          matchesListSearch(`${p.title} ${p.repo} ${p.author ?? ""}`, listSearch.query) &&
+          pullMatchesLabels(p, filter.labels),
+      ),
+    [pulls, listSearch.query, filter.labels],
+  );
 
   const openPull = (p: (typeof pulls)[number]) => {
     const [owner, repo] = p.repo.split("/");
     navigate(`/pulls/${owner}/${repo}/${p.number}`);
   };
 
-  const { activeIndex, setActiveId } = useListNavigation({
-    items: pulls,
+  const { activeIndex, setActiveId, activeItem } = useListNavigation({
+    items: visiblePulls,
     getId: (p) => String(p.id),
     onOpen: openPull,
-    enabled: pulls.length > 0,
+    enabled: visiblePulls.length > 0,
   });
 
+  useDetailPrefetch(
+    "pull",
+    activeItem ? { repo: activeItem.repo, number: activeItem.number } : null,
+  );
+
   const rowVirtualizer = useVirtualizer({
-    count: pulls.length,
+    count: visiblePulls.length,
     getScrollElement: () => containerRef.current,
-    estimateSize: () => ROW_HEIGHT,
+    estimateSize: () => listRowHeight(density),
     overscan: 10,
   });
 
@@ -71,20 +103,7 @@ export default function PullsPage() {
       <Toolbar
         title="Pull Requests"
         subtitle={refreshing ? "Refreshing…" : undefined}
-        actions={
-          <button
-            type="button"
-            onClick={handleSaveView}
-            className="rounded-md px-2.5 py-1.5 text-xs font-medium"
-            style={{
-              backgroundColor: "var(--bg-tertiary)",
-              border: "1px solid var(--border-default)",
-              color: "var(--text-secondary)",
-            }}
-          >
-            Save view
-          </button>
-        }
+        actions={<SaveViewControl onSave={handleSaveView} />}
       />
       <Tabs
         items={TABS}
@@ -98,13 +117,18 @@ export default function PullsPage() {
         availableAuthors={availableAuthors}
         availableLabels={availableLabels}
       />
+      <ListSearchBar
+        open={listSearch.open}
+        query={listSearch.query}
+        onQueryChange={listSearch.setQuery}
+        inputRef={listSearch.inputRef}
+        placeholder="Filter pull requests…"
+      />
       {loading && pulls.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center">
-          <Spinner />
-        </div>
+        <ListSkeleton />
       ) : error ? (
         <EmptyState title="Failed to load pull requests" subtitle={error} />
-      ) : pulls.length === 0 ? (
+      ) : visiblePulls.length === 0 ? (
         <EmptyState
           title="No pull requests"
           subtitle="Try changing the filter, or sync to fetch fresh data."
@@ -119,14 +143,17 @@ export default function PullsPage() {
             }}
           >
             {rowVirtualizer.getVirtualItems().map((v) => {
-              const pull = pulls[v.index];
+              const pull = visiblePulls[v.index];
               return (
                 <PullRow
                   key={pull.id}
                   pull={pull}
                   selected={activeIndex === v.index}
+                  stale={isOwnPullStale(pull, currentUser, staleThresholds)}
+                  pinned={isPinned(pull.repo, pull.number)}
                   onSelect={() => setActiveId(String(pull.id))}
                   onOpen={() => openPull(pull)}
+                  onTogglePin={() => togglePinnedPull(accountId, pull.repo, pull.number)}
                   style={{
                     position: "absolute",
                     top: 0,

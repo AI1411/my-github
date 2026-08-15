@@ -1,9 +1,7 @@
 use serde::Serialize;
 use tauri::{AppHandle, Manager, Runtime};
 
-use crate::auth::token_store::{load_last_account_id, load_token};
 use crate::db::SqlitePool;
-use crate::github::client::GithubClient;
 use crate::github::graphql::{fetch_inbox, inbox_query};
 use crate::github::rest::list_notifications;
 use crate::github::types::Notification;
@@ -190,7 +188,7 @@ fn read_ci_failures(pool: &SqlitePool) -> Result<Vec<InboxItem>, String> {
     Ok(out)
 }
 
-/// Drops snoozed items and floats pinned items to the top of their section,
+/// Drops snoozed / dismissed items and floats pinned items to the top of their section,
 /// preserving the underlying (updated_at desc) order otherwise.
 fn apply_item_states(
     items: Vec<InboxItem>,
@@ -200,9 +198,14 @@ fn apply_item_states(
     let mut out: Vec<InboxItem> = items
         .into_iter()
         .filter(|item| {
-            states
-                .get(&item.id)
-                .and_then(|s| s.snoozed_until)
+            let Some(state) = states.get(&item.id) else {
+                return true;
+            };
+            if state.dismissed {
+                return false;
+            }
+            state
+                .snoozed_until
                 .is_none_or(|until| until <= now)
         })
         .map(|mut item| {
@@ -224,11 +227,85 @@ fn get_active_account_db_id(pool: &SqlitePool) -> Option<i64> {
     .ok()
 }
 
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct AccountAttentionSummary {
+    pub login: String,
+    pub avatar_url: Option<String>,
+    pub is_active: bool,
+    pub review_requests: usize,
+    pub ci_failures: usize,
+    pub mentions: usize,
+}
+
+impl AccountAttentionSummary {
+    pub fn total(&self) -> usize {
+        self.review_requests + self.ci_failures + self.mentions
+    }
+}
+
+/// Cache-only attention counts per account (no GitHub API calls).
+/// Review / mention ≈ unread notification reasons; CI ≈ failing pulls (minus dismissed/snoozed).
+fn read_account_attention_summaries(
+    pool: &SqlitePool,
+) -> Result<Vec<AccountAttentionSummary>, String> {
+    let conn = pool.get().map_err(|e| e.to_string())?;
+    let now = crate::cache::inbox_state::now_epoch_secs();
+    let mut stmt = conn
+        .prepare(
+            "SELECT a.id, a.login, a.avatar_url, a.is_active,
+                (SELECT COUNT(*) FROM notifications n
+                 WHERE n.account_id = a.id AND n.is_read = 0
+                   AND n.reason = 'review_requested') AS review_count,
+                (SELECT COUNT(*) FROM notifications n
+                 WHERE n.account_id = a.id AND n.is_read = 0
+                   AND n.reason IN ('mention', 'team_mention')) AS mention_count,
+                (SELECT COUNT(*) FROM pulls p
+                 JOIN repos r ON r.id = p.repo_id
+                 LEFT JOIN inbox_item_state s
+                   ON s.account_id = a.id
+                  AND s.item_id = 'ci-' || r.full_name || '-' || CAST(p.number AS TEXT)
+                 WHERE r.account_id = a.id
+                   AND p.ci_state = 'failure'
+                   AND COALESCE(s.dismissed, 0) = 0
+                   AND (s.snoozed_until IS NULL OR s.snoozed_until <= ?1)) AS ci_count
+             FROM accounts a
+             ORDER BY a.is_active DESC, a.login ASC",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map(rusqlite::params![now], |row| {
+            Ok(AccountAttentionSummary {
+                login: row.get(1)?,
+                avatar_url: row.get(2)?,
+                is_active: row.get::<_, i32>(3)? == 1,
+                review_requests: row.get::<_, i64>(4)? as usize,
+                mentions: row.get::<_, i64>(5)? as usize,
+                ci_failures: row.get::<_, i64>(6)? as usize,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+    let mut out = Vec::new();
+    for r in rows {
+        out.push(r.map_err(|e| e.to_string())?);
+    }
+    Ok(out)
+}
+
+/// Returns per-account Inbox-aligned attention counts from local cache only.
+#[tauri::command]
+pub async fn cmd_get_account_attention_summaries<R: Runtime>(
+    app: AppHandle<R>,
+) -> Result<Vec<AccountAttentionSummary>, String> {
+    let pool = app
+        .try_state::<SqlitePool>()
+        .ok_or_else(|| "db not initialized".to_string())?;
+    read_account_attention_summaries(pool.inner())
+}
+
 #[tauri::command]
 pub async fn cmd_get_inbox<R: Runtime>(app: AppHandle<R>) -> Result<InboxData, String> {
-    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
-    let token = load_token(&account_id).ok_or_else(|| "no token".to_string())?;
-    let client = GithubClient::new(token);
+    let client = crate::github::client::client_for_active_account()?;
     let pool = app
         .try_state::<SqlitePool>()
         .ok_or_else(|| "db not initialized".to_string())?;
@@ -286,12 +363,38 @@ pub async fn cmd_snooze_inbox_item<R: Runtime>(
 }
 
 #[tauri::command]
+pub async fn cmd_dismiss_inbox_item<R: Runtime>(
+    app: AppHandle<R>,
+    item_id: String,
+) -> Result<(), String> {
+    let pool = app
+        .try_state::<SqlitePool>()
+        .ok_or_else(|| "db not initialized".to_string())?;
+    let account_db_id =
+        get_active_account_db_id(pool.inner()).ok_or_else(|| "no active account".to_string())?;
+    crate::cache::inbox_state::set_dismissed(pool.inner(), account_db_id, &item_id, true)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn cmd_dismiss_inbox_items<R: Runtime>(
+    app: AppHandle<R>,
+    item_ids: Vec<String>,
+) -> Result<(), String> {
+    let pool = app
+        .try_state::<SqlitePool>()
+        .ok_or_else(|| "db not initialized".to_string())?;
+    let account_db_id =
+        get_active_account_db_id(pool.inner()).ok_or_else(|| "no active account".to_string())?;
+    crate::cache::inbox_state::set_dismissed_many(pool.inner(), account_db_id, &item_ids, true)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub async fn cmd_get_notifications<R: Runtime>(
     app: AppHandle<R>,
 ) -> Result<Vec<NotificationItem>, String> {
-    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
-    let token = load_token(&account_id).ok_or_else(|| "no token".to_string())?;
-    let client = GithubClient::new(token);
+    let client = crate::github::client::client_for_active_account()?;
     let pool = app
         .try_state::<SqlitePool>()
         .ok_or_else(|| "db not initialized".to_string())?;
@@ -580,6 +683,7 @@ mod tests {
             InboxItemState {
                 pinned: false,
                 snoozed_until: Some(2_000),
+                dismissed: false,
             },
         );
         states.insert(
@@ -587,6 +691,7 @@ mod tests {
             InboxItemState {
                 pinned: false,
                 snoozed_until: Some(500),
+                dismissed: false,
             },
         );
         let items = vec![
@@ -600,6 +705,24 @@ mod tests {
     }
 
     #[test]
+    fn apply_item_states_drops_dismissed_items() {
+        use crate::cache::inbox_state::InboxItemState;
+        let mut states = std::collections::HashMap::new();
+        states.insert(
+            "done".to_string(),
+            InboxItemState {
+                pinned: false,
+                snoozed_until: None,
+                dismissed: true,
+            },
+        );
+        let items = vec![make_item("done"), make_item("plain")];
+        let out = apply_item_states(items, &states, 1_000);
+        let ids: Vec<&str> = out.iter().map(|i| i.id.as_str()).collect();
+        assert_eq!(ids, vec!["plain"]);
+    }
+
+    #[test]
     fn apply_item_states_floats_pinned_to_top_keeping_order() {
         use crate::cache::inbox_state::InboxItemState;
         let mut states = std::collections::HashMap::new();
@@ -608,6 +731,7 @@ mod tests {
             InboxItemState {
                 pinned: true,
                 snoozed_until: None,
+                dismissed: false,
             },
         );
         let items = vec![make_item("a"), make_item("b"), make_item("c")];
@@ -616,5 +740,88 @@ mod tests {
         assert_eq!(ids, vec!["b", "a", "c"]);
         assert!(out[0].pinned);
         assert!(!out[1].pinned);
+    }
+
+    #[test]
+    fn read_account_attention_summaries_counts_review_ci_mention_per_account() {
+        let pool = init_pool(Path::new(":memory:")).unwrap();
+        run_migrations(&pool).unwrap();
+        let conn = pool.get().unwrap();
+        conn.execute(
+            "INSERT INTO accounts (id, login, host, avatar_url, is_active, created_at)
+             VALUES (1,'alice','github.com',NULL,1,'2026-04-21'),
+                    (2,'bob','github.com',NULL,0,'2026-04-21')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO repos (id, account_id, full_name) VALUES (10, 1, 'a/r'), (20, 2, 'b/r')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO pulls (repo_id, number, title, state, is_draft, raw_json, ci_state, updated_at, fetched_at)
+             VALUES (10, 1, 'fail-a', 'open', 0, '{}', 'failure', '2026-04-21', '2026-04-21'),
+                    (20, 2, 'fail-b', 'open', 0, '{}', 'failure', '2026-04-21', '2026-04-21'),
+                    (20, 3, 'ok-b', 'open', 0, '{}', 'success', '2026-04-21', '2026-04-21')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO notifications (account_id, thread_id, reason, is_read, updated_at, repo_full_name)
+             VALUES (1, 't1', 'review_requested', 0, '2026-04-21', 'a/r'),
+                    (1, 't2', 'mention', 0, '2026-04-21', 'a/r'),
+                    (1, 't3', 'mention', 1, '2026-04-21', 'a/r'),
+                    (2, 't4', 'team_mention', 0, '2026-04-21', 'b/r'),
+                    (2, 't5', 'assign', 0, '2026-04-21', 'b/r')",
+            [],
+        )
+        .unwrap();
+        drop(conn);
+
+        let summaries = read_account_attention_summaries(&pool).unwrap();
+        assert_eq!(summaries.len(), 2);
+        assert_eq!(summaries[0].login, "alice");
+        assert!(summaries[0].is_active);
+        assert_eq!(summaries[0].review_requests, 1);
+        assert_eq!(summaries[0].mentions, 1);
+        assert_eq!(summaries[0].ci_failures, 1);
+        assert_eq!(summaries[0].total(), 3);
+
+        assert_eq!(summaries[1].login, "bob");
+        assert!(!summaries[1].is_active);
+        assert_eq!(summaries[1].review_requests, 0);
+        assert_eq!(summaries[1].mentions, 1);
+        assert_eq!(summaries[1].ci_failures, 1);
+        assert_eq!(summaries[1].total(), 2);
+    }
+
+    #[test]
+    fn read_account_attention_summaries_skips_dismissed_ci() {
+        let pool = init_pool(Path::new(":memory:")).unwrap();
+        run_migrations(&pool).unwrap();
+        let conn = pool.get().unwrap();
+        conn.execute(
+            "INSERT INTO accounts (id, login, host, is_active, created_at)
+             VALUES (1,'alice','github.com',1,'2026-04-21')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO repos (id, account_id, full_name) VALUES (10, 1, 'a/r')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO pulls (repo_id, number, title, state, is_draft, raw_json, ci_state, updated_at, fetched_at)
+             VALUES (10, 1, 'fail', 'open', 0, '{}', 'failure', '2026-04-21', '2026-04-21')",
+            [],
+        )
+        .unwrap();
+        drop(conn);
+        crate::cache::inbox_state::set_dismissed(&pool, 1, "ci-a/r-1", true).unwrap();
+
+        let summaries = read_account_attention_summaries(&pool).unwrap();
+        assert_eq!(summaries[0].ci_failures, 0);
     }
 }

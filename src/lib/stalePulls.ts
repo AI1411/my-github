@@ -74,3 +74,18 @@ export function staleItemDescription(kind: string): string {
   if (kind === "stale_own_pull") return "Your PR has had no activity";
   return "";
 }
+
+/** Whether an open PR authored by currentUser is stale by myPullDays. */
+export function isOwnPullStale(
+  pull: Pick<PullSummary, "state" | "isDraft" | "author" | "mergedAt" | "reviewState" | "updatedAt">,
+  currentUser: string | null,
+  thresholds: StaleThresholds,
+  now: Date = new Date(),
+): boolean {
+  if (!currentUser) return false;
+  if (pull.state !== "open" || pull.isDraft) return false;
+  if (pull.author !== currentUser) return false;
+  if (pull.mergedAt !== null) return false;
+  if (pull.reviewState === "approved") return false;
+  return ageInDays(pull.updatedAt, now) >= thresholds.myPullDays;
+}
