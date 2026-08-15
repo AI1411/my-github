@@ -10,6 +10,7 @@ import { useDataStore } from "../stores/dataStore";
 import { useSettingsStore } from "../stores/settingsStore";
 import { useCloseDetailShortcut } from "../hooks/useCloseDetailShortcut";
 import { useInboxQueueAdvance } from "../hooks/useInboxQueueAdvance";
+import { useFileDiffNav } from "../hooks/useFileDiffNav";
 import { CiBanner } from "../components/pulls/CiBanner";
 import { CommentDraftPanel } from "../components/pulls/CommentDraftPanel";
 import { ReviewCommentsPanel } from "../components/pulls/ReviewCommentsPanel";
@@ -119,6 +120,12 @@ export default function PullDetailPage() {
       .getElementById(fileAnchorId(filename))
       ?.scrollIntoView({ block: "start", behavior: "smooth" });
   };
+
+  useFileDiffNav(
+    visibleFiles.map((file) => file.filename),
+    tab === "files",
+    scrollToFile,
+  );
 
   const ciVariant = useMemo(() => {
     if (!pull) return null;
