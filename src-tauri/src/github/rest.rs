@@ -1,8 +1,8 @@
 use crate::github::client::{ClientError, GithubClient, RateLimitInfo};
 use crate::github::types::{
-    CheckRunsResponse, Issue, IssueComment, Notification, PullRequest, PullRequestFile, Release,
-    RepoSearchItem, RepoSearchResponse, Repository, Review, SearchIssueItem, SearchIssuesResponse,
-    WorkflowRun, WorkflowRunsResponse,
+    CheckRunsResponse, Issue, IssueComment, Notification, PullRequest, PullRequestFile,
+    PullReviewComment, Release, RepoSearchItem, RepoSearchResponse, Repository, Review,
+    SearchIssueItem, SearchIssuesResponse, WorkflowRun, WorkflowRunsResponse,
 };
 use serde::Serialize;
 
@@ -253,6 +253,182 @@ pub async fn list_issue_comments(
         page += 1;
     }
     Ok(comments)
+}
+
+pub async fn list_pull_review_comments(
+    client: &GithubClient,
+    owner: &str,
+    repo: &str,
+    number: u32,
+) -> Result<Vec<PullReviewComment>, ClientError> {
+    let mut comments: Vec<PullReviewComment> = Vec::new();
+    let mut page = 1u32;
+    loop {
+        let resp = client
+            .get(&format!(
+                "/repos/{}/{}/pulls/{}/comments?per_page=100&page={}",
+                owner, repo, number, page
+            ))
+            .send()
+            .await?;
+        let status = resp.status();
+        if !status.is_success() {
+            let message = resp.text().await.unwrap_or_default();
+            return Err(ClientError::Api {
+                status: status.as_u16(),
+                message,
+            });
+        }
+        let has_next = has_next_page(resp.headers());
+        let page_comments: Vec<PullReviewComment> = resp.json().await?;
+        comments.extend(page_comments);
+        if !has_next {
+            break;
+        }
+        page += 1;
+    }
+    Ok(comments)
+}
+
+pub async fn reply_pull_review_comment(
+    client: &GithubClient,
+    owner: &str,
+    repo: &str,
+    number: u32,
+    comment_id: u64,
+    body: &str,
+) -> Result<PullReviewComment, ClientError> {
+    #[derive(Serialize)]
+    struct Body<'a> {
+        body: &'a str,
+    }
+    let resp = client
+        .post(&format!(
+            "/repos/{}/{}/pulls/{}/comments/{}/replies",
+            owner, repo, number, comment_id
+        ))
+        .json(&Body { body })
+        .send()
+        .await?;
+    let status = resp.status();
+    if !status.is_success() {
+        let message = resp.text().await.unwrap_or_default();
+        return Err(ClientError::Api {
+            status: status.as_u16(),
+            message,
+        });
+    }
+    Ok(resp.json().await?)
+}
+
+/// Extract the first ```suggestion fenced block from a review comment body.
+pub fn extract_suggestion_block(body: &str) -> Option<String> {
+    let marker = "```suggestion";
+    let start = body.find(marker)?;
+    let after = &body[start + marker.len()..];
+    let after = after.strip_prefix('\n').unwrap_or(after);
+    let end = after.find("```")?;
+    Some(after[..end].trim_end_matches('\n').to_string())
+}
+
+pub async fn get_file_contents(
+    client: &GithubClient,
+    owner: &str,
+    repo: &str,
+    path: &str,
+    git_ref: &str,
+) -> Result<(String, String), ClientError> {
+    #[derive(serde::Deserialize)]
+    struct ContentResponse {
+        sha: String,
+        content: String,
+        #[serde(default)]
+        encoding: Option<String>,
+    }
+    let resp = client
+        .get(&format!(
+            "/repos/{}/{}/contents/{}?ref={}",
+            owner,
+            repo,
+            path.trim_start_matches('/'),
+            git_ref
+        ))
+        .send()
+        .await?;
+    let status = resp.status();
+    if !status.is_success() {
+        let message = resp.text().await.unwrap_or_default();
+        return Err(ClientError::Api {
+            status: status.as_u16(),
+            message,
+        });
+    }
+    let parsed: ContentResponse = resp.json().await?;
+    let encoding = parsed.encoding.as_deref().unwrap_or("base64");
+    if encoding != "base64" {
+        return Err(ClientError::Api {
+            status: 500,
+            message: format!("unsupported content encoding: {encoding}"),
+        });
+    }
+    let cleaned: String = parsed.content.chars().filter(|c| !c.is_whitespace()).collect();
+    use base64::Engine as _;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(cleaned)
+        .map_err(|e| ClientError::Api {
+            status: 500,
+            message: format!("base64 decode failed: {e}"),
+        })?;
+    let text = String::from_utf8(bytes).map_err(|e| ClientError::Api {
+        status: 500,
+        message: format!("utf8 decode failed: {e}"),
+    })?;
+    Ok((parsed.sha, text))
+}
+
+pub async fn update_file_contents(
+    client: &GithubClient,
+    owner: &str,
+    repo: &str,
+    path: &str,
+    message: &str,
+    content: &str,
+    sha: &str,
+    branch: &str,
+) -> Result<(), ClientError> {
+    #[derive(Serialize)]
+    struct Body<'a> {
+        message: &'a str,
+        content: String,
+        sha: &'a str,
+        branch: &'a str,
+    }
+    use base64::Engine as _;
+    let encoded = base64::engine::general_purpose::STANDARD.encode(content.as_bytes());
+    let resp = client
+        .put(&format!(
+            "/repos/{}/{}/contents/{}",
+            owner,
+            repo,
+            path.trim_start_matches('/')
+        ))
+        .json(&Body {
+            message,
+            content: encoded,
+            sha,
+            branch,
+        })
+        .send()
+        .await?;
+    let status = resp.status();
+    if !status.is_success() {
+        let message = resp.text().await.unwrap_or_default();
+        return Err(ClientError::Api {
+            status: status.as_u16(),
+            message,
+        });
+    }
+    Ok(())
 }
 
 pub async fn list_pull_request_reviews(
@@ -957,5 +1133,12 @@ mod tests {
             format!("/repos/{}/{}/issues/{}", "o", "r", 7),
             "/repos/o/r/issues/7"
         );
+    }
+
+    #[test]
+    fn extract_suggestion_block_reads_fenced_content() {
+        let body = "please change:\n```suggestion\nfoo = 1\n```\nthanks";
+        assert_eq!(extract_suggestion_block(body).as_deref(), Some("foo = 1"));
+        assert_eq!(extract_suggestion_block("no fence"), None);
     }
 }

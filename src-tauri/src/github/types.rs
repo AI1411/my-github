@@ -129,6 +129,33 @@ pub struct IssueComment {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PullReviewComment {
+    pub id: u64,
+    pub user: User,
+    pub body: String,
+    pub path: String,
+    #[serde(default)]
+    pub diff_hunk: Option<String>,
+    #[serde(default)]
+    pub commit_id: Option<String>,
+    #[serde(default)]
+    pub original_commit_id: Option<String>,
+    #[serde(default)]
+    pub in_reply_to_id: Option<u64>,
+    pub created_at: String,
+    pub updated_at: String,
+    pub html_url: String,
+    #[serde(default)]
+    pub line: Option<u64>,
+    #[serde(default)]
+    pub original_line: Option<u64>,
+    #[serde(default)]
+    pub side: Option<String>,
+    #[serde(default)]
+    pub subject_type: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Review {
     pub id: u64,
     pub user: User,
