@@ -74,8 +74,8 @@ pub async fn cmd_open_pr_in_editor(
     // Best-effort fetch so the tip exists locally.
     let _ = run_git(&root, &["fetch", "--all", "--prune"]);
 
-    let work_path = root.clone();
-    let used_worktree = false;
+    let mut work_path = root.clone();
+    let mut used_worktree = false;
 
     if use_worktree {
         let safe = head_ref.replace('/', "-");
