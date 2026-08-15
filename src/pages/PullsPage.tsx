@@ -11,6 +11,7 @@ import { FilterChips } from "../components/pulls/FilterChips";
 import { usePullsQuery, type PullFilter, type PullTab } from "../features/pulls/usePullsQuery";
 import { useListNavigation } from "../hooks/useListNavigation";
 import { useListSearch } from "../hooks/useListSearch";
+import { useDetailPrefetch } from "../hooks/useDetailPrefetch";
 import { matchesListSearch } from "../lib/listSearch";
 import { isOwnPullStale } from "../lib/stalePulls";
 import { pullFilterToQuery, queryToPullFilter } from "../lib/savedFilters";
@@ -69,12 +70,17 @@ export default function PullsPage() {
     navigate(`/pulls/${owner}/${repo}/${p.number}`);
   };
 
-  const { activeIndex, setActiveId } = useListNavigation({
+  const { activeIndex, setActiveId, activeItem } = useListNavigation({
     items: visiblePulls,
     getId: (p) => String(p.id),
     onOpen: openPull,
     enabled: visiblePulls.length > 0,
   });
+
+  useDetailPrefetch(
+    "pull",
+    activeItem ? { repo: activeItem.repo, number: activeItem.number } : null,
+  );
 
   const rowVirtualizer = useVirtualizer({
     count: visiblePulls.length,

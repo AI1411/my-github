@@ -11,6 +11,7 @@ import { AppliedFilters } from "../components/issues/AppliedFilters";
 import { IssueRow } from "../components/issues/IssueRow";
 import { useListNavigation } from "../hooks/useListNavigation";
 import { useListSearch } from "../hooks/useListSearch";
+import { useDetailPrefetch } from "../hooks/useDetailPrefetch";
 import { matchesListSearch } from "../lib/listSearch";
 import { issueFilterToQuery, queryToIssueFilter } from "../lib/savedFilters";
 
@@ -70,12 +71,17 @@ export default function IssuesPage() {
     navigate(`/issues/${owner}/${repo}/${i.number}`);
   };
 
-  const { activeIndex, setActiveId } = useListNavigation({
+  const { activeIndex, setActiveId, activeItem } = useListNavigation({
     items: visibleIssues,
     getId: (i) => String(i.id),
     onOpen: openIssue,
     enabled: visibleIssues.length > 0,
   });
+
+  useDetailPrefetch(
+    "issue",
+    activeItem ? { repo: activeItem.repo, number: activeItem.number } : null,
+  );
 
   return (
     <div className="flex flex-col h-full">
