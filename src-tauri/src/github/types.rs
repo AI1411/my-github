@@ -60,6 +60,9 @@ pub struct PullRequest {
     pub base: PrRef,
     #[serde(default)]
     pub requested_reviewers: Vec<User>,
+    /// Teams requested to review (single-PR endpoint and list when present).
+    #[serde(default)]
+    pub requested_teams: Vec<Team>,
     /// Only present on the single-PR endpoint (`GET /pulls/{number}`).
     #[serde(default)]
     pub mergeable: Option<bool>,
@@ -67,6 +70,21 @@ pub struct PullRequest {
     /// behind / unstable / draft / unknown.
     #[serde(default)]
     pub mergeable_state: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Team {
+    pub id: u64,
+    pub name: String,
+    pub slug: String,
+    /// Present when nested under an organization context.
+    #[serde(default)]
+    pub organization: Option<TeamOrg>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TeamOrg {
+    pub login: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
