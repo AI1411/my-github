@@ -52,6 +52,8 @@ pub fn run() {
             commands::inbox::cmd_mark_all_notifications_read,
             commands::inbox::cmd_pin_inbox_item,
             commands::inbox::cmd_snooze_inbox_item,
+            commands::inbox::cmd_dismiss_inbox_item,
+            commands::inbox::cmd_dismiss_inbox_items,
             commands::releases::cmd_list_releases,
             commands::digest::cmd_get_digest,
             commands::ci::cmd_get_workflow_runs,

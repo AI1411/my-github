@@ -122,4 +122,68 @@ describe("InboxPage snooze shortcuts", () => {
       expect(screen.getAllByText("Needs review").length).toBeGreaterThan(1);
     });
   });
+
+  it("dismisses with X and focuses the next item", async () => {
+    let inbox = {
+      reviewRequests: [reviewItem],
+      ciFailures: [],
+      mentions: [mentionItem],
+    };
+    (invoke as ReturnType<typeof vi.fn>).mockImplementation(async (cmd: string, args?: unknown) => {
+      if (cmd === "cmd_get_inbox") return inbox;
+      if (cmd === "cmd_dismiss_inbox_item") {
+        const itemId = (args as { itemId: string }).itemId;
+        inbox = {
+          ...inbox,
+          reviewRequests: inbox.reviewRequests.filter((item) => item.id !== itemId),
+          mentions: inbox.mentions.filter((item) => item.id !== itemId),
+        };
+        return null;
+      }
+      return null;
+    });
+
+    render(<InboxPage />);
+    await waitFor(() => expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0));
+    fireEvent.click(screen.getAllByText("Needs review")[0]);
+
+    fireEvent.keyDown(window, { key: "x" });
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("cmd_dismiss_inbox_item", { itemId: "pr-1" });
+    });
+    await waitFor(() => {
+      expect(screen.getAllByText("You were mentioned").length).toBeGreaterThan(1);
+    });
+  });
+
+  it("clears selection after Shift+X dismisses all", async () => {
+    let calls = 0;
+    (invoke as ReturnType<typeof vi.fn>).mockImplementation(async (cmd: string) => {
+      if (cmd === "cmd_get_inbox") {
+        calls += 1;
+        if (calls === 1) {
+          return {
+            reviewRequests: [reviewItem],
+            ciFailures: [],
+            mentions: [mentionItem],
+          };
+        }
+        return { reviewRequests: [], ciFailures: [], mentions: [] };
+      }
+      return null;
+    });
+
+    render(<InboxPage />);
+    await waitFor(() => expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0));
+    fireEvent.keyDown(window, { key: "x", shiftKey: true });
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith(
+        "cmd_dismiss_inbox_items",
+        expect.objectContaining({ itemIds: expect.arrayContaining(["pr-1", "issue-1"]) }),
+      );
+    });
+    await waitFor(() => {
+      expect(screen.getByText("You're all caught up")).toBeInTheDocument();
+    });
+  });
 });
