@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { CommandPalette } from "./CommandPalette";
+import { useDataStore } from "../../stores/dataStore";
 import { useUiStore } from "../../stores/uiStore";
 
 vi.mock("@tauri-apps/api/core", () => ({
@@ -19,6 +20,7 @@ function renderPalette() {
 describe("CommandPalette", () => {
   beforeEach(() => {
     useUiStore.setState({ commandPaletteOpen: true });
+    useDataStore.setState({ pulls: [], issues: [] });
   });
 
   it("renders search input when open", () => {
@@ -31,6 +33,39 @@ describe("CommandPalette", () => {
     expect(screen.getByText("Go to Inbox")).toBeInTheDocument();
     expect(screen.getByText("Go to Pull Requests")).toBeInTheDocument();
     expect(screen.getByText("Go to Issues")).toBeInTheDocument();
+  });
+
+  it("surfaces failing CI pulls as next actions above nav", () => {
+    useDataStore.setState({
+      pulls: [
+        {
+          id: 1,
+          number: 9,
+          title: "Broken build",
+          repo: "octocat/hello",
+          author: "octocat",
+          state: "open",
+          isDraft: false,
+          headRef: "fix",
+          baseRef: "main",
+          updatedAt: "2026-08-15T00:00:00Z",
+          htmlUrl: null,
+          ciState: "failure",
+          reviewState: null,
+          hasMention: false,
+          requestedReviewers: [],
+          mergedAt: null,
+          additions: null,
+          deletions: null,
+          changedFiles: null,
+        },
+      ],
+    });
+    renderPalette();
+    const options = screen.getAllByRole("option");
+    expect(options[0]).toHaveTextContent("Broken build");
+    expect(options[0]).toHaveTextContent("CI failing");
+    expect(screen.getByText("Go to Inbox")).toBeInTheDocument();
   });
 
   it("does not render when closed", () => {
