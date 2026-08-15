@@ -68,6 +68,7 @@ export function Sidebar({ onSignOut }: SidebarProps) {
     { to: "/issues", label: "Issues", count: issues.length || undefined },
     { to: "/activity", label: "Activity" },
     { to: "/digest", label: "Digest" },
+    { to: "/dashboards", label: "Dashboards" },
     { to: "/ci", label: "CI Status" },
     { to: "/settings", label: "Settings" },
   ];
