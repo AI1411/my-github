@@ -26,7 +26,7 @@ import type { ReviewCommentSummary } from "../components/pulls/ReviewCommentsPan
 import { usePullFilesQuery } from "../features/pulls/usePullFilesQuery";
 import { filterFilesByQuery } from "../lib/fileTree";
 import { getViewedSet, setViewed } from "../components/pulls/diff/DiffViewedStore";
-import { openInEditor, readStoredEditor } from "../lib/openInEditor";
+import { openPrInEditor, readStoredEditor } from "../lib/openInEditor";
 
 type DetailTab = "conversation" | "commits" | "checks" | "files";
 
@@ -173,12 +173,29 @@ export default function PullDetailPage() {
     );
   };
 
+  const preferWorktree = useSettingsStore((s) => s.preferWorktree);
+  const repoLocalPaths = useSettingsStore((s) => s.repoLocalPaths);
+  const [editorError, setEditorError] = useState<string | null>(null);
+
   const handleOpenInEditor = async () => {
     const editor = readStoredEditor();
+    const localPath = repoFull ? repoLocalPaths[repoFull] : undefined;
+    if (!localPath) {
+      setEditorError(
+        `Map a local path for ${repoFull || "this repo"} in Settings → Repositories.`,
+      );
+      return;
+    }
+    setEditorError(null);
     try {
-      await openInEditor(".", 1, editor);
-    } catch {
-      // ignore — command may not be allowlisted
+      await openPrInEditor({
+        localPath,
+        headRef: pull.headRef,
+        editor,
+        useWorktree: preferWorktree,
+      });
+    } catch (e) {
+      setEditorError(e instanceof Error ? e.message : String(e));
     }
   };
 
@@ -431,6 +448,15 @@ export default function PullDetailPage() {
           }}
         />
       </div>
+      {editorError && (
+        <div
+          role="alert"
+          className="px-4 py-2 text-xs"
+          style={{ color: "var(--accent-red)", borderTop: "1px solid var(--border-subtle)" }}
+        >
+          {editorError}
+        </div>
+      )}
       <PrFooterBar
         owner={owner ?? ""}
         repo={repo ?? ""}
