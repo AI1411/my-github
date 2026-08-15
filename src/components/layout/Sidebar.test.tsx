@@ -36,6 +36,7 @@ describe("Sidebar badge integration", () => {
       dockBadgeEnabled: true,
       density: "comfortable",
       shortcuts: DEFAULT_SHORTCUTS,
+      pinnedPullsByAccount: {},
     });
     useDataStore.setState({
       pulls: [],
@@ -104,5 +105,46 @@ describe("Sidebar badge integration", () => {
       "href",
       "/pulls?tab=review",
     );
+  });
+
+  it("lists pinned pulls with live CI/review status", () => {
+    useSettingsStore.setState({
+      pinnedPullsByAccount: {
+        octocat: [{ repo: "o/r", number: 7 }],
+      },
+    });
+    useDataStore.setState({
+      pulls: [
+        {
+          id: 7,
+          number: 7,
+          title: "Watch me",
+          repo: "o/r",
+          author: "octocat",
+          state: "open",
+          isDraft: false,
+          headRef: "feat",
+          baseRef: "main",
+          updatedAt: "2026-04-29T00:00:00Z",
+          htmlUrl: null,
+          ciState: "failure",
+          reviewState: null,
+          hasMention: false,
+          requestedReviewers: [],
+          mergedAt: null,
+          additions: 1,
+          deletions: 0,
+          changedFiles: 1,
+        },
+      ],
+    });
+    render(
+      <MemoryRouter>
+        <Sidebar />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText("Pinned")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Watch me/ })).toHaveAttribute("href", "/pulls/o/r/7");
+    expect(screen.getByLabelText("CI failing")).toBeInTheDocument();
   });
 });

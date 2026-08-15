@@ -4,7 +4,9 @@ import { Tabs, type TabItem } from "../components/common/Tabs";
 import { StatusPill } from "../components/common/StatusPill";
 import { Spinner } from "../components/common/Spinner";
 import { EmptyState } from "../components/common/EmptyState";
+import { useAuthStore } from "../stores/authStore";
 import { useDataStore } from "../stores/dataStore";
+import { useSettingsStore } from "../stores/settingsStore";
 import { CiBanner } from "../components/pulls/CiBanner";
 import { CommentDraftPanel } from "../components/pulls/CommentDraftPanel";
 import { MergeReadinessBadge } from "../components/pulls/MergeReadinessBadge";
@@ -39,6 +41,14 @@ export default function PullDetailPage() {
   const pull = useDataStore((s) =>
     s.pulls.find((p) => p.repo === `${owner}/${repo}` && p.number === num),
   );
+  const accountId = useAuthStore((s) => s.user?.login ?? "");
+  const repoFull = owner && repo ? `${owner}/${repo}` : "";
+  const pinned = useSettingsStore((s) => {
+    const pins = s.pinnedPullsByAccount[accountId];
+    if (!pins || num === undefined) return false;
+    return pins.some((p) => p.repo === repoFull && p.number === num);
+  });
+  const togglePinnedPull = useSettingsStore((s) => s.togglePinnedPull);
 
   const [tab, setTab] = useState<DetailTab>("conversation");
   const [viewMode, setViewMode] = useState<DiffViewMode>("unified");
@@ -149,6 +159,22 @@ export default function PullDetailPage() {
         <span className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>
           {pull.headRef} → {pull.baseRef}
         </span>
+        {repoFull && num !== undefined && (
+          <button
+            type="button"
+            aria-label={pinned ? "Unpin pull request" : "Pin pull request"}
+            aria-pressed={pinned}
+            onClick={() => togglePinnedPull(accountId, repoFull, num)}
+            className="text-xs px-2.5 py-1 rounded-md font-medium"
+            style={{
+              backgroundColor: pinned ? "var(--accent-blue)" : "var(--bg-tertiary)",
+              color: pinned ? "#fff" : "var(--text-secondary)",
+              border: "1px solid var(--border-default)",
+            }}
+          >
+            {pinned ? "Pinned" : "Pin"}
+          </button>
+        )}
       </div>
 
       <Tabs items={TABS} activeId={tab} onChange={setTab} />
