@@ -87,4 +87,22 @@ describe("Sidebar badge integration", () => {
 
     expect(screen.getByText("my-github")).toBeInTheDocument();
   });
+
+  it("lists saved filters in the sidebar", () => {
+    useSettingsStore.setState({
+      savedFilters: [
+        { id: "v1", name: "My reviews", target: "pulls", query: "tab=review" },
+      ],
+    });
+    render(
+      <MemoryRouter>
+        <Sidebar />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText("Views")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "My reviews" })).toHaveAttribute(
+      "href",
+      "/pulls?tab=review",
+    );
+  });
 });

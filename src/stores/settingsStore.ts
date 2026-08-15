@@ -117,6 +117,7 @@ export interface SettingsState {
   addWatchedRepository: (repo: string) => void;
   addSavedFilter: (filter: Omit<SavedFilter, "id">) => void;
   removeSavedFilter: (id: string) => void;
+  renameSavedFilter: (id: string, name: string) => void;
   removeWatchedRepository: (repo: string) => void;
   setNotificationSetting: (
     key: keyof NotificationSettings,
@@ -186,6 +187,16 @@ export const useSettingsStore = create<SettingsState>()(
         set((state) => ({
           savedFilters: state.savedFilters.filter((filter) => filter.id !== id),
         })),
+      renameSavedFilter: (id, name) =>
+        set((state) => {
+          const trimmed = name.trim();
+          if (!trimmed) return state;
+          return {
+            savedFilters: state.savedFilters.map((filter) =>
+              filter.id === id ? { ...filter, name: trimmed } : filter,
+            ),
+          };
+        }),
       addWatchedRepository: (repo) =>
         set((state) => {
           const normalized = normalizeRepo(repo);
