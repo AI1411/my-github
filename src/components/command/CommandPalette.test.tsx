@@ -24,7 +24,7 @@ function renderPalette() {
 
 describe("CommandPalette", () => {
   beforeEach(() => {
-    useUiStore.setState({ commandPaletteOpen: true });
+    useUiStore.setState({ commandPaletteOpen: true, workspaceSwitcherOpen: false });
     useDataStore.setState({ pulls: [], issues: [] });
     useSettingsStore.setState({ savedSearches: [], recentPullsByAccount: {} });
     mockedInvoke.mockReset();
@@ -36,11 +36,23 @@ describe("CommandPalette", () => {
     expect(screen.getByPlaceholderText(/Search or jump to/)).toBeInTheDocument();
   });
 
-  it("shows nav commands by default (empty query)", () => {
+  it("shows digest, sync, mark-all, and switch-account actions", async () => {
     renderPalette();
-    expect(screen.getByText("Go to Inbox")).toBeInTheDocument();
-    expect(screen.getByText("Go to Pull Requests")).toBeInTheDocument();
-    expect(screen.getByText("Go to Issues")).toBeInTheDocument();
+    expect(screen.getByText("Go to Digest")).toBeInTheDocument();
+    expect(screen.getByText("Sync now")).toBeInTheDocument();
+    expect(screen.getByText("Mark all as read")).toBeInTheDocument();
+    expect(screen.getByText("Switch account")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Sync now"));
+    await waitFor(() => {
+      expect(mockedInvoke).toHaveBeenCalledWith("cmd_sync_now");
+    });
+  });
+
+  it("opens the workspace switcher from Switch account", () => {
+    renderPalette();
+    fireEvent.click(screen.getByText("Switch account"));
+    expect(useUiStore.getState().workspaceSwitcherOpen).toBe(true);
   });
 
   it("surfaces failing CI pulls as next actions above nav", () => {
@@ -109,9 +121,7 @@ describe("CommandPalette", () => {
 
   it("lists saved searches when the query is empty", () => {
     useSettingsStore.setState({
-      savedSearches: [
-        { id: "s1", name: "Review requests", query: "is:pr review-requested:@me" },
-      ],
+      savedSearches: [{ id: "s1", name: "Review requests", query: "is:pr review-requested:@me" }],
     });
     renderPalette();
     expect(screen.getByText("Saved searches")).toBeInTheDocument();

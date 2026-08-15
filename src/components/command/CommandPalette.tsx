@@ -59,12 +59,12 @@ export function CommandPalette() {
   const isOpen = useUiStore((s) => s.commandPaletteOpen);
   const close = useUiStore((s) => s.closeCommandPalette);
   const toggle = useUiStore((s) => s.toggleCommandPalette);
+  const openWorkspaceSwitcher = useUiStore((s) => s.openWorkspaceSwitcher);
   const pulls = useDataStore((s) => s.pulls);
   const issues = useDataStore((s) => s.issues);
+  const markLastSynced = useDataStore((s) => s.markLastSynced);
   const accountId = useAuthStore((s) => s.user?.login ?? "");
-  const recentPulls = useSettingsStore(
-    (s) => s.recentPullsByAccount[accountId] ?? EMPTY_RECENT,
-  );
+  const recentPulls = useSettingsStore((s) => s.recentPullsByAccount[accountId] ?? EMPTY_RECENT);
   const savedSearches = useSettingsStore((s) => s.savedSearches);
   const addSavedSearch = useSettingsStore((s) => s.addSavedSearch);
   const workModes = useSettingsStore((s) => s.workModes);
@@ -114,6 +114,33 @@ export function CommandPalette() {
     }
 
     if (!query) {
+      const actionItems: CommandItem[] = [
+        { id: "nav-digest", label: "Go to Digest", kind: "nav", href: "/digest" },
+        {
+          id: "action-sync",
+          label: "Sync now",
+          kind: "action",
+          action: () => {
+            void invoke("cmd_sync_now").then(() => markLastSynced());
+          },
+        },
+        {
+          id: "action-mark-all",
+          label: "Mark all as read",
+          kind: "action",
+          action: () => {
+            void invoke("cmd_mark_all_notifications_read");
+          },
+        },
+        {
+          id: "action-switch-account",
+          label: "Switch account",
+          kind: "action",
+          action: () => {
+            openWorkspaceSwitcher();
+          },
+        },
+      ];
       const savedItems: CommandItem[] = savedSearches.map((s) => ({
         id: `saved-${s.id}`,
         label: s.name,
@@ -168,7 +195,14 @@ export function CommandPalette() {
           if (path) navigate(path);
         },
       }));
-      return [...modeItems, ...savedItems, ...recentItems, ...nextActions, ...NAV_COMMANDS];
+      return [
+        ...modeItems,
+        ...savedItems,
+        ...recentItems,
+        ...nextActions,
+        ...actionItems,
+        ...NAV_COMMANDS,
+      ];
     }
 
     const modeMatches = workModes
@@ -186,6 +220,33 @@ export function CommandPalette() {
         }),
       );
     const navMatches = NAV_COMMANDS.filter((c) => fuzzyMatch(query, c.label));
+    const actionMatches: CommandItem[] = [
+      { id: "nav-digest", label: "Go to Digest", kind: "nav" as const, href: "/digest" },
+      {
+        id: "action-sync",
+        label: "Sync now",
+        kind: "action" as const,
+        action: () => {
+          void invoke("cmd_sync_now").then(() => markLastSynced());
+        },
+      },
+      {
+        id: "action-mark-all",
+        label: "Mark all as read",
+        kind: "action" as const,
+        action: () => {
+          void invoke("cmd_mark_all_notifications_read");
+        },
+      },
+      {
+        id: "action-switch-account",
+        label: "Switch account",
+        kind: "action" as const,
+        action: () => {
+          openWorkspaceSwitcher();
+        },
+      },
+    ].filter((c) => fuzzyMatch(query, c.label));
     const recentMatches = recentPulls
       .filter((r) => fuzzyMatch(query, r.title) || fuzzyMatch(query, r.repo))
       .slice(0, 5)
@@ -222,7 +283,14 @@ export function CommandPalette() {
           href: `/issues/${i.repo}/${i.number}`,
         }),
       );
-    return [...modeMatches, ...navMatches, ...recentMatches, ...prMatches, ...issueMatches];
+    return [
+      ...modeMatches,
+      ...actionMatches,
+      ...navMatches,
+      ...recentMatches,
+      ...prMatches,
+      ...issueMatches,
+    ];
   }, [
     query,
     pulls,
@@ -234,6 +302,8 @@ export function CommandPalette() {
     workModes,
     activateWorkMode,
     navigate,
+    markLastSynced,
+    openWorkspaceSwitcher,
   ]);
 
   const allItems = useMemo(() => {
@@ -361,9 +431,7 @@ export function CommandPalette() {
             ref={inputRef}
             type="text"
             placeholder={
-              searchMode
-                ? "GitHub search (is:pr, repo:…)"
-                : "Search or jump to… (Tab: search mode)"
+              searchMode ? "GitHub search (is:pr, repo:…)" : "Search or jump to… (Tab: search mode)"
             }
             value={query}
             onChange={(e) => setQuery(e.target.value)}
