@@ -15,10 +15,15 @@ import {
   normalizeWorkModes,
   type WorkMode,
 } from "../lib/workModes";
+import {
+  DEFAULT_LOCAL_LLM,
+  type LocalLlmSettings,
+} from "../lib/localLlm";
 
 export type { RecentPullRef };
 export type { GithubHost };
 export type { WorkMode };
+export type { LocalLlmSettings };
 
 export type PollingInterval = "30s" | "60s" | "5m" | "off";
 export type AppearanceDensity = "compact" | "comfortable";
@@ -185,6 +190,8 @@ export interface SettingsState {
   notificationRules: NotificationRule[];
   workModes: WorkMode[];
   activeWorkModeId: string | null;
+  localLlm: LocalLlmSettings;
+  setLocalLlm: (patch: Partial<LocalLlmSettings>) => void;
   releaseNotificationsEnabled: boolean;
   setReleaseNotificationsEnabled: (enabled: boolean) => void;
   digestAutoShowEnabled: boolean;
@@ -282,6 +289,11 @@ export const useSettingsStore = create<SettingsState>()(
       notificationRules: [],
       workModes: [],
       activeWorkModeId: null,
+      localLlm: { ...DEFAULT_LOCAL_LLM },
+      setLocalLlm: (patch) =>
+        set((state) => ({
+          localLlm: { ...state.localLlm, ...patch },
+        })),
       releaseNotificationsEnabled: true,
       setReleaseNotificationsEnabled: (enabled) => set({ releaseNotificationsEnabled: enabled }),
       digestAutoShowEnabled: true,
@@ -558,6 +570,12 @@ export const useSettingsStore = create<SettingsState>()(
             typeof raw.activeWorkModeId === "string" || raw.activeWorkModeId === null
               ? (raw.activeWorkModeId as string | null)
               : current.activeWorkModeId,
+          localLlm: {
+            ...DEFAULT_LOCAL_LLM,
+            ...(typeof raw.localLlm === "object" && raw.localLlm
+              ? (raw.localLlm as Partial<LocalLlmSettings>)
+              : {}),
+          },
         };
       },
       partialize: (state) => ({
@@ -581,6 +599,7 @@ export const useSettingsStore = create<SettingsState>()(
         notificationRules: state.notificationRules,
         workModes: state.workModes,
         activeWorkModeId: state.activeWorkModeId,
+        localLlm: state.localLlm,
         releaseNotificationsEnabled: state.releaseNotificationsEnabled,
         digestAutoShowEnabled: state.digestAutoShowEnabled,
         shortcutChipsEnabled: state.shortcutChipsEnabled,
