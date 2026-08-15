@@ -1,9 +1,9 @@
 use crate::github::client::{ClientError, GithubClient, RateLimitInfo};
 use crate::github::types::{
-    CheckRunsResponse, CodeSearchItem, CodeSearchResponse, Issue, IssueComment, Notification,
-    PullCommit, PullRequest, PullRequestFile, PullReviewComment, Reaction, Release, RepoSearchItem,
-    RepoSearchResponse, Repository, Review, SearchIssueItem, SearchIssuesResponse, TimelineEvent,
-    WorkflowRun, WorkflowRunsResponse,
+    CheckAnnotation, CheckRun, CheckRunsResponse, CodeSearchItem, CodeSearchResponse, Issue,
+    IssueComment, Notification, PullCommit, PullRequest, PullRequestFile, PullReviewComment,
+    Reaction, Release, RepoSearchItem, RepoSearchResponse, Repository, Review, SearchIssueItem,
+    SearchIssuesResponse, TimelineEvent, WorkflowRun, WorkflowRunsResponse,
 };
 use serde::Serialize;
 
@@ -991,6 +991,54 @@ pub async fn get_check_runs(
         });
     }
 
+    Ok(resp.json().await?)
+}
+
+pub async fn get_check_run(
+    client: &GithubClient,
+    owner: &str,
+    repo: &str,
+    check_run_id: u64,
+) -> Result<CheckRun, ClientError> {
+    let resp = client
+        .get(&format!(
+            "/repos/{}/{}/check-runs/{}",
+            owner, repo, check_run_id
+        ))
+        .send()
+        .await?;
+    let status = resp.status();
+    if !status.is_success() {
+        let message = resp.text().await.unwrap_or_default();
+        return Err(ClientError::Api {
+            status: status.as_u16(),
+            message,
+        });
+    }
+    Ok(resp.json().await?)
+}
+
+pub async fn list_check_run_annotations(
+    client: &GithubClient,
+    owner: &str,
+    repo: &str,
+    check_run_id: u64,
+) -> Result<Vec<CheckAnnotation>, ClientError> {
+    let resp = client
+        .get(&format!(
+            "/repos/{}/{}/check-runs/{}/annotations?per_page=50",
+            owner, repo, check_run_id
+        ))
+        .send()
+        .await?;
+    let status = resp.status();
+    if !status.is_success() {
+        let message = resp.text().await.unwrap_or_default();
+        return Err(ClientError::Api {
+            status: status.as_u16(),
+            message,
+        });
+    }
     Ok(resp.json().await?)
 }
 

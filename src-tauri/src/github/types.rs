@@ -328,6 +328,33 @@ pub struct CheckRun {
     pub completed_at: Option<String>,
     pub html_url: String,
     pub app: CheckApp,
+    #[serde(default)]
+    pub output: Option<CheckRunOutput>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct CheckRunOutput {
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub summary: Option<String>,
+    #[serde(default)]
+    pub text: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CheckAnnotation {
+    pub path: String,
+    #[serde(default)]
+    pub start_line: Option<u32>,
+    #[serde(default)]
+    pub end_line: Option<u32>,
+    #[serde(default)]
+    pub annotation_level: Option<String>,
+    #[serde(default)]
+    pub message: Option<String>,
+    #[serde(default)]
+    pub title: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
