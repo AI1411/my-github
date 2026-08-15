@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import SettingsPage from "./SettingsPage";
@@ -7,6 +8,14 @@ import { useDataStore } from "../stores/dataStore";
 import { DEFAULT_SHORTCUTS, useSettingsStore } from "../stores/settingsStore";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+
+function renderPage() {
+  return render(
+    <MemoryRouter>
+      <SettingsPage />
+    </MemoryRouter>,
+  );
+}
 
 describe("SettingsPage", () => {
   beforeEach(() => {
@@ -57,7 +66,7 @@ describe("SettingsPage", () => {
   });
 
   it("renders the M8 settings tabs", () => {
-    render(<SettingsPage />);
+    renderPage();
 
     for (const tab of [
       "Accounts",
@@ -72,7 +81,7 @@ describe("SettingsPage", () => {
   });
 
   it("shows the active account controls", () => {
-    render(<SettingsPage />);
+    renderPage();
 
     expect(screen.getByText("octocat")).toBeInTheDocument();
     expect(screen.getByTestId("active-account-host")).toHaveTextContent("github.com");
@@ -82,13 +91,13 @@ describe("SettingsPage", () => {
   });
 
   it("shows host URL field when adding an account", () => {
-    render(<SettingsPage />);
+    renderPage();
     fireEvent.click(screen.getByRole("button", { name: "Add account" }));
     expect(screen.getByLabelText("Host URL (optional)")).toBeInTheDocument();
   });
 
   it("adds and removes watched repositories", () => {
-    render(<SettingsPage />);
+    renderPage();
 
     fireEvent.click(screen.getByRole("tab", { name: "Repositories" }));
     fireEvent.change(screen.getByLabelText("Repository full name"), {
@@ -115,7 +124,7 @@ describe("SettingsPage", () => {
       return Promise.resolve(null);
     });
 
-    render(<SettingsPage />);
+    renderPage();
     fireEvent.click(screen.getByRole("tab", { name: "Repositories" }));
     fireEvent.change(screen.getByLabelText("Repository full name"), {
       target: { value: "octo" },
@@ -143,7 +152,7 @@ describe("SettingsPage", () => {
       return Promise.resolve(null);
     });
 
-    render(<SettingsPage />);
+    renderPage();
     fireEvent.click(screen.getByRole("tab", { name: "Repositories" }));
     const input = screen.getByLabelText("Repository full name");
     fireEvent.change(input, { target: { value: "octo" } });
@@ -171,7 +180,7 @@ describe("SettingsPage", () => {
       return Promise.resolve(null);
     });
 
-    render(<SettingsPage />);
+    renderPage();
     fireEvent.click(screen.getByRole("tab", { name: "Repositories" }));
     fireEvent.change(screen.getByLabelText("Repository full name"), {
       target: { value: "octo" },
@@ -184,7 +193,7 @@ describe("SettingsPage", () => {
   });
 
   it("still adds manual input with Enter when no suggestion is highlighted", () => {
-    render(<SettingsPage />);
+    renderPage();
     fireEvent.click(screen.getByRole("tab", { name: "Repositories" }));
     const input = screen.getByLabelText("Repository full name");
     fireEvent.change(input, { target: { value: "AI1411/manual-repo" } });
@@ -194,7 +203,7 @@ describe("SettingsPage", () => {
   });
 
   it("changes notification polling interval", () => {
-    render(<SettingsPage />);
+    renderPage();
 
     fireEvent.click(screen.getByRole("tab", { name: "Notifications" }));
     fireEvent.click(screen.getByRole("button", { name: "5 min" }));
@@ -203,7 +212,7 @@ describe("SettingsPage", () => {
   });
 
   it("toggles push-assisted sync without claiming real webhooks", () => {
-    render(<SettingsPage />);
+    renderPage();
 
     fireEvent.click(screen.getByRole("tab", { name: "Notifications" }));
     expect(useSettingsStore.getState().pushSyncEnabled).toBe(false);
@@ -218,7 +227,7 @@ describe("SettingsPage", () => {
   });
 
   it("customizes shortcuts", () => {
-    render(<SettingsPage />);
+    renderPage();
 
     fireEvent.click(screen.getByRole("tab", { name: "Shortcuts" }));
     fireEvent.change(screen.getByLabelText("Command palette shortcut"), {
@@ -229,7 +238,7 @@ describe("SettingsPage", () => {
   });
 
   it("sets theme and home layout", () => {
-    render(<SettingsPage />);
+    renderPage();
 
     fireEvent.click(screen.getByRole("tab", { name: "Appearance" }));
     fireEvent.click(screen.getByRole("button", { name: "Light" }));
@@ -239,8 +248,31 @@ describe("SettingsPage", () => {
     expect(useSettingsStore.getState().layout).toBe("pulls-first");
   });
 
+  it("saves and activates a work mode from current settings", () => {
+    useSettingsStore.setState({
+      watchedRepositories: ["acme/app"],
+      notificationRules: [
+        { id: "r1", repo: "acme/app", kind: "ciFailures", priority: "immediate" },
+      ],
+    });
+    renderPage();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Repositories" }));
+    fireEvent.change(screen.getByLabelText("New work mode name"), {
+      target: { value: "Work" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save current as mode" }));
+
+    expect(useSettingsStore.getState().workModes).toHaveLength(1);
+    expect(useSettingsStore.getState().workModes[0].name).toBe("Work");
+    expect(useSettingsStore.getState().workModes[0].watchedRepositories).toEqual(["acme/app"]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Activate" }));
+    expect(useSettingsStore.getState().activeWorkModeId).toBeTruthy();
+  });
+
   it("warns when shortcuts conflict", () => {
-    render(<SettingsPage />);
+    renderPage();
 
     fireEvent.click(screen.getByRole("tab", { name: "Shortcuts" }));
     fireEvent.change(screen.getByLabelText("Move up shortcut"), {
@@ -253,7 +285,7 @@ describe("SettingsPage", () => {
   });
 
   it("shows about version and GitHub API rate limit", async () => {
-    render(<SettingsPage />);
+    renderPage();
 
     fireEvent.click(screen.getByRole("tab", { name: "About" }));
 
@@ -281,7 +313,7 @@ describe("SettingsPage", () => {
       return Promise.resolve(null);
     });
 
-    render(<SettingsPage />);
+    renderPage();
 
     fireEvent.click(screen.getByRole("tab", { name: "About" }));
 

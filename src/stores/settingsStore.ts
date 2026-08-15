@@ -10,9 +10,15 @@ import {
 import { pushRecent, type RecentPullRef } from "../lib/recentPulls";
 import { DEFAULT_STALE_THRESHOLDS, type StaleThresholds } from "../lib/stalePulls";
 import type { SavedFilter } from "../lib/savedFilters";
+import {
+  createWorkMode,
+  normalizeWorkModes,
+  type WorkMode,
+} from "../lib/workModes";
 
 export type { RecentPullRef };
 export type { GithubHost };
+export type { WorkMode };
 
 export type PollingInterval = "30s" | "60s" | "5m" | "off";
 export type AppearanceDensity = "compact" | "comfortable";
@@ -177,6 +183,8 @@ export interface SettingsState {
   recentPullsByAccount: Record<string, RecentPullRef[]>;
   repoNotificationRules: RepoNotificationRules;
   notificationRules: NotificationRule[];
+  workModes: WorkMode[];
+  activeWorkModeId: string | null;
   releaseNotificationsEnabled: boolean;
   setReleaseNotificationsEnabled: (enabled: boolean) => void;
   digestAutoShowEnabled: boolean;
@@ -203,6 +211,10 @@ export interface SettingsState {
     patch: Partial<Pick<NotificationRule, "repo" | "kind" | "priority">>,
   ) => void;
   removeNotificationRule: (id: string) => void;
+  addWorkMode: (name: string) => void;
+  removeWorkMode: (id: string) => void;
+  /** Apply mode snapshot; returns homePath for navigation. */
+  activateWorkMode: (id: string) => string | null;
   addWatchedRepository: (repo: string) => void;
   addSavedFilter: (filter: Omit<SavedFilter, "id">) => void;
   removeSavedFilter: (id: string) => void;
@@ -268,6 +280,8 @@ export const useSettingsStore = create<SettingsState>()(
       recentPullsByAccount: {},
       repoNotificationRules: {},
       notificationRules: [],
+      workModes: [],
+      activeWorkModeId: null,
       releaseNotificationsEnabled: true,
       setReleaseNotificationsEnabled: (enabled) => set({ releaseNotificationsEnabled: enabled }),
       digestAutoShowEnabled: true,
@@ -348,6 +362,42 @@ export const useSettingsStore = create<SettingsState>()(
         set((state) => ({
           notificationRules: state.notificationRules.filter((rule) => rule.id !== id),
         })),
+      addWorkMode: (name) =>
+        set((state) => {
+          const trimmed = name.trim();
+          if (!trimmed) return state;
+          const mode = createWorkMode({
+            name: trimmed,
+            homePath: state.layout === "pulls-first" ? "/pulls" : "/inbox",
+            watchedRepositories: [...state.watchedRepositories],
+            notificationRules: state.notificationRules.map((r) => ({ ...r })),
+            savedFilterIds: state.savedFilters.map((f) => f.id),
+            notificationSettings: { ...state.notificationSettings },
+          });
+          return { workModes: [...state.workModes, mode] };
+        }),
+      removeWorkMode: (id) =>
+        set((state) => ({
+          workModes: state.workModes.filter((m) => m.id !== id),
+          activeWorkModeId: state.activeWorkModeId === id ? null : state.activeWorkModeId,
+        })),
+      activateWorkMode: (id) => {
+        const state = useSettingsStore.getState();
+        const mode = state.workModes.find((m) => m.id === id);
+        if (!mode) return null;
+        set({
+          activeWorkModeId: id,
+          watchedRepositories: [...mode.watchedRepositories],
+          notificationRules: mode.notificationRules.map((r) => ({ ...r })),
+          notificationSettings: mode.notificationSettings
+            ? {
+                ...state.notificationSettings,
+                ...mode.notificationSettings,
+              }
+            : state.notificationSettings,
+        });
+        return mode.homePath;
+      },
       addSavedFilter: (filter) =>
         set((state) => {
           const name = filter.name.trim();
@@ -503,6 +553,11 @@ export const useSettingsStore = create<SettingsState>()(
           notificationRules: normalizeNotificationRules(
             raw.notificationRules ?? current.notificationRules,
           ),
+          workModes: normalizeWorkModes(raw.workModes ?? current.workModes),
+          activeWorkModeId:
+            typeof raw.activeWorkModeId === "string" || raw.activeWorkModeId === null
+              ? (raw.activeWorkModeId as string | null)
+              : current.activeWorkModeId,
         };
       },
       partialize: (state) => ({
@@ -524,6 +579,8 @@ export const useSettingsStore = create<SettingsState>()(
         recentPullsByAccount: state.recentPullsByAccount,
         repoNotificationRules: state.repoNotificationRules,
         notificationRules: state.notificationRules,
+        workModes: state.workModes,
+        activeWorkModeId: state.activeWorkModeId,
         releaseNotificationsEnabled: state.releaseNotificationsEnabled,
         digestAutoShowEnabled: state.digestAutoShowEnabled,
         shortcutChipsEnabled: state.shortcutChipsEnabled,

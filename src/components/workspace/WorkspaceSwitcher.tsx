@@ -40,6 +40,9 @@ export function WorkspaceSwitcher({ onSignOut }: WorkspaceSwitcherProps) {
   const issues = useDataStore((s) => s.issues);
   const notifications = useDataStore((s) => s.notifications);
   const accountHosts = useSettingsStore((s) => s.accountHosts);
+  const workModes = useSettingsStore((s) => s.workModes);
+  const activeWorkModeId = useSettingsStore((s) => s.activeWorkModeId);
+  const activateWorkMode = useSettingsStore((s) => s.activateWorkMode);
   // Keep summaries warm so ⌘1–4 works globally, not only while the switcher is open.
   const { summaries } = useAccountAttentionSummaries(true);
   const navigate = useNavigate();
@@ -227,6 +230,43 @@ export function WorkspaceSwitcher({ onSignOut }: WorkspaceSwitcherProps) {
           >
             Add another account
           </button>
+        </div>
+        <div className="px-4 py-2.5 border-t" style={{ borderColor: "var(--border-subtle)" }}>
+          <p className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
+            Work modes
+          </p>
+          {workModes.length === 0 ? (
+            <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
+              Save a mode in Settings → Repositories
+            </p>
+          ) : (
+            <div className="mt-1">
+              {workModes.map((mode) => (
+                <button
+                  key={mode.id}
+                  type="button"
+                  onClick={() => {
+                    const path = activateWorkMode(mode.id);
+                    close();
+                    if (path) navigate(path);
+                  }}
+                  className="w-full text-left text-sm truncate py-1.5 px-1 rounded-md"
+                  style={{
+                    color:
+                      activeWorkModeId === mode.id
+                        ? "var(--text-primary)"
+                        : "var(--text-secondary)",
+                    backgroundColor:
+                      activeWorkModeId === mode.id ? "var(--bg-tertiary)" : "transparent",
+                    border: "none",
+                    cursor: "pointer",
+                  }}
+                >
+                  {mode.name}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <div className="px-4 py-2.5 border-t" style={{ borderColor: "var(--border-subtle)" }}>
           <p className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
