@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { sendAppNotification } from "../../lib/notifications";
 import { effectivePollingSeconds } from "../../lib/syncMode";
-import { useAuthStore } from "../../stores/authStore";
+import { reportAuthFailure, useAuthStore } from "../../stores/authStore";
 import { useDataStore, type NotificationSummary } from "../../stores/dataStore";
 import { useSettingsStore } from "../../stores/settingsStore";
 
@@ -90,6 +90,7 @@ export function useNotificationPolling(): NotificationPollingState {
         }
       }
     } catch (cause) {
+      reportAuthFailure(cause);
       if (isLatestRequest()) setError(String(cause));
     } finally {
       if (isLatestRequest()) setLoading(false);

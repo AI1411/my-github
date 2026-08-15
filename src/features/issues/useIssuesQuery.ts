@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { IssueSummary } from "../../stores/dataStore";
 import { useDataStore } from "../../stores/dataStore";
+import { reportAuthFailure } from "../../stores/authStore";
 import type { IssueFilter } from "./issueFilter";
 
 export interface UseIssuesQueryResult {
@@ -31,6 +32,7 @@ export function useIssuesQuery(filter: IssueFilter): UseIssuesQueryResult {
         });
         setIssues(result);
       } catch (e) {
+        reportAuthFailure(e);
         setError(typeof e === "string" ? e : String(e));
       } finally {
         setLoading(false);

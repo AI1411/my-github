@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { PullSummary } from "../../stores/dataStore";
 import { useDataStore } from "../../stores/dataStore";
+import { reportAuthFailure } from "../../stores/authStore";
 
 export type PullTab = "created" | "assigned" | "review" | "mentioned" | "all";
 
@@ -48,6 +49,7 @@ export function usePullsQuery(filter: PullFilter): UsePullsQueryResult {
         });
         setPulls(result);
       } catch (e) {
+        reportAuthFailure(e);
         setError(typeof e === "string" ? e : String(e));
       } finally {
         setLoading(false);
