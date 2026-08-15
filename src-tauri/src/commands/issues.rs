@@ -65,6 +65,53 @@ fn comment_to_summary(c: &IssueComment) -> CommentSummary {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ReactionInfo {
+    pub content: String,
+    pub count: u32,
+    pub viewer_has_reacted: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToggleReactionResult {
+    pub content: String,
+    pub reacted: bool,
+    pub reactions: Vec<ReactionInfo>,
+}
+
+fn reaction_infos_from_counts(
+    counts: Option<&crate::github::types::ReactionCounts>,
+) -> Vec<ReactionInfo> {
+    let counts = counts.cloned().unwrap_or_default();
+    crate::github::rest::REACTION_CONTENTS
+        .iter()
+        .map(|content| ReactionInfo {
+            content: (*content).to_string(),
+            count: counts.count_for(content),
+            viewer_has_reacted: false,
+        })
+        .collect()
+}
+
+fn build_reaction_infos(
+    reactions: &[crate::github::types::Reaction],
+    viewer_login: &str,
+) -> Vec<ReactionInfo> {
+    crate::github::rest::REACTION_CONTENTS
+        .iter()
+        .map(|content| {
+            let matching: Vec<_> = reactions.iter().filter(|r| r.content == *content).collect();
+            ReactionInfo {
+                content: (*content).to_string(),
+                count: matching.len() as u32,
+                viewer_has_reacted: matching.iter().any(|r| r.user.login == viewer_login),
+            }
+        })
+        .collect()
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct IssueSummary {
     pub id: i64,
     pub number: i64,
@@ -79,6 +126,8 @@ pub struct IssueSummary {
     pub updated_at: String,
     pub html_url: Option<String>,
     pub body: Option<String>,
+    #[serde(default)]
+    pub reactions: Vec<ReactionInfo>,
 }
 
 fn now_iso() -> String {
@@ -167,7 +216,8 @@ struct CachedRow {
 
 fn row_to_summary(r: CachedRow) -> IssueSummary {
     let parsed: Option<Issue> = serde_json::from_str(&r.raw_json).ok();
-    let (html_url, body, labels, assignees, milestone, comments) = match parsed.as_ref() {
+    let (html_url, body, labels, assignees, milestone, comments, reactions) = match parsed.as_ref()
+    {
         Some(i) => (
             Some(i.html_url.clone()),
             i.body.clone(),
@@ -187,8 +237,17 @@ fn row_to_summary(r: CachedRow) -> IssueSummary {
                 .collect(),
             i.milestone.as_ref().map(|m| m.title.clone()),
             i.comments,
+            reaction_infos_from_counts(i.reactions.as_ref()),
         ),
-        None => (None, None, Vec::new(), Vec::new(), None, 0),
+        None => (
+            None,
+            None,
+            Vec::new(),
+            Vec::new(),
+            None,
+            0,
+            reaction_infos_from_counts(None),
+        ),
     };
     IssueSummary {
         id: r.number,
@@ -204,6 +263,7 @@ fn row_to_summary(r: CachedRow) -> IssueSummary {
         updated_at: r.updated_at,
         html_url,
         body,
+        reactions,
     }
 }
 
@@ -236,6 +296,7 @@ fn issue_to_summary(issue: &Issue, repo_full_name: &str) -> IssueSummary {
         updated_at: issue.updated_at.clone(),
         html_url: Some(issue.html_url.clone()),
         body: issue.body.clone(),
+        reactions: reaction_infos_from_counts(issue.reactions.as_ref()),
     }
 }
 
@@ -294,7 +355,13 @@ pub async fn cmd_get_issue<R: Runtime>(
         }
     }
 
-    Ok(issue_to_summary(&issue, &full_name))
+    let mut summary = issue_to_summary(&issue, &full_name);
+    if let Ok(reactions) =
+        crate::github::rest::list_issue_reactions(&client, &owner, &repo, number).await
+    {
+        summary.reactions = build_reaction_infos(&reactions, &account_id);
+    }
+    Ok(summary)
 }
 
 /// Fetch all comments on an issue.
@@ -311,6 +378,164 @@ pub async fn cmd_list_issue_comments(
         .await
         .map_err(|e| e.to_string())?;
     Ok(comments.iter().map(comment_to_summary).collect())
+}
+
+const TIMELINE_EVENTS: &[&str] = &[
+    "labeled",
+    "unlabeled",
+    "assigned",
+    "unassigned",
+    "milestoned",
+    "demilestoned",
+    "cross-referenced",
+    "commented",
+    "closed",
+    "reopened",
+];
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TimelineEventSummary {
+    pub id: Option<u64>,
+    pub event: String,
+    pub created_at: String,
+    pub actor_login: Option<String>,
+    pub label_name: Option<String>,
+    pub label_color: Option<String>,
+    pub assignee_login: Option<String>,
+    pub milestone_title: Option<String>,
+    pub cross_ref_title: Option<String>,
+    pub cross_ref_number: Option<u32>,
+    pub cross_ref_url: Option<String>,
+    pub body: Option<String>,
+}
+
+fn timeline_to_summary(ev: &crate::github::types::TimelineEvent) -> Option<TimelineEventSummary> {
+    let event = ev.event.as_deref()?;
+    if !TIMELINE_EVENTS.contains(&event) {
+        return None;
+    }
+    let created_at = ev.created_at.clone().unwrap_or_default();
+    let actor_login = ev
+        .actor
+        .as_ref()
+        .or(ev.user.as_ref())
+        .map(|u| u.login.clone());
+    let (cross_ref_title, cross_ref_number, cross_ref_url) = ev
+        .source
+        .as_ref()
+        .and_then(|s| s.issue.as_ref())
+        .map(|issue| {
+            (
+                Some(issue.title.clone()),
+                Some(issue.number),
+                Some(issue.html_url.clone()),
+            )
+        })
+        .unwrap_or((None, None, None));
+    Some(TimelineEventSummary {
+        id: ev.id,
+        event: event.to_string(),
+        created_at,
+        actor_login,
+        label_name: ev.label.as_ref().map(|l| l.name.clone()),
+        label_color: ev.label.as_ref().map(|l| l.color.clone()),
+        assignee_login: ev.assignee.as_ref().map(|u| u.login.clone()),
+        milestone_title: ev.milestone.as_ref().map(|m| m.title.clone()),
+        cross_ref_title,
+        cross_ref_number,
+        cross_ref_url,
+        body: ev.body.clone(),
+    })
+}
+
+/// Fetch issue timeline events (labels, assigns, milestones, cross-refs, etc.).
+#[tauri::command]
+pub async fn cmd_list_issue_timeline(
+    owner: String,
+    repo: String,
+    number: u32,
+) -> Result<Vec<TimelineEventSummary>, String> {
+    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
+    let token = load_token(&account_id).ok_or_else(|| "no token for account".to_string())?;
+    let client = GithubClient::new(token);
+    let events = crate::github::rest::list_issue_timeline(&client, &owner, &repo, number)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(events.iter().filter_map(timeline_to_summary).collect())
+}
+
+/// Toggle a reaction on an issue body or an issue comment.
+/// When `comment_id` is set, targets `/issues/comments/{id}/reactions`.
+#[tauri::command]
+pub async fn cmd_toggle_issue_reaction(
+    owner: String,
+    repo: String,
+    number: u32,
+    content: String,
+    comment_id: Option<u64>,
+) -> Result<ToggleReactionResult, String> {
+    if !crate::github::rest::is_valid_reaction_content(&content) {
+        return Err(format!("invalid reaction content: {content}"));
+    }
+    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
+    let token = load_token(&account_id).ok_or_else(|| "no token for account".to_string())?;
+    let client = GithubClient::new(token);
+
+    let existing = if let Some(cid) = comment_id {
+        crate::github::rest::list_issue_comment_reactions_by_content(
+            &client, &owner, &repo, cid, &content,
+        )
+        .await
+    } else {
+        crate::github::rest::list_issue_reactions_by_content(
+            &client, &owner, &repo, number, &content,
+        )
+        .await
+    }
+    .map_err(format_issue_mutation_error)?;
+
+    let mine = existing.iter().find(|r| r.user.login == account_id);
+    let reacted = if let Some(reaction) = mine {
+        if let Some(cid) = comment_id {
+            crate::github::rest::delete_issue_comment_reaction(
+                &client, &owner, &repo, cid, reaction.id,
+            )
+            .await
+        } else {
+            crate::github::rest::delete_issue_reaction(
+                &client, &owner, &repo, number, reaction.id,
+            )
+            .await
+        }
+        .map_err(format_issue_mutation_error)?;
+        false
+    } else {
+        if let Some(cid) = comment_id {
+            crate::github::rest::create_issue_comment_reaction(
+                &client, &owner, &repo, cid, &content,
+            )
+            .await
+        } else {
+            crate::github::rest::create_issue_reaction(&client, &owner, &repo, number, &content)
+                .await
+        }
+        .map_err(format_issue_mutation_error)?;
+        true
+    };
+
+    let all = if let Some(cid) = comment_id {
+        crate::github::rest::list_issue_comment_reactions(&client, &owner, &repo, cid).await
+    } else {
+        crate::github::rest::list_issue_reactions(&client, &owner, &repo, number).await
+    }
+    .map_err(|e| e.to_string())?;
+
+    Ok(ToggleReactionResult {
+        content,
+        reacted,
+        reactions: build_reaction_infos(&all, &account_id),
+    })
 }
 
 fn format_issue_mutation_error(err: crate::github::client::ClientError) -> String {
@@ -492,6 +717,7 @@ mod tests {
             updated_at: updated_at.into(),
             closed_at: None,
             pull_request: None,
+            reactions: None,
         }
     }
 
@@ -680,6 +906,67 @@ mod tests {
     }
 
     #[test]
+    fn timeline_to_summary_maps_labeled_event() {
+        let ev = crate::github::types::TimelineEvent {
+            id: Some(1),
+            event: Some("labeled".into()),
+            created_at: Some("2026-04-20T00:00:00Z".into()),
+            actor: Some(user("octocat")),
+            label: Some(Label {
+                id: 1,
+                name: "bug".into(),
+                color: "d73a4a".into(),
+            }),
+            assignee: None,
+            milestone: None,
+            source: None,
+            user: None,
+            body: None,
+        };
+        let s = timeline_to_summary(&ev).unwrap();
+        assert_eq!(s.event, "labeled");
+        assert_eq!(s.label_name.as_deref(), Some("bug"));
+        assert_eq!(s.actor_login.as_deref(), Some("octocat"));
+    }
+
+    #[test]
+    fn timeline_to_summary_skips_unknown_events() {
+        let ev = crate::github::types::TimelineEvent {
+            id: Some(1),
+            event: Some("subscribed".into()),
+            created_at: Some("2026-04-20T00:00:00Z".into()),
+            actor: None,
+            label: None,
+            assignee: None,
+            milestone: None,
+            source: None,
+            user: None,
+            body: None,
+        };
+        assert!(timeline_to_summary(&ev).is_none());
+    }
+
+    #[test]
+    fn reaction_infos_from_counts_covers_all_contents() {
+        let infos = reaction_infos_from_counts(Some(&crate::github::types::ReactionCounts {
+            total_count: 3,
+            plus_one: 2,
+            minus_one: 0,
+            laugh: 0,
+            hooray: 1,
+            confused: 0,
+            heart: 0,
+            rocket: 0,
+            eyes: 0,
+        }));
+        assert_eq!(infos.len(), 8);
+        assert_eq!(infos[0].content, "+1");
+        assert_eq!(infos[0].count, 2);
+        assert_eq!(infos[3].content, "hooray");
+        assert_eq!(infos[3].count, 1);
+    }
+
+    #[test]
     fn comment_to_summary_preserves_fields() {
         let user = user("alice");
         let c = crate::github::types::IssueComment {
@@ -690,6 +977,7 @@ mod tests {
             updated_at: "2026-04-21T01:00:00Z".into(),
             html_url: "https://github.com/o/r/issues/1#c99".into(),
             author_association: Some("OWNER".into()),
+            reactions: None,
         };
         let s = comment_to_summary(&c);
         assert_eq!(s.id, 99);

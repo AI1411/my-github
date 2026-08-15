@@ -56,6 +56,8 @@ pub fn run() {
             commands::issues::cmd_list_issues,
             commands::issues::cmd_get_issue,
             commands::issues::cmd_list_issue_comments,
+            commands::issues::cmd_list_issue_timeline,
+            commands::issues::cmd_toggle_issue_reaction,
             commands::issues::cmd_update_issue,
             commands::inbox::cmd_get_inbox,
             commands::inbox::cmd_get_account_attention_summaries,

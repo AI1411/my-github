@@ -176,6 +176,7 @@ mod tests {
             updated_at: "2026-04-30T00:00:00Z".into(),
             closed_at: None,
             pull_request: None,
+            reactions: None,
         }
     }
 
