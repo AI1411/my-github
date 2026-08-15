@@ -42,6 +42,9 @@ vi.mock("../../lib/notifications", () => ({
 vi.mock("@tauri-apps/api/event", () => ({
   listen: vi.fn(() => Promise.resolve(() => undefined)),
 }));
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: vi.fn().mockResolvedValue({ lastRateLimit: null }),
+}));
 
 function LocationProbe() {
   const location = useLocation();
@@ -111,7 +114,7 @@ describe("AppShell offline banner", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole("status")).toHaveTextContent(/rate limit low \(12 remaining\)/i);
+    expect(screen.getByText(/rate limit low \(12 remaining\)/i)).toBeInTheDocument();
   });
 
   it("shows a push-assisted banner when the setting is enabled", () => {

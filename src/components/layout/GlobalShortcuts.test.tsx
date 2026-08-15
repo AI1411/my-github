@@ -12,6 +12,9 @@ vi.mock("react-router-dom", async () => {
     useNavigate: () => navigate,
   };
 });
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: vi.fn().mockResolvedValue(null),
+}));
 
 describe("GlobalShortcuts", () => {
   beforeEach(() => {
@@ -38,5 +41,12 @@ describe("GlobalShortcuts", () => {
     fireEvent.keyDown(window, { key: "g" });
     fireEvent.keyDown(window, { key: "s" });
     expect(navigate).toHaveBeenCalledWith("/settings");
+  });
+
+  it("syncs on Cmd+R", async () => {
+    const { invoke } = await import("@tauri-apps/api/core");
+    render(<GlobalShortcuts />);
+    fireEvent.keyDown(window, { key: "r", metaKey: true });
+    expect(invoke).toHaveBeenCalledWith("cmd_sync_now");
   });
 });

@@ -10,15 +10,8 @@ import {
 import { pushRecent, type RecentPullRef } from "../lib/recentPulls";
 import { DEFAULT_STALE_THRESHOLDS, type StaleThresholds } from "../lib/stalePulls";
 import type { SavedFilter } from "../lib/savedFilters";
-import {
-  createWorkMode,
-  normalizeWorkModes,
-  type WorkMode,
-} from "../lib/workModes";
-import {
-  DEFAULT_LOCAL_LLM,
-  type LocalLlmSettings,
-} from "../lib/localLlm";
+import { createWorkMode, normalizeWorkModes, type WorkMode } from "../lib/workModes";
+import { DEFAULT_LOCAL_LLM, type LocalLlmSettings } from "../lib/localLlm";
 import { normalizeRepoPathMap } from "../lib/openInEditor";
 
 export type { RecentPullRef };
@@ -46,7 +39,8 @@ export type ShortcutId =
   | "listSearch"
   | "snooze"
   | "snoozeLast"
-  | "nextQueue";
+  | "nextQueue"
+  | "syncNow";
 
 export interface ShortcutSetting {
   label: string;
@@ -126,6 +120,7 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutSetting> = {
   snooze: { label: "Snooze", keys: "H" },
   snoozeLast: { label: "Snooze last", keys: "Shift+H" },
   nextQueue: { label: "Next in review queue", keys: "]" },
+  syncNow: { label: "Sync now", keys: "Cmd+R" },
 };
 
 const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
@@ -217,9 +212,7 @@ export interface SettingsState {
   ) => void;
   addRepoNotificationRule: (repo: string) => void;
   removeRepoNotificationRule: (repo: string) => void;
-  addNotificationRule: (
-    rule: Omit<NotificationRule, "id"> & { id?: string },
-  ) => void;
+  addNotificationRule: (rule: Omit<NotificationRule, "id"> & { id?: string }) => void;
   updateNotificationRule: (
     id: string,
     patch: Partial<Pick<NotificationRule, "repo" | "kind" | "priority">>,
@@ -383,8 +376,7 @@ export const useSettingsStore = create<SettingsState>()(
         set((state) => ({
           notificationRules: state.notificationRules.map((rule) => {
             if (rule.id !== id) return rule;
-            const nextRepo =
-              patch.repo !== undefined ? normalizeRepo(patch.repo) : rule.repo;
+            const nextRepo = patch.repo !== undefined ? normalizeRepo(patch.repo) : rule.repo;
             if (!nextRepo) return rule;
             return {
               ...rule,
@@ -462,10 +454,7 @@ export const useSettingsStore = create<SettingsState>()(
           if (!payload) return state;
           if (state.savedSearches.some((s) => s.query === payload.query)) return state;
           return {
-            savedSearches: [
-              ...state.savedSearches,
-              { ...payload, id: crypto.randomUUID() },
-            ],
+            savedSearches: [...state.savedSearches, { ...payload, id: crypto.randomUUID() }],
           };
         }),
       removeSavedSearch: (id) =>
@@ -559,8 +548,7 @@ export const useSettingsStore = create<SettingsState>()(
       storage: createJSONStorage(() => localStorage),
       merge: (persisted, current) => {
         const raw = (persisted ?? {}) as Partial<SettingsState>;
-        const hosts =
-          Array.isArray(raw.hosts) && raw.hosts.length > 0 ? raw.hosts : current.hosts;
+        const hosts = Array.isArray(raw.hosts) && raw.hosts.length > 0 ? raw.hosts : current.hosts;
         const accountHosts =
           raw.accountHosts && typeof raw.accountHosts === "object"
             ? raw.accountHosts
@@ -600,13 +588,9 @@ export const useSettingsStore = create<SettingsState>()(
               ? (raw.localLlm as Partial<LocalLlmSettings>)
               : {}),
           },
-          repoLocalPaths: normalizeRepoPathMap(
-            raw.repoLocalPaths ?? current.repoLocalPaths,
-          ),
+          repoLocalPaths: normalizeRepoPathMap(raw.repoLocalPaths ?? current.repoLocalPaths),
           preferWorktree:
-            typeof raw.preferWorktree === "boolean"
-              ? raw.preferWorktree
-              : current.preferWorktree,
+            typeof raw.preferWorktree === "boolean" ? raw.preferWorktree : current.preferWorktree,
         };
       },
       partialize: (state) => ({

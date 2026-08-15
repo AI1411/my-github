@@ -13,6 +13,7 @@ import { useUiStore } from "../../stores/uiStore";
 import { CommandPalette } from "../command/CommandPalette";
 import { ShortcutChips } from "../common/ShortcutChips";
 import { GlobalShortcuts } from "./GlobalShortcuts";
+import { SyncStatusBar } from "./SyncStatusBar";
 
 export interface AppShellProps {
   sidebar: ReactNode;
@@ -136,7 +137,7 @@ export function AppShell({ sidebar, main, secondary }: AppShellProps) {
         >
           {sidebar}
         </aside>
-        <main className="h-full overflow-y-auto">
+        <main className="h-full overflow-hidden flex flex-col">
           {digestBanner && (
             <div
               role="status"
@@ -246,7 +247,8 @@ export function AppShell({ sidebar, main, secondary }: AppShellProps) {
               a shorter poll while focused.
             </div>
           )}
-          {main}
+          <div className="flex-1 min-h-0 overflow-y-auto">{main}</div>
+          <SyncStatusBar />
         </main>
         {secondary && (
           <aside
