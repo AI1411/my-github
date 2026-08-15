@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { saveDigestLastSeen } from "../../lib/digest";
@@ -207,7 +207,7 @@ describe("AppShell startup digest", () => {
     useSettingsStore.setState({ digestAutoShowEnabled: true });
   });
 
-  it("navigates to /digest when returning after a long gap", async () => {
+  it("shows a Digest banner instead of navigating away from inbox", async () => {
     saveDigestLastSeen(new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString());
 
     render(
@@ -232,8 +232,44 @@ describe("AppShell startup digest", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId("path")).toHaveTextContent("/digest");
+      expect(screen.getByTestId("digest-ready-banner")).toHaveTextContent("Digest is ready");
     });
+    expect(screen.getByRole("link", { name: "Open Digest" })).toHaveAttribute("href", "/digest");
+    expect(screen.getByTestId("path")).toHaveTextContent("/inbox");
+  });
+
+  it("dismisses the Digest banner without navigating", async () => {
+    saveDigestLastSeen(new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString());
+
+    render(
+      <MemoryRouter initialEntries={["/inbox"]}>
+        <Routes>
+          <Route
+            path="*"
+            element={
+              <AppShell
+                sidebar={<div />}
+                main={
+                  <>
+                    <LocationProbe />
+                    <div>Main</div>
+                  </>
+                }
+              />
+            }
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("digest-ready-banner")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    await waitFor(() => {
+      expect(screen.queryByTestId("digest-ready-banner")).not.toBeInTheDocument();
+    });
+    expect(screen.getByTestId("path")).toHaveTextContent("/inbox");
   });
 
   it("stays on inbox when auto digest is disabled", async () => {
@@ -262,5 +298,6 @@ describe("AppShell startup digest", () => {
     );
 
     expect(screen.getByTestId("path")).toHaveTextContent("/inbox");
+    expect(screen.queryByTestId("digest-ready-banner")).not.toBeInTheDocument();
   });
 });
