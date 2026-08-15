@@ -12,6 +12,7 @@ import { useSettingsStore } from "../../stores/settingsStore";
 import { useUiStore } from "../../stores/uiStore";
 import { CommandPalette } from "../command/CommandPalette";
 import { ShortcutChips } from "../common/ShortcutChips";
+import { GlobalShortcuts } from "./GlobalShortcuts";
 
 export interface AppShellProps {
   sidebar: ReactNode;
@@ -227,6 +228,7 @@ export function AppShell({ sidebar, main, secondary }: AppShellProps) {
           </aside>
         )}
       </div>
+      <GlobalShortcuts />
       <CommandPalette />
       <ShortcutChips />
     </NotificationPollingContext.Provider>
