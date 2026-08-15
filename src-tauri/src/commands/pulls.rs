@@ -619,6 +619,89 @@ pub async fn cmd_apply_pull_suggestion(
     Ok(())
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PullCommitSummary {
+    pub sha: String,
+    pub message: String,
+    pub author_login: Option<String>,
+    pub author_name: Option<String>,
+    pub committed_at: Option<String>,
+    pub html_url: String,
+}
+
+#[tauri::command]
+pub async fn cmd_list_pull_commits(
+    owner: String,
+    repo: String,
+    number: u32,
+) -> Result<Vec<PullCommitSummary>, String> {
+    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
+    let token = load_token(&account_id).ok_or_else(|| "no token for account".to_string())?;
+    let client = GithubClient::new(token);
+    let commits = crate::github::rest::list_pull_commits(&client, &owner, &repo, number)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(commits
+        .into_iter()
+        .map(|c| PullCommitSummary {
+            sha: c.sha,
+            message: c.commit.message.lines().next().unwrap_or("").to_string(),
+            author_login: c.author.map(|u| u.login),
+            author_name: c.commit.author.as_ref().map(|a| a.name.clone()),
+            committed_at: c
+                .commit
+                .author
+                .as_ref()
+                .and_then(|a| a.date.clone())
+                .or_else(|| c.commit.committer.as_ref().and_then(|a| a.date.clone())),
+            html_url: c.html_url,
+        })
+        .collect())
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PullCheckSummary {
+    pub id: u64,
+    pub name: String,
+    pub status: String,
+    pub conclusion: Option<String>,
+    pub started_at: Option<String>,
+    pub completed_at: Option<String>,
+    pub html_url: String,
+}
+
+#[tauri::command]
+pub async fn cmd_list_pull_checks(
+    owner: String,
+    repo: String,
+    number: u32,
+) -> Result<Vec<PullCheckSummary>, String> {
+    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
+    let token = load_token(&account_id).ok_or_else(|| "no token for account".to_string())?;
+    let client = GithubClient::new(token);
+    let pr = get_pull_request(&client, &owner, &repo, number)
+        .await
+        .map_err(|e| e.to_string())?;
+    let runs = get_check_runs(&client, &owner, &repo, &pr.head.sha)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(runs
+        .check_runs
+        .into_iter()
+        .map(|r| PullCheckSummary {
+            id: r.id,
+            name: r.name,
+            status: r.status,
+            conclusion: r.conclusion,
+            started_at: r.started_at,
+            completed_at: r.completed_at,
+            html_url: r.html_url,
+        })
+        .collect())
+}
+
 fn format_mutation_api_error(err: crate::github::client::ClientError) -> String {
     match err {
         crate::github::client::ClientError::Api { status: 403, .. } => {

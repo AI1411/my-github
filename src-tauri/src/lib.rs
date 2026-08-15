@@ -51,6 +51,8 @@ pub fn run() {
             commands::pulls::cmd_list_pull_review_comments,
             commands::pulls::cmd_reply_pull_review_comment,
             commands::pulls::cmd_apply_pull_suggestion,
+            commands::pulls::cmd_list_pull_commits,
+            commands::pulls::cmd_list_pull_checks,
             commands::issues::cmd_list_issues,
             commands::issues::cmd_get_issue,
             commands::issues::cmd_list_issue_comments,
