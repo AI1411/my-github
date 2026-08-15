@@ -25,6 +25,7 @@ export interface PullSummary {
   additions: number | null;
   deletions: number | null;
   changedFiles: number | null;
+  labels?: string[];
 }
 
 export interface IssueLabelInfo {
@@ -174,9 +175,7 @@ export const useDataStore = create<DataState>((set) => ({
   patchPullReviewers: (repo, number, reviewers) =>
     set((state) => ({
       pulls: state.pulls.map((p) =>
-        p.repo === repo && p.number === number
-          ? { ...p, requestedReviewers: reviewers }
-          : p,
+        p.repo === repo && p.number === number ? { ...p, requestedReviewers: reviewers } : p,
       ),
     })),
   patchIssue: (repo, number, patch) =>

@@ -183,6 +183,7 @@ mod tests {
             requested_teams: vec![],
             mergeable: None,
             mergeable_state: None,
+            labels: vec![],
         }
     }
 
