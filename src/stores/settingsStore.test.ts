@@ -20,6 +20,7 @@ describe("settingsStore", () => {
       dockBadgeEnabled: true,
       density: "comfortable",
       shortcuts: DEFAULT_SHORTCUTS,
+      pinnedPullsByAccount: {},
     });
   });
 
@@ -73,6 +74,26 @@ describe("settingsStore", () => {
     useSettingsStore.getState().resetShortcuts();
 
     expect(useSettingsStore.getState().shortcuts).toEqual(DEFAULT_SHORTCUTS);
+  });
+
+  it("pins and unpins pulls per account", () => {
+    useSettingsStore.getState().togglePinnedPull("alice", "o/r", 1);
+    useSettingsStore.getState().togglePinnedPull("alice", "o/r", 2);
+    useSettingsStore.getState().togglePinnedPull("bob", "o/r", 1);
+
+    expect(useSettingsStore.getState().pinnedPullsByAccount.alice).toEqual([
+      { repo: "o/r", number: 1 },
+      { repo: "o/r", number: 2 },
+    ]);
+    expect(useSettingsStore.getState().pinnedPullsByAccount.bob).toEqual([
+      { repo: "o/r", number: 1 },
+    ]);
+
+    useSettingsStore.getState().togglePinnedPull("alice", "o/r", 1);
+
+    expect(useSettingsStore.getState().pinnedPullsByAccount.alice).toEqual([
+      { repo: "o/r", number: 2 },
+    ]);
   });
 
   it("persists settings to localStorage", () => {

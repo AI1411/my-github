@@ -91,6 +91,11 @@ function normalizeRepo(repo: string): string {
   return repo.trim();
 }
 
+export interface PinnedPullRef {
+  repo: string;
+  number: number;
+}
+
 export interface SettingsState {
   watchedRepositories: string[];
   notificationSettings: NotificationSettings;
@@ -100,6 +105,7 @@ export interface SettingsState {
   shortcuts: Record<ShortcutId, ShortcutSetting>;
   staleThresholds: StaleThresholds;
   savedFilters: SavedFilter[];
+  pinnedPullsByAccount: Record<string, PinnedPullRef[]>;
   repoNotificationRules: RepoNotificationRules;
   releaseNotificationsEnabled: boolean;
   setReleaseNotificationsEnabled: (enabled: boolean) => void;
@@ -107,6 +113,7 @@ export interface SettingsState {
   setDigestAutoShowEnabled: (enabled: boolean) => void;
   shortcutChipsEnabled: boolean;
   setShortcutChipsEnabled: (enabled: boolean) => void;
+  togglePinnedPull: (accountId: string, repo: string, number: number) => void;
   setRepoNotificationRule: (
     repo: string,
     key: keyof RepoNotificationRule,
@@ -142,6 +149,7 @@ export const useSettingsStore = create<SettingsState>()(
       shortcuts: DEFAULT_SHORTCUTS,
       staleThresholds: DEFAULT_STALE_THRESHOLDS,
       savedFilters: [],
+      pinnedPullsByAccount: {},
       repoNotificationRules: {},
       releaseNotificationsEnabled: true,
       setReleaseNotificationsEnabled: (enabled) => set({ releaseNotificationsEnabled: enabled }),
@@ -195,6 +203,21 @@ export const useSettingsStore = create<SettingsState>()(
             savedFilters: state.savedFilters.map((filter) =>
               filter.id === id ? { ...filter, name: trimmed } : filter,
             ),
+          };
+        }),
+      togglePinnedPull: (accountId, repo, number) =>
+        set((state) => {
+          if (!accountId || !repo || !Number.isFinite(number)) return state;
+          const current = state.pinnedPullsByAccount[accountId] ?? [];
+          const exists = current.some((pin) => pin.repo === repo && pin.number === number);
+          const next = exists
+            ? current.filter((pin) => !(pin.repo === repo && pin.number === number))
+            : [...current, { repo, number }];
+          return {
+            pinnedPullsByAccount: {
+              ...state.pinnedPullsByAccount,
+              [accountId]: next,
+            },
           };
         }),
       addWatchedRepository: (repo) =>
@@ -266,6 +289,7 @@ export const useSettingsStore = create<SettingsState>()(
         shortcuts: state.shortcuts,
         staleThresholds: state.staleThresholds,
         savedFilters: state.savedFilters,
+        pinnedPullsByAccount: state.pinnedPullsByAccount,
         repoNotificationRules: state.repoNotificationRules,
         releaseNotificationsEnabled: state.releaseNotificationsEnabled,
         digestAutoShowEnabled: state.digestAutoShowEnabled,

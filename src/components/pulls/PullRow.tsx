@@ -9,19 +9,30 @@ export interface PullRowProps {
   pull: PullSummary;
   selected?: boolean;
   stale?: boolean;
+  pinned?: boolean;
   onSelect?: () => void;
   onOpen?: () => void;
+  onTogglePin?: () => void;
   style?: CSSProperties;
 }
 
 const GRID: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "24px 56px minmax(0,1fr) 140px 140px 100px 100px 72px",
+  gridTemplateColumns: "24px 56px minmax(0,1fr) 140px 140px 100px 100px 72px 32px",
   alignItems: "center",
   gap: 12,
 };
 
-export function PullRow({ pull, selected, stale, onSelect, onOpen, style }: PullRowProps) {
+export function PullRow({
+  pull,
+  selected,
+  stale,
+  pinned,
+  onSelect,
+  onOpen,
+  onTogglePin,
+  style,
+}: PullRowProps) {
   const kind = classifyPull(pull);
   const bg = selected
     ? "var(--bg-overlay)"
@@ -72,6 +83,14 @@ export function PullRow({ pull, selected, stale, onSelect, onOpen, style }: Pull
               Stale
             </span>
           )}
+          {pinned && (
+            <span
+              className="ml-2 text-[10px] uppercase tracking-wide"
+              style={{ color: "var(--accent-blue)" }}
+            >
+              Pinned
+            </span>
+          )}
         </span>
         <span className="truncate text-[11px]" style={{ color: "var(--text-muted)" }}>
           {pull.repo} · {pull.headRef} → {pull.baseRef}
@@ -100,6 +119,28 @@ export function PullRow({ pull, selected, stale, onSelect, onOpen, style }: Pull
       </div>
       <div className="text-xs text-right tabular-nums" style={{ color: "var(--text-muted)" }}>
         {formatRelativeTime(pull.updatedAt)}
+      </div>
+      <div style={{ justifySelf: "center" }}>
+        {onTogglePin && (
+          <button
+            type="button"
+            aria-label={pinned ? `Unpin ${pull.title}` : `Pin ${pull.title}`}
+            aria-pressed={pinned}
+            onClick={(e) => {
+              e.stopPropagation();
+              onTogglePin();
+            }}
+            className="text-xs px-1.5 py-0.5 rounded"
+            style={{
+              color: pinned ? "var(--accent-blue)" : "var(--text-muted)",
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            {pinned ? "★" : "☆"}
+          </button>
+        )}
       </div>
     </div>
   );

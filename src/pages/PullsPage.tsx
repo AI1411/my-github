@@ -16,7 +16,9 @@ import { matchesListSearch } from "../lib/listSearch";
 import { isOwnPullStale } from "../lib/stalePulls";
 import { pullFilterToQuery, queryToPullFilter } from "../lib/savedFilters";
 import { useAuthStore } from "../stores/authStore";
-import { useSettingsStore } from "../stores/settingsStore";
+import { useSettingsStore, type PinnedPullRef } from "../stores/settingsStore";
+
+const EMPTY_PINS: PinnedPullRef[] = [];
 
 const TABS: TabItem<PullTab>[] = [
   { id: "created", label: "Created" },
@@ -42,7 +44,14 @@ export default function PullsPage() {
   const accountId = useAuthStore((s) => s.user?.login ?? "");
   const currentUser = useAuthStore((s) => s.user?.login ?? null);
   const staleThresholds = useSettingsStore((s) => s.staleThresholds);
+  const pinnedRefs = useSettingsStore(
+    (s) => s.pinnedPullsByAccount[accountId] ?? EMPTY_PINS,
+  );
+  const togglePinnedPull = useSettingsStore((s) => s.togglePinnedPull);
   const listSearch = useListSearch(accountId, "pulls");
+
+  const isPinned = (repo: string, number: number) =>
+    pinnedRefs.some((p) => p.repo === repo && p.number === number);
 
   const handleSaveView = () => {
     const name = window.prompt("View name");
@@ -156,8 +165,10 @@ export default function PullsPage() {
                   pull={pull}
                   selected={activeIndex === v.index}
                   stale={isOwnPullStale(pull, currentUser, staleThresholds)}
+                  pinned={isPinned(pull.repo, pull.number)}
                   onSelect={() => setActiveId(String(pull.id))}
                   onOpen={() => openPull(pull)}
+                  onTogglePin={() => togglePinnedPull(accountId, pull.repo, pull.number)}
                   style={{
                     position: "absolute",
                     top: 0,
