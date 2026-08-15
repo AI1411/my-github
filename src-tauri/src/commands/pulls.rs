@@ -6,8 +6,10 @@ use crate::commands::sync::run_sync_for_scopes;
 use crate::db::SqlitePool;
 use crate::github::client::GithubClient;
 use crate::github::rest::{
-    create_pull_request_review, get_check_runs, get_pull_request, get_pull_request_files,
-    list_pull_request_reviews, merge_pull_request, review_state_for_event, update_issue,
+    convert_pull_to_draft, create_pull_request_review, get_check_runs, get_pull_request,
+    get_pull_request_files, list_pull_request_reviews, mark_pull_ready_for_review,
+    merge_pull_request, remove_pull_reviewers, request_pull_reviewers, review_state_for_event,
+    update_issue,
 };
 use crate::github::types::{CheckRun, PullRequest, PullRequestFile, Review};
 use crate::sync::types::{SyncReport, SyncScope, SyncStepStatus};
@@ -541,6 +543,68 @@ pub async fn cmd_set_pull_state<R: Runtime>(
     }
     let _ = app.emit("pulls-updated", ());
     Ok(())
+}
+
+#[tauri::command]
+pub async fn cmd_set_pull_draft<R: Runtime>(
+    app: AppHandle<R>,
+    owner: String,
+    repo: String,
+    number: u32,
+    draft: bool,
+) -> Result<(), String> {
+    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
+    let token = load_token(&account_id).ok_or_else(|| "no token for account".to_string())?;
+    let client = GithubClient::new(token);
+    if draft {
+        convert_pull_to_draft(&client, &owner, &repo, number)
+            .await
+            .map_err(format_mutation_api_error)?;
+    } else {
+        mark_pull_ready_for_review(&client, &owner, &repo, number)
+            .await
+            .map_err(format_mutation_api_error)?;
+    }
+    let full_name = format!("{owner}/{repo}");
+    if let Some(pool) = app.try_state::<SqlitePool>() {
+        let _ = crate::cache::pulls::update_pull_draft(pool.inner(), &full_name, number as i64, draft);
+    }
+    let _ = app.emit("pulls-updated", ());
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn cmd_update_pull_reviewers<R: Runtime>(
+    app: AppHandle<R>,
+    owner: String,
+    repo: String,
+    number: u32,
+    add: Option<Vec<String>>,
+    remove: Option<Vec<String>>,
+) -> Result<Vec<String>, String> {
+    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
+    let token = load_token(&account_id).ok_or_else(|| "no token for account".to_string())?;
+    let client = GithubClient::new(token);
+    if let Some(reviewers) = add.as_ref().filter(|v| !v.is_empty()) {
+        request_pull_reviewers(&client, &owner, &repo, number, reviewers)
+            .await
+            .map_err(format_mutation_api_error)?;
+    }
+    if let Some(reviewers) = remove.as_ref().filter(|v| !v.is_empty()) {
+        remove_pull_reviewers(&client, &owner, &repo, number, reviewers)
+            .await
+            .map_err(format_mutation_api_error)?;
+    }
+    let pr = get_pull_request(&client, &owner, &repo, number)
+        .await
+        .map_err(|e| e.to_string())?;
+    let logins: Vec<String> = pr
+        .requested_reviewers
+        .iter()
+        .map(|u| u.login.clone())
+        .collect();
+    let _ = app.emit("pulls-updated", ());
+    Ok(logins)
 }
 
 #[cfg(test)]
