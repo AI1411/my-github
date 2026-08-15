@@ -66,7 +66,11 @@ describe("AppShell offline banner", () => {
       notificationLifecycle.disposeClickHandler,
     );
     useUiStore.setState({ offline: false, sidebarCollapsed: false, rateLimitHit: null });
-    useSettingsStore.setState({ pushSyncEnabled: false, digestAutoShowEnabled: true });
+    useSettingsStore.setState({
+      pushSyncEnabled: false,
+      digestAutoShowEnabled: true,
+      watchOnboardingDismissed: true,
+    });
   });
 
   it("shows an offline banner when uiStore is offline", () => {

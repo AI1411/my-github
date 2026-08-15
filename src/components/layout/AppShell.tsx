@@ -14,6 +14,7 @@ import { useDataStore } from "../../stores/dataStore";
 import { useUiStore } from "../../stores/uiStore";
 import { CommandPalette } from "../command/CommandPalette";
 import { ShortcutChips } from "../common/ShortcutChips";
+import { WatchReposPrompt } from "../onboarding/WatchReposPrompt";
 import { GlobalShortcuts } from "./GlobalShortcuts";
 import { SyncStatusBar } from "./SyncStatusBar";
 
@@ -291,6 +292,7 @@ export function AppShell({ sidebar, main, secondary }: AppShellProps) {
       <GlobalShortcuts />
       <CommandPalette />
       <ShortcutChips />
+      <WatchReposPrompt />
     </NotificationPollingContext.Provider>
   );
 }
