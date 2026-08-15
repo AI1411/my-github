@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import SettingsPage from "./SettingsPage";
@@ -7,6 +8,14 @@ import { useDataStore } from "../stores/dataStore";
 import { DEFAULT_SHORTCUTS, useSettingsStore } from "../stores/settingsStore";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+
+function renderPage() {
+  return render(
+    <MemoryRouter>
+      <SettingsPage />
+    </MemoryRouter>,
+  );
+}
 
 describe("SettingsPage", () => {
   beforeEach(() => {
@@ -237,6 +246,29 @@ describe("SettingsPage", () => {
 
     expect(useSettingsStore.getState().theme).toBe("light");
     expect(useSettingsStore.getState().layout).toBe("pulls-first");
+  });
+
+  it("saves and activates a work mode from current settings", () => {
+    useSettingsStore.setState({
+      watchedRepositories: ["acme/app"],
+      notificationRules: [
+        { id: "r1", repo: "acme/app", kind: "ciFailures", priority: "immediate" },
+      ],
+    });
+    render(<SettingsPage />);
+
+    fireEvent.click(screen.getByRole("tab", { name: "Repositories" }));
+    fireEvent.change(screen.getByLabelText("New work mode name"), {
+      target: { value: "Work" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save current as mode" }));
+
+    expect(useSettingsStore.getState().workModes).toHaveLength(1);
+    expect(useSettingsStore.getState().workModes[0].name).toBe("Work");
+    expect(useSettingsStore.getState().workModes[0].watchedRepositories).toEqual(["acme/app"]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Activate" }));
+    expect(useSettingsStore.getState().activeWorkModeId).toBeTruthy();
   });
 
   it("warns when shortcuts conflict", () => {

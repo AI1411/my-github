@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import packageJson from "../../package.json";
 import { Tabs } from "../components/common/Tabs";
@@ -170,6 +171,7 @@ function formatReset(epochSeconds: number): string {
 }
 
 export default function SettingsPage() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<SettingsTab>("accounts");
   const [addingAccount, setAddingAccount] = useState(false);
   const [repoInput, setRepoInput] = useState("");
@@ -226,6 +228,12 @@ export default function SettingsPage() {
   const setShortcutChipsEnabled = useSettingsStore((state) => state.setShortcutChipsEnabled);
   const [recordingId, setRecordingId] = useState<ShortcutId | null>(null);
   const shortcutConflicts = useMemo(() => findShortcutConflicts(shortcuts), [shortcuts]);
+  const workModes = useSettingsStore((state) => state.workModes);
+  const activeWorkModeId = useSettingsStore((state) => state.activeWorkModeId);
+  const addWorkMode = useSettingsStore((state) => state.addWorkMode);
+  const removeWorkMode = useSettingsStore((state) => state.removeWorkMode);
+  const activateWorkMode = useSettingsStore((state) => state.activateWorkMode);
+  const [workModeName, setWorkModeName] = useState("");
 
   const repoSuggestions = useMemo(
     () =>
@@ -525,6 +533,80 @@ export default function SettingsPage() {
                 </div>
               </Row>
             )}
+          </Section>
+        )}
+
+        {activeTab === "repositories" && (
+          <Section title="Work modes">
+            <p className="mb-3 text-xs" style={{ color: "var(--text-muted)" }}>
+              Snapshot watched repos, notification rules, and home route. Switch via ⌘T / ⌘K.
+            </p>
+            <form
+              className="mb-3 flex gap-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                addWorkMode(workModeName);
+                setWorkModeName("");
+              }}
+            >
+              <input
+                aria-label="New work mode name"
+                value={workModeName}
+                onChange={(event) => setWorkModeName(event.target.value)}
+                placeholder="e.g. Work / Personal"
+                className="min-w-0 flex-1 rounded-md px-3 py-2 text-sm outline-none"
+                style={{
+                  backgroundColor: "var(--bg-secondary)",
+                  border: "1px solid var(--border-default)",
+                  color: "var(--text-primary)",
+                }}
+              />
+              <InlineButton onClick={() => {
+                addWorkMode(workModeName);
+                setWorkModeName("");
+              }}>
+                Save current as mode
+              </InlineButton>
+            </form>
+            <div className="divide-y" style={sectionStyle()}>
+              {workModes.length === 0 ? (
+                <p className="py-3 text-sm" style={{ color: "var(--text-muted)" }}>
+                  No work modes yet
+                </p>
+              ) : (
+                workModes.map((mode) => (
+                  <div key={mode.id} className="flex min-h-11 items-center justify-between gap-3 py-2">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm" style={{ color: "var(--text-primary)" }}>
+                        {mode.name}
+                        {activeWorkModeId === mode.id ? " · active" : ""}
+                      </div>
+                      <div className="truncate text-xs" style={{ color: "var(--text-muted)" }}>
+                        {mode.watchedRepositories.length} repos · {mode.notificationRules.length}{" "}
+                        rules · {mode.homePath}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <InlineButton
+                        active={activeWorkModeId === mode.id}
+                        onClick={() => {
+                          const path = activateWorkMode(mode.id);
+                          if (path) navigate(path);
+                        }}
+                      >
+                        Activate
+                      </InlineButton>
+                      <InlineButton
+                        ariaLabel={`Remove ${mode.name}`}
+                        onClick={() => removeWorkMode(mode.id)}
+                      >
+                        Remove
+                      </InlineButton>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </Section>
         )}
 

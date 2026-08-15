@@ -18,7 +18,7 @@ interface CommandItem {
   id: string;
   label: string;
   subtitle?: string;
-  kind: "nav" | "pr" | "issue" | "search" | "next" | "saved" | "action" | "recent";
+  kind: "nav" | "pr" | "issue" | "search" | "next" | "saved" | "action" | "recent" | "mode";
   href?: string;
   /** When true, selecting fills the query and keeps the palette open. */
   keepOpen?: boolean;
@@ -48,6 +48,7 @@ const KIND_LABEL: Record<CommandItem["kind"], string> = {
   saved: "★",
   action: "+",
   recent: "R",
+  mode: "M",
 };
 
 function fuzzyMatch(query: string, target: string): boolean {
@@ -66,6 +67,8 @@ export function CommandPalette() {
   );
   const savedSearches = useSettingsStore((s) => s.savedSearches);
   const addSavedSearch = useSettingsStore((s) => s.addSavedSearch);
+  const workModes = useSettingsStore((s) => s.workModes);
+  const activateWorkMode = useSettingsStore((s) => s.activateWorkMode);
   const navigate = useNavigate();
 
   const [query, setQuery] = useState("");
@@ -155,9 +158,33 @@ export function CommandPalette() {
         }
         if (nextActions.length >= 5) break;
       }
-      return [...savedItems, ...recentItems, ...nextActions, ...NAV_COMMANDS];
+      const modeItems: CommandItem[] = workModes.map((mode) => ({
+        id: `mode-${mode.id}`,
+        label: `Switch to ${mode.name}`,
+        subtitle: `Work mode · ${mode.watchedRepositories.length} repos`,
+        kind: "mode",
+        action: () => {
+          const path = activateWorkMode(mode.id);
+          if (path) navigate(path);
+        },
+      }));
+      return [...modeItems, ...savedItems, ...recentItems, ...nextActions, ...NAV_COMMANDS];
     }
 
+    const modeMatches = workModes
+      .filter((m) => fuzzyMatch(query, m.name) || fuzzyMatch(query, "mode"))
+      .map(
+        (mode): CommandItem => ({
+          id: `mode-${mode.id}`,
+          label: `Switch to ${mode.name}`,
+          subtitle: `Work mode · ${mode.homePath}`,
+          kind: "mode",
+          action: () => {
+            const path = activateWorkMode(mode.id);
+            if (path) navigate(path);
+          },
+        }),
+      );
     const navMatches = NAV_COMMANDS.filter((c) => fuzzyMatch(query, c.label));
     const recentMatches = recentPulls
       .filter((r) => fuzzyMatch(query, r.title) || fuzzyMatch(query, r.repo))
@@ -195,8 +222,19 @@ export function CommandPalette() {
           href: `/issues/${i.repo}/${i.number}`,
         }),
       );
-    return [...navMatches, ...recentMatches, ...prMatches, ...issueMatches];
-  }, [query, pulls, issues, advanced, savedSearches, addSavedSearch, recentPulls]);
+    return [...modeMatches, ...navMatches, ...recentMatches, ...prMatches, ...issueMatches];
+  }, [
+    query,
+    pulls,
+    issues,
+    advanced,
+    savedSearches,
+    addSavedSearch,
+    recentPulls,
+    workModes,
+    activateWorkMode,
+    navigate,
+  ]);
 
   const allItems = useMemo(() => {
     if (advanced && query.trim()) {
