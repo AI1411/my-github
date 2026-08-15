@@ -248,4 +248,16 @@ describe("InboxPage snooze shortcuts", () => {
     fireEvent.keyDown(window, { key: "Enter" });
     expect(await screen.findByText("pull-detail")).toBeInTheDocument();
   });
+
+  it("filters inbox items with Cmd+F list search", async () => {
+    renderInbox();
+    await waitFor(() => expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0));
+    fireEvent.keyDown(window, { key: "f", metaKey: true });
+    const input = await screen.findByRole("searchbox", { name: "List search" });
+    fireEvent.change(input, { target: { value: "mentioned" } });
+    await waitFor(() => {
+      expect(screen.queryByText("Needs review")).not.toBeInTheDocument();
+    });
+    expect(screen.getByText("You were mentioned")).toBeInTheDocument();
+  });
 });
