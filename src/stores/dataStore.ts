@@ -51,6 +51,11 @@ export interface IssueSummary {
   updatedAt: string;
   htmlUrl: string | null;
   body: string | null;
+  reactions?: {
+    content: string;
+    count: number;
+    viewerHasReacted: boolean;
+  }[];
 }
 
 export interface NotificationSummary {

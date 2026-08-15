@@ -215,6 +215,7 @@ mod tests {
             updated_at: updated_at.into(),
             closed_at: None,
             pull_request: None,
+            reactions: None,
         }
     }
 

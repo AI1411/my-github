@@ -1,14 +1,25 @@
 import { Avatar } from "../common/Avatar";
 import { MarkdownRenderer } from "../markdown/MarkdownRenderer";
 import { formatRelativeTime } from "../../lib/relativeTime";
+import { ReactionPills, type ReactionInfo } from "./ReactionPills";
 
 export interface IssueOriginalPostProps {
   author: { login: string; avatarUrl: string };
   body: string | null;
   createdAt: string;
+  reactions?: ReactionInfo[];
+  reactionsBusy?: boolean;
+  onToggleReaction?: (content: string) => void;
 }
 
-export function IssueOriginalPost({ author, body, createdAt }: IssueOriginalPostProps) {
+export function IssueOriginalPost({
+  author,
+  body,
+  createdAt,
+  reactions,
+  reactionsBusy,
+  onToggleReaction,
+}: IssueOriginalPostProps) {
   return (
     <article
       className="mx-4 my-3 rounded border overflow-hidden"
@@ -48,6 +59,15 @@ export function IssueOriginalPost({ author, body, createdAt }: IssueOriginalPost
           </p>
         )}
       </div>
+      {reactions && onToggleReaction ? (
+        <div className="px-3 pb-3">
+          <ReactionPills
+            reactions={reactions}
+            busy={reactionsBusy}
+            onToggle={onToggleReaction}
+          />
+        </div>
+      ) : null}
     </article>
   );
 }

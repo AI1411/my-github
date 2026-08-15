@@ -6,10 +6,13 @@ import { EmptyState } from "../components/common/EmptyState";
 import { StatusPill } from "../components/common/StatusPill";
 import { Button } from "../components/common/Button";
 import { IssueOriginalPost } from "../components/issues/IssueOriginalPost";
+import { IssueTimeline } from "../components/issues/IssueTimeline";
 import { CommentThread } from "../components/issues/CommentThread";
 import { IssueSidebar } from "../components/issues/IssueSidebar";
+import type { ReactionInfo } from "../components/issues/ReactionPills";
 import { useIssueQuery } from "../features/issues/useIssueQuery";
 import { useIssueCommentsQuery } from "../features/issues/useIssueCommentsQuery";
+import { useIssueTimelineQuery } from "../features/issues/useIssueTimelineQuery";
 import { useDataStore, type IssueSummary } from "../stores/dataStore";
 
 export default function IssueDetailPage() {
@@ -17,13 +20,17 @@ export default function IssueDetailPage() {
   const num = number ? Number.parseInt(number, 10) : undefined;
   const { issue: fetched, loading, error } = useIssueQuery(owner, repo, num);
   const { comments } = useIssueCommentsQuery(owner, repo, num);
+  const { events: timeline } = useIssueTimelineQuery(owner, repo, num);
   const patchIssue = useDataStore((s) => s.patchIssue);
   const [issue, setIssue] = useState<IssueSummary | null>(null);
+  const [reactions, setReactions] = useState<ReactionInfo[]>([]);
   const [busy, setBusy] = useState(false);
+  const [reactionBusy, setReactionBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     setIssue(fetched);
+    setReactions(fetched?.reactions ?? []);
   }, [fetched]);
 
   const updateIssue = async (payload: {
@@ -53,6 +60,30 @@ export default function IssueDetailPage() {
       setActionError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const toggleReaction = async (content: string) => {
+    if (!owner || !repo || !num) return;
+    setReactionBusy(true);
+    setActionError(null);
+    try {
+      const result = await invoke<{
+        content: string;
+        reacted: boolean;
+        reactions: ReactionInfo[];
+      }>("cmd_toggle_issue_reaction", {
+        owner,
+        repo,
+        number: num,
+        content,
+        commentId: null,
+      });
+      setReactions(result.reactions);
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setReactionBusy(false);
     }
   };
 
@@ -107,7 +138,11 @@ export default function IssueDetailPage() {
                 }}
                 body={issue.body}
                 createdAt={issue.updatedAt}
+                reactions={reactions}
+                reactionsBusy={reactionBusy}
+                onToggleReaction={(content) => void toggleReaction(content)}
               />
+              <IssueTimeline events={timeline} />
               <CommentThread comments={comments} />
             </div>
             <IssueSidebar

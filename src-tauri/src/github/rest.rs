@@ -1,10 +1,23 @@
 use crate::github::client::{ClientError, GithubClient, RateLimitInfo};
 use crate::github::types::{
     CheckRunsResponse, Issue, IssueComment, Notification, PullCommit, PullRequest, PullRequestFile,
-    PullReviewComment, Release, RepoSearchItem, RepoSearchResponse, Repository, Review,
-    SearchIssueItem, SearchIssuesResponse, WorkflowRun, WorkflowRunsResponse,
+    PullReviewComment, Reaction, Release, RepoSearchItem, RepoSearchResponse, Repository, Review,
+    SearchIssueItem, SearchIssuesResponse, TimelineEvent, WorkflowRun, WorkflowRunsResponse,
 };
 use serde::Serialize;
+
+/// Allowed GitHub reaction `content` values.
+pub const REACTION_CONTENTS: &[&str] = &[
+    "+1", "-1", "laugh", "hooray", "confused", "heart", "rocket", "eyes",
+];
+
+pub fn is_valid_reaction_content(content: &str) -> bool {
+    REACTION_CONTENTS.contains(&content)
+}
+
+fn encode_reaction_content(content: &str) -> String {
+    content.replace('+', "%2B")
+}
 
 fn has_next_page(headers: &reqwest::header::HeaderMap) -> bool {
     headers
@@ -253,6 +266,235 @@ pub async fn list_issue_comments(
         page += 1;
     }
     Ok(comments)
+}
+
+/// List issue timeline events (`GET .../issues/{number}/timeline`).
+pub async fn list_issue_timeline(
+    client: &GithubClient,
+    owner: &str,
+    repo: &str,
+    number: u32,
+) -> Result<Vec<TimelineEvent>, ClientError> {
+    let mut events: Vec<TimelineEvent> = Vec::new();
+    let mut page = 1u32;
+    loop {
+        let resp = client
+            .get(&format!(
+                "/repos/{}/{}/issues/{}/timeline?per_page=100&page={}",
+                owner, repo, number, page
+            ))
+            .send()
+            .await?;
+        let status = resp.status();
+        if !status.is_success() {
+            let message = resp.text().await.unwrap_or_default();
+            return Err(ClientError::Api {
+                status: status.as_u16(),
+                message,
+            });
+        }
+        let has_next = has_next_page(resp.headers());
+        let page_events: Vec<TimelineEvent> = resp.json().await?;
+        events.extend(page_events);
+        if !has_next {
+            break;
+        }
+        page += 1;
+    }
+    Ok(events)
+}
+
+async fn list_reactions_at(
+    client: &GithubClient,
+    path: &str,
+) -> Result<Vec<Reaction>, ClientError> {
+    let mut reactions: Vec<Reaction> = Vec::new();
+    let mut page = 1u32;
+    loop {
+        let sep = if path.contains('?') { "&" } else { "?" };
+        let resp = client
+            .get(&format!("{path}{sep}per_page=100&page={page}"))
+            .send()
+            .await?;
+        let status = resp.status();
+        if !status.is_success() {
+            let message = resp.text().await.unwrap_or_default();
+            return Err(ClientError::Api {
+                status: status.as_u16(),
+                message,
+            });
+        }
+        let has_next = has_next_page(resp.headers());
+        let page_reactions: Vec<Reaction> = resp.json().await?;
+        reactions.extend(page_reactions);
+        if !has_next {
+            break;
+        }
+        page += 1;
+    }
+    Ok(reactions)
+}
+
+pub async fn list_issue_reactions(
+    client: &GithubClient,
+    owner: &str,
+    repo: &str,
+    number: u32,
+) -> Result<Vec<Reaction>, ClientError> {
+    list_reactions_at(
+        client,
+        &format!("/repos/{owner}/{repo}/issues/{number}/reactions"),
+    )
+    .await
+}
+
+pub async fn list_issue_comment_reactions(
+    client: &GithubClient,
+    owner: &str,
+    repo: &str,
+    comment_id: u64,
+) -> Result<Vec<Reaction>, ClientError> {
+    list_reactions_at(
+        client,
+        &format!("/repos/{owner}/{repo}/issues/comments/{comment_id}/reactions"),
+    )
+    .await
+}
+
+#[derive(Serialize)]
+struct CreateReactionBody<'a> {
+    content: &'a str,
+}
+
+pub async fn create_issue_reaction(
+    client: &GithubClient,
+    owner: &str,
+    repo: &str,
+    number: u32,
+    content: &str,
+) -> Result<Reaction, ClientError> {
+    let resp = client
+        .post(&format!(
+            "/repos/{owner}/{repo}/issues/{number}/reactions"
+        ))
+        .json(&CreateReactionBody { content })
+        .send()
+        .await?;
+    let status = resp.status();
+    if !status.is_success() {
+        let message = resp.text().await.unwrap_or_default();
+        return Err(ClientError::Api {
+            status: status.as_u16(),
+            message,
+        });
+    }
+    Ok(resp.json().await?)
+}
+
+pub async fn create_issue_comment_reaction(
+    client: &GithubClient,
+    owner: &str,
+    repo: &str,
+    comment_id: u64,
+    content: &str,
+) -> Result<Reaction, ClientError> {
+    let resp = client
+        .post(&format!(
+            "/repos/{owner}/{repo}/issues/comments/{comment_id}/reactions"
+        ))
+        .json(&CreateReactionBody { content })
+        .send()
+        .await?;
+    let status = resp.status();
+    if !status.is_success() {
+        let message = resp.text().await.unwrap_or_default();
+        return Err(ClientError::Api {
+            status: status.as_u16(),
+            message,
+        });
+    }
+    Ok(resp.json().await?)
+}
+
+pub async fn delete_issue_reaction(
+    client: &GithubClient,
+    owner: &str,
+    repo: &str,
+    number: u32,
+    reaction_id: u64,
+) -> Result<(), ClientError> {
+    let resp = client
+        .delete(&format!(
+            "/repos/{owner}/{repo}/issues/{number}/reactions/{reaction_id}"
+        ))
+        .send()
+        .await?;
+    let status = resp.status();
+    if !status.is_success() {
+        let message = resp.text().await.unwrap_or_default();
+        return Err(ClientError::Api {
+            status: status.as_u16(),
+            message,
+        });
+    }
+    Ok(())
+}
+
+pub async fn delete_issue_comment_reaction(
+    client: &GithubClient,
+    owner: &str,
+    repo: &str,
+    comment_id: u64,
+    reaction_id: u64,
+) -> Result<(), ClientError> {
+    let resp = client
+        .delete(&format!(
+            "/repos/{owner}/{repo}/issues/comments/{comment_id}/reactions/{reaction_id}"
+        ))
+        .send()
+        .await?;
+    let status = resp.status();
+    if !status.is_success() {
+        let message = resp.text().await.unwrap_or_default();
+        return Err(ClientError::Api {
+            status: status.as_u16(),
+            message,
+        });
+    }
+    Ok(())
+}
+
+/// List reactions filtered by content (used for toggle lookup).
+pub async fn list_issue_reactions_by_content(
+    client: &GithubClient,
+    owner: &str,
+    repo: &str,
+    number: u32,
+    content: &str,
+) -> Result<Vec<Reaction>, ClientError> {
+    let encoded = encode_reaction_content(content);
+    list_reactions_at(
+        client,
+        &format!("/repos/{owner}/{repo}/issues/{number}/reactions?content={encoded}"),
+    )
+    .await
+}
+
+pub async fn list_issue_comment_reactions_by_content(
+    client: &GithubClient,
+    owner: &str,
+    repo: &str,
+    comment_id: u64,
+    content: &str,
+) -> Result<Vec<Reaction>, ClientError> {
+    let encoded = encode_reaction_content(content);
+    list_reactions_at(
+        client,
+        &format!(
+            "/repos/{owner}/{repo}/issues/comments/{comment_id}/reactions?content={encoded}"
+        ),
+    )
+    .await
 }
 
 pub async fn list_pull_review_comments(
@@ -919,6 +1161,19 @@ mod tests {
     use super::*;
 
     #[test]
+    fn is_valid_reaction_content_accepts_known_values() {
+        assert!(is_valid_reaction_content("+1"));
+        assert!(is_valid_reaction_content("heart"));
+        assert!(!is_valid_reaction_content("thumbsup"));
+    }
+
+    #[test]
+    fn encode_reaction_content_escapes_plus() {
+        assert_eq!(encode_reaction_content("+1"), "%2B1");
+        assert_eq!(encode_reaction_content("heart"), "heart");
+    }
+
+    #[test]
     fn has_next_page_returns_true_when_link_has_next() {
         let mut headers = reqwest::header::HeaderMap::new();
         headers.insert(
@@ -978,6 +1233,7 @@ mod tests {
             pull_request: Some(PullRequestRef {
                 url: "https://api.github.com/repos/octocat/Hello-World/pulls/1".to_string(),
             }),
+            reactions: None,
         };
         let real_issue = Issue {
             id: 2,
@@ -1002,6 +1258,7 @@ mod tests {
             updated_at: "2024-01-01T00:00:00Z".to_string(),
             closed_at: None,
             pull_request: None,
+            reactions: None,
         };
         let items = vec![pr_as_issue, real_issue];
         let issues: Vec<_> = items

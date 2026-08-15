@@ -88,6 +88,87 @@ pub struct Milestone {
     pub due_on: Option<String>,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct ReactionCounts {
+    #[serde(default)]
+    pub total_count: u32,
+    #[serde(rename = "+1", default)]
+    pub plus_one: u32,
+    #[serde(rename = "-1", default)]
+    pub minus_one: u32,
+    #[serde(default)]
+    pub laugh: u32,
+    #[serde(default)]
+    pub hooray: u32,
+    #[serde(default)]
+    pub confused: u32,
+    #[serde(default)]
+    pub heart: u32,
+    #[serde(default)]
+    pub rocket: u32,
+    #[serde(default)]
+    pub eyes: u32,
+}
+
+impl ReactionCounts {
+    pub fn count_for(&self, content: &str) -> u32 {
+        match content {
+            "+1" => self.plus_one,
+            "-1" => self.minus_one,
+            "laugh" => self.laugh,
+            "hooray" => self.hooray,
+            "confused" => self.confused,
+            "heart" => self.heart,
+            "rocket" => self.rocket,
+            "eyes" => self.eyes,
+            _ => 0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Reaction {
+    pub id: u64,
+    pub user: User,
+    pub content: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CrossReferenceSource {
+    #[serde(rename = "type", default)]
+    pub source_type: Option<String>,
+    #[serde(default)]
+    pub issue: Option<Box<Issue>>,
+}
+
+/// Heterogeneous issue timeline event from
+/// `GET /repos/{owner}/{repo}/issues/{number}/timeline`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TimelineEvent {
+    #[serde(default)]
+    pub id: Option<u64>,
+    #[serde(default)]
+    pub event: Option<String>,
+    #[serde(default)]
+    pub created_at: Option<String>,
+    #[serde(default)]
+    pub actor: Option<User>,
+    #[serde(default)]
+    pub label: Option<Label>,
+    #[serde(default)]
+    pub assignee: Option<User>,
+    #[serde(default)]
+    pub milestone: Option<Milestone>,
+    #[serde(default)]
+    pub source: Option<CrossReferenceSource>,
+    /// Present on `commented` events (and issue comment payloads).
+    #[serde(default)]
+    pub user: Option<User>,
+    #[serde(default)]
+    pub body: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Issue {
     pub id: u64,
@@ -114,6 +195,8 @@ pub struct Issue {
     pub closed_at: Option<String>,
     #[serde(default)]
     pub pull_request: Option<PullRequestRef>,
+    #[serde(default)]
+    pub reactions: Option<ReactionCounts>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -126,6 +209,8 @@ pub struct IssueComment {
     pub html_url: String,
     #[serde(default)]
     pub author_association: Option<String>,
+    #[serde(default)]
+    pub reactions: Option<ReactionCounts>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -555,6 +640,48 @@ mod tests {
         }"#;
         let issue: Issue = serde_json::from_str(json).unwrap();
         assert!(issue.pull_request.is_some());
+    }
+
+    #[test]
+    fn deserialize_reaction_counts_with_plus_minus_keys() {
+        let json = r#"{
+            "url": "https://api.github.com/repos/o/r/issues/1/reactions",
+            "total_count": 3,
+            "+1": 2,
+            "-1": 0,
+            "laugh": 0,
+            "hooray": 1,
+            "confused": 0,
+            "heart": 0,
+            "rocket": 0,
+            "eyes": 0
+        }"#;
+        let c: ReactionCounts = serde_json::from_str(json).unwrap();
+        assert_eq!(c.total_count, 3);
+        assert_eq!(c.plus_one, 2);
+        assert_eq!(c.hooray, 1);
+        assert_eq!(c.count_for("+1"), 2);
+        assert_eq!(c.count_for("hooray"), 1);
+    }
+
+    #[test]
+    fn deserialize_timeline_labeled_event() {
+        let json = r#"{
+            "id": 1,
+            "event": "labeled",
+            "created_at": "2026-04-20T00:00:00Z",
+            "actor": {
+                "id": 1,
+                "login": "octocat",
+                "avatar_url": "https://a/1",
+                "html_url": "https://u/octocat"
+            },
+            "label": { "id": 10, "name": "bug", "color": "d73a4a" }
+        }"#;
+        let ev: TimelineEvent = serde_json::from_str(json).unwrap();
+        assert_eq!(ev.event.as_deref(), Some("labeled"));
+        assert_eq!(ev.label.as_ref().unwrap().name, "bug");
+        assert_eq!(ev.actor.as_ref().unwrap().login, "octocat");
     }
 
     #[test]
