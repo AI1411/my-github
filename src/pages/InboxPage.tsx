@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useNavigate } from "react-router-dom";
 import { Toolbar } from "../components/common/Toolbar";
-import { Spinner } from "../components/common/Spinner";
 import { EmptyState } from "../components/common/EmptyState";
+import { ListSkeleton } from "../components/common/ListSkeleton";
 import { InboxList } from "../components/inbox/InboxList";
 import { InboxDetailPanel } from "../components/inbox/InboxDetailPanel";
 import { SnoozePicker } from "../components/inbox/SnoozePicker";
@@ -276,11 +276,7 @@ export default function InboxPage() {
         inputRef={listSearch.inputRef}
         placeholder="Filter inbox…"
       />
-      {loading && !data && (
-        <div className="flex-1 flex items-center justify-center">
-          <Spinner />
-        </div>
-      )}
+      {loading && !data && <ListSkeleton />}
       {error && <EmptyState title="Failed to load inbox" subtitle={error} />}
       {data && (
         <div
