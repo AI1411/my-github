@@ -166,6 +166,8 @@ export interface SettingsState {
   setAccountHost: (login: string, hostUrl: string) => void;
   removeAccountHost: (login: string) => void;
   watchedRepositories: string[];
+  watchOnboardingDismissed: boolean;
+  setWatchOnboardingDismissed: (dismissed: boolean) => void;
   notificationSettings: NotificationSettings;
   quietHours: QuietHours;
   setQuietHours: (patch: Partial<QuietHours>) => void;
@@ -276,6 +278,8 @@ export const useSettingsStore = create<SettingsState>()(
           return { accountHosts: rest };
         }),
       watchedRepositories: [],
+      watchOnboardingDismissed: false,
+      setWatchOnboardingDismissed: (dismissed) => set({ watchOnboardingDismissed: dismissed }),
       notificationSettings: DEFAULT_NOTIFICATION_SETTINGS,
       quietHours: { ...DEFAULT_QUIET_HOURS },
       setQuietHours: (patch) =>
@@ -601,12 +605,17 @@ export const useSettingsStore = create<SettingsState>()(
           repoLocalPaths: normalizeRepoPathMap(raw.repoLocalPaths ?? current.repoLocalPaths),
           preferWorktree:
             typeof raw.preferWorktree === "boolean" ? raw.preferWorktree : current.preferWorktree,
+          watchOnboardingDismissed:
+            typeof raw.watchOnboardingDismissed === "boolean"
+              ? raw.watchOnboardingDismissed
+              : current.watchOnboardingDismissed,
         };
       },
       partialize: (state) => ({
         hosts: state.hosts,
         accountHosts: state.accountHosts,
         watchedRepositories: state.watchedRepositories,
+        watchOnboardingDismissed: state.watchOnboardingDismissed,
         notificationSettings: state.notificationSettings,
         quietHours: state.quietHours,
         pollingInterval: state.pollingInterval,

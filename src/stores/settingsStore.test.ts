@@ -31,6 +31,7 @@ describe("settingsStore", () => {
       notificationRules: [],
       repoNotificationRules: {},
       quietHours: { enabled: false, start: "22:00", end: "08:00" },
+      watchOnboardingDismissed: false,
     });
   });
 
@@ -70,6 +71,12 @@ describe("settingsStore", () => {
     useSettingsStore.getState().removeWatchedRepository("AI1411/my-github");
 
     expect(useSettingsStore.getState().watchedRepositories).toEqual([]);
+  });
+
+  it("dismisses first-run watch onboarding", () => {
+    expect(useSettingsStore.getState().watchOnboardingDismissed).toBe(false);
+    useSettingsStore.getState().setWatchOnboardingDismissed(true);
+    expect(useSettingsStore.getState().watchOnboardingDismissed).toBe(true);
   });
 
   it("updates notification settings and polling interval", () => {
