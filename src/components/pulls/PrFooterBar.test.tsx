@@ -54,10 +54,9 @@ describe("PrFooterBar in-app review", () => {
     expect(screen.getByRole("button", { name: "Request changes" })).toBeDisabled();
   });
 
-  it("shows error and retry when invoke fails", async () => {
-    (invoke as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
-      new Error("Permission denied (403)"),
-    );
+  it("merges via cmd_merge_pull", async () => {
+    (invoke as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
+    const onMerged = vi.fn();
     render(
       <PrFooterBar
         owner="o"
@@ -65,12 +64,20 @@ describe("PrFooterBar in-app review", () => {
         number={7}
         canMerge
         canApprove
+        canClose
         htmlUrl="https://github.com/o/r/pull/7"
+        onMerged={onMerged}
       />,
     );
-    fireEvent.click(screen.getByText("Approve"));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Permission denied (403)");
-    expect(screen.getByText("Retry")).toBeInTheDocument();
-    expect(screen.getByText("Open on GitHub")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Merge" }));
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("cmd_merge_pull", {
+        owner: "o",
+        repo: "r",
+        number: 7,
+        mergeMethod: "merge",
+      });
+    });
+    expect(onMerged).toHaveBeenCalled();
   });
 });

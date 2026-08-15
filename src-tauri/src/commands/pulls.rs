@@ -7,7 +7,7 @@ use crate::db::SqlitePool;
 use crate::github::client::GithubClient;
 use crate::github::rest::{
     create_pull_request_review, get_check_runs, get_pull_request, get_pull_request_files,
-    list_pull_request_reviews, review_state_for_event,
+    list_pull_request_reviews, merge_pull_request, review_state_for_event, update_issue,
 };
 use crate::github::types::{CheckRun, PullRequest, PullRequestFile, Review};
 use crate::sync::types::{SyncReport, SyncScope, SyncStepStatus};
@@ -463,6 +463,84 @@ pub async fn cmd_submit_pull_review<R: Runtime>(
         review_state,
         html_url: Some(review.html_url),
     })
+}
+
+fn format_mutation_api_error(err: crate::github::client::ClientError) -> String {
+    match err {
+        crate::github::client::ClientError::Api { status: 403, .. } => {
+            "Permission denied (403). You may lack write access.".to_string()
+        }
+        crate::github::client::ClientError::Api { status: 405, message } => {
+            format!("Merge not allowed (405): {message}")
+        }
+        crate::github::client::ClientError::Api { status: 409, message } => {
+            format!("Conflict (409): {message}")
+        }
+        crate::github::client::ClientError::Api { status: 422, message } => {
+            format!("Rejected (422): {message}")
+        }
+        other => other.to_string(),
+    }
+}
+
+#[tauri::command]
+pub async fn cmd_merge_pull<R: Runtime>(
+    app: AppHandle<R>,
+    owner: String,
+    repo: String,
+    number: u32,
+    merge_method: Option<String>,
+) -> Result<(), String> {
+    let method = merge_method.unwrap_or_else(|| "merge".to_string());
+    if !matches!(method.as_str(), "merge" | "squash" | "rebase") {
+        return Err("merge_method must be merge, squash, or rebase".to_string());
+    }
+    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
+    let token = load_token(&account_id).ok_or_else(|| "no token for account".to_string())?;
+    let client = GithubClient::new(token);
+    merge_pull_request(&client, &owner, &repo, number, &method)
+        .await
+        .map_err(format_mutation_api_error)?;
+    let full_name = format!("{owner}/{repo}");
+    if let Some(pool) = app.try_state::<SqlitePool>() {
+        let _ = crate::cache::pulls::update_pull_state(pool.inner(), &full_name, number as i64, "closed");
+    }
+    let _ = app.emit("pulls-updated", ());
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn cmd_set_pull_state<R: Runtime>(
+    app: AppHandle<R>,
+    owner: String,
+    repo: String,
+    number: u32,
+    state: String,
+) -> Result<(), String> {
+    let state = state.to_lowercase();
+    if !matches!(state.as_str(), "open" | "closed") {
+        return Err("state must be open or closed".to_string());
+    }
+    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
+    let token = load_token(&account_id).ok_or_else(|| "no token for account".to_string())?;
+    let client = GithubClient::new(token);
+    update_issue(
+        &client,
+        &owner,
+        &repo,
+        number,
+        Some(&state),
+        None,
+        None,
+    )
+    .await
+    .map_err(format_mutation_api_error)?;
+    let full_name = format!("{owner}/{repo}");
+    if let Some(pool) = app.try_state::<SqlitePool>() {
+        let _ = crate::cache::pulls::update_pull_state(pool.inner(), &full_name, number as i64, &state);
+    }
+    let _ = app.emit("pulls-updated", ());
+    Ok(())
 }
 
 #[cfg(test)]

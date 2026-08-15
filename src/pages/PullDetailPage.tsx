@@ -51,6 +51,7 @@ export default function PullDetailPage() {
   const togglePinnedPull = useSettingsStore((s) => s.togglePinnedPull);
   const currentUser = useAuthStore((s) => s.user?.login ?? null);
   const patchPullReviewState = useDataStore((s) => s.patchPullReviewState);
+  const patchPullState = useDataStore((s) => s.patchPullState);
 
   const [tab, setTab] = useState<DetailTab>("conversation");
   const [viewMode, setViewMode] = useState<DiffViewMode>("unified");
@@ -332,12 +333,22 @@ export default function PullDetailPage() {
         number={pull.number}
         canMerge={statusLabel === "open"}
         canApprove={canReview}
+        canClose={statusLabel === "open"}
+        canReopen={statusLabel === "closed"}
         approveDisabledReason={reviewDisabledReason}
         htmlUrl={pull.htmlUrl ?? ""}
         onOpenInEditor={handleOpenInEditor}
         checkout={{ number: pull.number, headRef: pull.headRef }}
         onReviewSubmitted={(_event, reviewState) => {
           if (reviewState) patchPullReviewState(pull.repo, pull.number, reviewState);
+          setReadinessKey((k) => k + 1);
+        }}
+        onMerged={() => {
+          patchPullState(pull.repo, pull.number, "closed");
+          setReadinessKey((k) => k + 1);
+        }}
+        onStateChanged={(state) => {
+          patchPullState(pull.repo, pull.number, state);
           setReadinessKey((k) => k + 1);
         }}
       />

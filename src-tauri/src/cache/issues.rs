@@ -60,6 +60,42 @@ pub fn upsert_issue(
     Ok(())
 }
 
+pub fn update_issue_fields(
+    pool: &SqlitePool,
+    repo_full_name: &str,
+    number: i64,
+    state: Option<&str>,
+    labels_json: Option<&str>,
+    assignees_json: Option<&str>,
+) -> Result<(), CacheError> {
+    let conn = pool.get()?;
+    if let Some(state) = state {
+        conn.execute(
+            "UPDATE issues SET state = ?1
+             WHERE number = ?2
+               AND repo_id = (SELECT id FROM repos WHERE full_name = ?3 LIMIT 1)",
+            params![state, number, repo_full_name],
+        )?;
+    }
+    if let Some(labels_json) = labels_json {
+        conn.execute(
+            "UPDATE issues SET labels = ?1
+             WHERE number = ?2
+               AND repo_id = (SELECT id FROM repos WHERE full_name = ?3 LIMIT 1)",
+            params![labels_json, number, repo_full_name],
+        )?;
+    }
+    if let Some(assignees_json) = assignees_json {
+        conn.execute(
+            "UPDATE issues SET assignees = ?1
+             WHERE number = ?2
+               AND repo_id = (SELECT id FROM repos WHERE full_name = ?3 LIMIT 1)",
+            params![assignees_json, number, repo_full_name],
+        )?;
+    }
+    Ok(())
+}
+
 pub fn list_issues_by_repo(
     pool: &SqlitePool,
     repo_id: i64,
