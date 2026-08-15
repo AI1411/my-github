@@ -1,5 +1,5 @@
 use crate::auth::device_flow::{request_device_code, DeviceCodeResponse};
-use crate::auth::pat::{check_required_scopes, validate_pat, PatUser};
+use crate::auth::pat::{check_required_scopes, validate_pat, PatError, PatUser};
 use crate::auth::token_store::{load_host, save_host, save_last_account_id, save_token};
 use crate::config;
 use crate::github::host::normalize_api_base_url;
@@ -71,15 +71,22 @@ pub async fn cmd_switch_account(account_id: String) -> Result<PatUser, String> {
 }
 
 #[tauri::command]
-pub async fn cmd_get_current_user() -> Option<PatUser> {
-    let account_id = crate::auth::token_store::load_last_account_id()?;
-    let token = crate::auth::token_store::load_token(&account_id)?;
+pub async fn cmd_get_current_user() -> Result<Option<PatUser>, String> {
+    let Some(account_id) = crate::auth::token_store::load_last_account_id() else {
+        return Ok(None);
+    };
+    let Some(token) = crate::auth::token_store::load_token(&account_id) else {
+        return Ok(None);
+    };
     let client = reqwest::Client::new();
     let api_base = load_host(&account_id);
-    let (user, _) = validate_pat(&client, &token, api_base.as_deref())
-        .await
-        .ok()?;
-    Some(user)
+    match validate_pat(&client, &token, api_base.as_deref()).await {
+        Ok((user, _)) => Ok(Some(user)),
+        Err(PatError::Unauthorized { status }) => {
+            Err(format!("invalid or expired PAT (HTTP {status})"))
+        }
+        Err(_) => Ok(None),
+    }
 }
 
 #[cfg(test)]

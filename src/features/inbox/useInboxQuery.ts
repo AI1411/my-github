@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { InboxData } from "../../stores/dataStore";
+import { reportAuthFailure } from "../../stores/authStore";
 
 interface UseInboxQueryResult {
   data: InboxData | null;
@@ -30,6 +31,7 @@ export function useInboxQuery(): UseInboxQueryResult {
         }).catch(() => {});
       })
       .catch((e: unknown) => {
+        reportAuthFailure(e);
         if (!cancelled) setError(String(e));
       })
       .finally(() => {

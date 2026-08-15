@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
+import { useAuthStore } from "../../stores/authStore";
 import { useInboxQuery } from "./useInboxQuery";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
@@ -8,7 +9,14 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 const emptyInbox = { reviewRequests: [], ciFailures: [], mentions: [] };
 
 describe("useInboxQuery", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useAuthStore.setState({
+      user: { login: "octocat", avatar_url: "" },
+      token: "pat",
+      status: "authenticated",
+    });
+  });
 
   it("calls cmd_get_inbox on mount", async () => {
     (invoke as ReturnType<typeof vi.fn>).mockResolvedValue(emptyInbox);
@@ -46,5 +54,23 @@ describe("useInboxQuery", () => {
     (invoke as ReturnType<typeof vi.fn>).mockRejectedValue("network error");
     const { result } = renderHook(() => useInboxQuery());
     await waitFor(() => expect(result.current.error).toBe("network error"));
+  });
+
+  it("marks auth expired on 401 without treating network errors as expired", async () => {
+    (invoke as ReturnType<typeof vi.fn>).mockRejectedValue(
+      "GitHub API error (HTTP 401): Bad credentials",
+    );
+    renderHook(() => useInboxQuery());
+    await waitFor(() => expect(useAuthStore.getState().status).toBe("expired"));
+
+    useAuthStore.setState({
+      user: { login: "octocat", avatar_url: "" },
+      token: "pat",
+      status: "authenticated",
+    });
+    (invoke as ReturnType<typeof vi.fn>).mockRejectedValue("network error");
+    const { result } = renderHook(() => useInboxQuery());
+    await waitFor(() => expect(result.current.error).toBe("network error"));
+    expect(useAuthStore.getState().status).toBe("authenticated");
   });
 });
