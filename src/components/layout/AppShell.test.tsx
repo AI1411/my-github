@@ -16,8 +16,22 @@ const notificationLifecycle = vi.hoisted(() => ({
   })),
 }));
 
+const writeQueueMock = vi.hoisted(() => ({
+  useWriteQueue: vi.fn(() => ({
+    queue: [],
+    pendingCount: 0,
+    flushing: false,
+    retry: vi.fn(),
+    discard: vi.fn(),
+    discardAll: vi.fn(),
+  })),
+}));
+
 vi.mock("../../hooks/useOnlineStatus", () => ({
   useOnlineStatus: vi.fn(),
+}));
+vi.mock("../../hooks/useWriteQueue", () => ({
+  useWriteQueue: writeQueueMock.useWriteQueue,
 }));
 vi.mock("../../features/activity/useNotificationPolling", () => ({
   useNotificationPolling: notificationLifecycle.useNotificationPolling,
@@ -37,6 +51,14 @@ function LocationProbe() {
 describe("AppShell offline banner", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    writeQueueMock.useWriteQueue.mockReturnValue({
+      queue: [],
+      pendingCount: 0,
+      flushing: false,
+      retry: vi.fn(),
+      discard: vi.fn(),
+      discardAll: vi.fn(),
+    });
     notificationLifecycle.registerAppNotificationClickHandler.mockResolvedValue(
       notificationLifecycle.disposeClickHandler,
     );
@@ -54,6 +76,28 @@ describe("AppShell offline banner", () => {
     );
 
     expect(screen.getByText("Offline")).toBeInTheDocument();
+  });
+
+  it("shows a pending writes banner with Retry when the queue is non-empty", () => {
+    const retry = vi.fn();
+    writeQueueMock.useWriteQueue.mockReturnValue({
+      queue: [{ id: "1", command: "cmd_update_issue", args: {}, createdAt: 1 }],
+      pendingCount: 2,
+      flushing: false,
+      retry,
+      discard: vi.fn(),
+      discardAll: vi.fn(),
+    });
+
+    render(
+      <MemoryRouter>
+        <AppShell sidebar={<div />} main={<div>Main</div>} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByTestId("pending-writes-banner")).toHaveTextContent("2 pending writes");
+    screen.getByRole("button", { name: "Retry" }).click();
+    expect(retry).toHaveBeenCalledTimes(1);
   });
 
   it("shows a rate limit banner when uiStore has rateLimitHit", () => {
@@ -79,9 +123,7 @@ describe("AppShell offline banner", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByTestId("push-assisted-banner")).toHaveTextContent(
-      /no GitHub webhooks/i,
-    );
+    expect(screen.getByTestId("push-assisted-banner")).toHaveTextContent(/no GitHub webhooks/i);
   });
 
   it("starts notification polling and click handling without mounting Activity", () => {
