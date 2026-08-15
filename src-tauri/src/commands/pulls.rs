@@ -47,6 +47,8 @@ pub struct PullSummary {
     pub additions: Option<i64>,
     pub deletions: Option<i64>,
     pub changed_files: Option<i64>,
+    #[serde(default)]
+    pub labels: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -129,7 +131,7 @@ struct CachedRow {
 
 fn row_to_summary(r: CachedRow) -> PullSummary {
     let parsed: Option<PullRequest> = serde_json::from_str(&r.raw_json).ok();
-    let (html_url, merged_at, reviewers) = match parsed.as_ref() {
+    let (html_url, merged_at, reviewers, labels) = match parsed.as_ref() {
         Some(pr) => (
             Some(pr.html_url.clone()),
             pr.merged_at.clone(),
@@ -140,8 +142,9 @@ fn row_to_summary(r: CachedRow) -> PullSummary {
                     avatar_url: u.avatar_url.clone(),
                 })
                 .collect(),
+            pr.labels.iter().map(|label| label.name.clone()).collect(),
         ),
-        None => (None, None, Vec::new()),
+        None => (None, None, Vec::new(), Vec::new()),
     };
     PullSummary {
         id: r.number,
@@ -163,6 +166,7 @@ fn row_to_summary(r: CachedRow) -> PullSummary {
         additions: None,
         deletions: None,
         changed_files: None,
+        labels,
     }
 }
 
@@ -1115,6 +1119,7 @@ mod tests {
             requested_teams: vec![],
             mergeable: None,
             mergeable_state: None,
+            labels: vec![],
         }
     }
 
@@ -1194,6 +1199,20 @@ mod tests {
             got[0].html_url.as_deref(),
             Some("https://github.com/o/r/pull/7")
         );
+    }
+
+    #[test]
+    fn read_cached_pulls_exposes_labels_from_raw_json() {
+        let pool = seed_pool();
+        let mut pr = sample_pr(7, "seven", "open", false);
+        pr.labels = vec![crate::github::types::Label {
+            id: 1,
+            name: "bug".into(),
+            color: "d73a4a".into(),
+        }];
+        upsert_pull(&pool, 1, &pr, "now").unwrap();
+        let got = read_cached_pulls(&pool, &PullFilter::default()).unwrap();
+        assert_eq!(got[0].labels, vec!["bug".to_string()]);
     }
 
     #[test]

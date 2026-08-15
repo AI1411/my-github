@@ -13,6 +13,7 @@ import { useListNavigation } from "../hooks/useListNavigation";
 import { useListSearch } from "../hooks/useListSearch";
 import { useDetailPrefetch } from "../hooks/useDetailPrefetch";
 import { matchesListSearch } from "../lib/listSearch";
+import { pullMatchesLabels, uniquePullLabels } from "../lib/pullLabels";
 import { isOwnPullStale } from "../lib/stalePulls";
 import { listRowHeight } from "../lib/appearance";
 import { pullFilterToQuery, queryToPullFilter } from "../lib/savedFilters";
@@ -62,14 +63,16 @@ export default function PullsPage() {
     () => Array.from(new Set(pulls.map((p) => p.author).filter((a): a is string => !!a))),
     [pulls],
   );
-  const availableLabels: string[] = [];
+  const availableLabels = useMemo(() => uniquePullLabels(pulls), [pulls]);
 
   const visiblePulls = useMemo(
     () =>
-      pulls.filter((p) =>
-        matchesListSearch(`${p.title} ${p.repo} ${p.author ?? ""}`, listSearch.query),
+      pulls.filter(
+        (p) =>
+          matchesListSearch(`${p.title} ${p.repo} ${p.author ?? ""}`, listSearch.query) &&
+          pullMatchesLabels(p, filter.labels),
       ),
-    [pulls, listSearch.query],
+    [pulls, listSearch.query, filter.labels],
   );
 
   const openPull = (p: (typeof pulls)[number]) => {

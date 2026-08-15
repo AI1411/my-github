@@ -70,6 +70,8 @@ pub struct PullRequest {
     /// behind / unstable / draft / unknown.
     #[serde(default)]
     pub mergeable_state: Option<String>,
+    #[serde(default)]
+    pub labels: Vec<Label>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
