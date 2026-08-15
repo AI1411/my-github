@@ -2,9 +2,14 @@ import { useEffect, useMemo } from "react";
 import { NavLink } from "react-router-dom";
 import { updateUnreadBadge } from "../../lib/badge";
 import { useAccountAttentionSummaries } from "../../hooks/useAccountAttentionSummaries";
+import { attentionTotal } from "../../lib/accountAttention";
 import { useAuthStore } from "../../stores/authStore";
 import { useDataStore } from "../../stores/dataStore";
-import { useSettingsStore, type PinnedPullRef, type RecentPullRef } from "../../stores/settingsStore";
+import {
+  useSettingsStore,
+  type PinnedPullRef,
+  type RecentPullRef,
+} from "../../stores/settingsStore";
 import { useUiStore } from "../../stores/uiStore";
 import { Avatar } from "../common/Avatar";
 import { classifyPull, StatusDot } from "../pulls/statusIcons";
@@ -31,12 +36,8 @@ export function Sidebar({ onSignOut }: SidebarProps) {
   const notifications = useDataStore((s) => s.notifications);
   const dockBadgeEnabled = useSettingsStore((s) => s.dockBadgeEnabled);
   const savedFilters = useSettingsStore((s) => s.savedFilters);
-  const pinnedRefs = useSettingsStore(
-    (s) => s.pinnedPullsByAccount[accountId] ?? EMPTY_PINS,
-  );
-  const recentRefs = useSettingsStore(
-    (s) => s.recentPullsByAccount[accountId] ?? EMPTY_RECENT,
-  );
+  const pinnedRefs = useSettingsStore((s) => s.pinnedPullsByAccount[accountId] ?? EMPTY_PINS);
+  const recentRefs = useSettingsStore((s) => s.recentPullsByAccount[accountId] ?? EMPTY_RECENT);
   const togglePinnedPull = useSettingsStore((s) => s.togglePinnedPull);
   const removeSavedFilter = useSettingsStore((s) => s.removeSavedFilter);
   const renameSavedFilter = useSettingsStore((s) => s.renameSavedFilter);
@@ -44,12 +45,10 @@ export function Sidebar({ onSignOut }: SidebarProps) {
   const { crossAccountTotal, summaries } = useAccountAttentionSummaries(true);
 
   const unreadCount = notifications.filter((n) => n.unread).length;
-  const inboxBadge =
-    crossAccountTotal > 0
-      ? crossAccountTotal
-      : unreadCount > 0
-        ? unreadCount
-        : undefined;
+  const activeAttention =
+    summaries.find((s) => s.isActive) ?? summaries.find((s) => s.login === user?.login);
+  const inboxCount = activeAttention ? attentionTotal(activeAttention) : 0;
+  const inboxBadge = inboxCount > 0 ? inboxCount : undefined;
 
   useEffect(() => {
     void updateUnreadBadge(unreadCount, dockBadgeEnabled);

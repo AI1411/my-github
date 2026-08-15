@@ -16,8 +16,11 @@ vi.mock("../../lib/badge", () => ({
 }));
 
 describe("Sidebar badge integration", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    const { invoke } = await import("@tauri-apps/api/core");
+    vi.mocked(invoke).mockReset();
+    vi.mocked(invoke).mockResolvedValue(null);
     useAuthStore.setState({
       user: { login: "octocat", avatar_url: "" },
       token: null,
@@ -94,9 +97,7 @@ describe("Sidebar badge integration", () => {
 
   it("lists saved filters in the sidebar", () => {
     useSettingsStore.setState({
-      savedFilters: [
-        { id: "v1", name: "My reviews", target: "pulls", query: "tab=review" },
-      ],
+      savedFilters: [{ id: "v1", name: "My reviews", target: "pulls", query: "tab=review" }],
     });
     render(
       <MemoryRouter>
@@ -208,6 +209,45 @@ describe("Sidebar badge integration", () => {
     );
     await waitFor(() => {
       expect(screen.getByText(/All accounts · 4/)).toBeInTheDocument();
+    });
+  });
+
+  it("does not use unread notifications as the Inbox badge", async () => {
+    render(
+      <MemoryRouter>
+        <Sidebar />
+      </MemoryRouter>,
+    );
+    await waitFor(() => {
+      expect(screen.getByRole("link", { name: "Inbox" })).toBeInTheDocument();
+    });
+    expect(screen.getByRole("link", { name: "Inbox" })).not.toHaveTextContent("1");
+  });
+
+  it("shows Inbox badge from active-account review + CI + mentions", async () => {
+    const { invoke } = await import("@tauri-apps/api/core");
+    (invoke as ReturnType<typeof vi.fn>).mockImplementation((cmd: string) => {
+      if (cmd === "cmd_get_account_attention_summaries") {
+        return Promise.resolve([
+          {
+            login: "octocat",
+            avatarUrl: null,
+            isActive: true,
+            reviewRequests: 2,
+            ciFailures: 1,
+            mentions: 0,
+          },
+        ]);
+      }
+      return Promise.resolve(null);
+    });
+    render(
+      <MemoryRouter>
+        <Sidebar />
+      </MemoryRouter>,
+    );
+    await waitFor(() => {
+      expect(screen.getByRole("link", { name: /Inbox/ })).toHaveTextContent("3");
     });
   });
 });
