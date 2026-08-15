@@ -4,6 +4,7 @@ import { Sidebar } from "../components/layout/Sidebar";
 import { ErrorBoundary } from "../components/common/ErrorBoundary";
 import InboxPage from "../pages/InboxPage";
 import ReviewQueuePage from "../pages/ReviewQueuePage";
+import MyBlockersPage from "../pages/MyBlockersPage";
 import PullsPage from "../pages/PullsPage";
 import IssuesPage from "../pages/IssuesPage";
 import ActivityPage from "../pages/ActivityPage";
@@ -40,6 +41,7 @@ export function createAppRouter(onSignOut: () => void) {
         { index: true, element: <Navigate to="/inbox" replace /> },
         { path: "inbox", element: <InboxPage /> },
         { path: "review-queue", element: <ReviewQueuePage /> },
+        { path: "my-blockers", element: <MyBlockersPage /> },
         { path: "pulls", element: <PullsPage /> },
         { path: "pulls/:owner/:repo/:number", element: <PullDetailPage /> },
         { path: "issues", element: <IssuesPage /> },
