@@ -9,6 +9,7 @@ import { registerAppNotificationClickHandler } from "../../lib/notifications";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useUiStore } from "../../stores/uiStore";
 import { CommandPalette } from "../command/CommandPalette";
+import { ShortcutChips } from "../common/ShortcutChips";
 
 export interface AppShellProps {
   sidebar: ReactNode;
@@ -173,6 +174,7 @@ export function AppShell({ sidebar, main, secondary }: AppShellProps) {
         )}
       </div>
       <CommandPalette />
+      <ShortcutChips />
     </NotificationPollingContext.Provider>
   );
 }

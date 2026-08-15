@@ -201,6 +201,8 @@ export default function SettingsPage() {
   const setDensity = useSettingsStore((state) => state.setDensity);
   const setShortcut = useSettingsStore((state) => state.setShortcut);
   const resetShortcuts = useSettingsStore((state) => state.resetShortcuts);
+  const shortcutChipsEnabled = useSettingsStore((state) => state.shortcutChipsEnabled);
+  const setShortcutChipsEnabled = useSettingsStore((state) => state.setShortcutChipsEnabled);
 
   const repoSuggestions = useMemo(
     () =>
@@ -685,6 +687,13 @@ export default function SettingsPage() {
             title="Shortcuts"
             action={<InlineButton onClick={resetShortcuts}>Reset shortcuts</InlineButton>}
           >
+            <Row label="Context chips">
+              <Toggle
+                checked={shortcutChipsEnabled}
+                label="Show current shortcuts at bottom"
+                onChange={setShortcutChipsEnabled}
+              />
+            </Row>
             <div className="divide-y" style={sectionStyle()}>
               {SHORTCUT_IDS.map((id) => (
                 <div
