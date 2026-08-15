@@ -98,6 +98,15 @@ impl GithubClient {
             .header("User-Agent", USER_AGENT)
             .header("Accept", "application/vnd.github+json")
     }
+
+    pub fn delete(&self, path: &str) -> reqwest::RequestBuilder {
+        let url = format!("{}{}", GITHUB_API_BASE, path);
+        self.inner
+            .delete(url)
+            .header("Authorization", format!("Bearer {}", self.token))
+            .header("User-Agent", USER_AGENT)
+            .header("Accept", "application/vnd.github+json")
+    }
 }
 
 #[cfg(test)]

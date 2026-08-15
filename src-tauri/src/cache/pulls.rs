@@ -97,6 +97,23 @@ pub fn update_pull_state(
     Ok(())
 }
 
+pub fn update_pull_draft(
+    pool: &SqlitePool,
+    repo_full_name: &str,
+    number: i64,
+    is_draft: bool,
+) -> Result<(), CacheError> {
+    let conn = pool.get()?;
+    conn.execute(
+        "UPDATE pulls
+         SET is_draft = ?1
+         WHERE number = ?2
+           AND repo_id = (SELECT id FROM repos WHERE full_name = ?3 LIMIT 1)",
+        params![if is_draft { 1i64 } else { 0i64 }, number, repo_full_name],
+    )?;
+    Ok(())
+}
+
 pub fn get_pull(
     pool: &SqlitePool,
     repo_id: i64,

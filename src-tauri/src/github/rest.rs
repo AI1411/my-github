@@ -405,6 +405,115 @@ pub async fn update_issue(
     Ok(resp.json().await?)
 }
 
+pub async fn mark_pull_ready_for_review(
+    client: &GithubClient,
+    owner: &str,
+    repo: &str,
+    number: u32,
+) -> Result<PullRequest, ClientError> {
+    let resp = client
+        .post(&format!(
+            "/repos/{}/{}/pulls/{}/ready_for_review",
+            owner, repo, number
+        ))
+        .send()
+        .await?;
+    let status = resp.status();
+    if !status.is_success() {
+        let message = resp.text().await.unwrap_or_default();
+        return Err(ClientError::Api {
+            status: status.as_u16(),
+            message,
+        });
+    }
+    Ok(resp.json().await?)
+}
+
+pub async fn convert_pull_to_draft(
+    client: &GithubClient,
+    owner: &str,
+    repo: &str,
+    number: u32,
+) -> Result<PullRequest, ClientError> {
+    let resp = client
+        .post(&format!(
+            "/repos/{}/{}/pulls/{}/convert_to_draft",
+            owner, repo, number
+        ))
+        .header("Accept", "application/vnd.github.shadow-cat-preview+json")
+        .send()
+        .await?;
+    let status = resp.status();
+    if !status.is_success() {
+        let message = resp.text().await.unwrap_or_default();
+        return Err(ClientError::Api {
+            status: status.as_u16(),
+            message,
+        });
+    }
+    Ok(resp.json().await?)
+}
+
+pub async fn request_pull_reviewers(
+    client: &GithubClient,
+    owner: &str,
+    repo: &str,
+    number: u32,
+    reviewers: &[String],
+) -> Result<PullRequest, ClientError> {
+    #[derive(Serialize)]
+    struct Body<'a> {
+        reviewers: &'a [String],
+    }
+    let resp = client
+        .post(&format!(
+            "/repos/{}/{}/pulls/{}/requested_reviewers",
+            owner, repo, number
+        ))
+        .json(&Body { reviewers })
+        .send()
+        .await?;
+    let status = resp.status();
+    if !status.is_success() {
+        let message = resp.text().await.unwrap_or_default();
+        return Err(ClientError::Api {
+            status: status.as_u16(),
+            message,
+        });
+    }
+    Ok(resp.json().await?)
+}
+
+pub async fn remove_pull_reviewers(
+    client: &GithubClient,
+    owner: &str,
+    repo: &str,
+    number: u32,
+    reviewers: &[String],
+) -> Result<(), ClientError> {
+    #[derive(Serialize)]
+    struct Body<'a> {
+        reviewers: &'a [String],
+    }
+    let resp = client
+        .delete(&format!(
+            "/repos/{}/{}/pulls/{}/requested_reviewers",
+            owner, repo, number
+        ))
+        .json(&Body { reviewers })
+        .send()
+        .await?;
+    let status = resp.status();
+    if !status.is_success() {
+        let message = resp.text().await.unwrap_or_default();
+        return Err(ClientError::Api {
+            status: status.as_u16(),
+            message,
+        });
+    }
+    Ok(())
+}
+
 pub async fn get_check_runs(
     client: &GithubClient,
     owner: &str,

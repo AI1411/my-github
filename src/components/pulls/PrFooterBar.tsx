@@ -13,6 +13,8 @@ export interface PrFooterBarProps {
   canApprove: boolean;
   canClose?: boolean;
   canReopen?: boolean;
+  canToggleDraft?: boolean;
+  isDraft?: boolean;
   approveDisabledReason?: string | null;
   htmlUrl: string;
   onOpenInEditor?: () => void;
@@ -20,6 +22,7 @@ export interface PrFooterBarProps {
   onReviewSubmitted?: (event: ReviewEvent, reviewState: string | null) => void;
   onMerged?: () => void;
   onStateChanged?: (state: "open" | "closed") => void;
+  onDraftChanged?: (draft: boolean) => void;
 }
 
 async function openBrowser(url: string) {
@@ -41,6 +44,8 @@ export function PrFooterBar({
   canApprove,
   canClose = false,
   canReopen = false,
+  canToggleDraft = false,
+  isDraft = false,
   approveDisabledReason,
   htmlUrl,
   onOpenInEditor,
@@ -48,6 +53,7 @@ export function PrFooterBar({
   onReviewSubmitted,
   onMerged,
   onStateChanged,
+  onDraftChanged,
 }: PrFooterBarProps) {
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -106,6 +112,19 @@ export function PrFooterBar({
     try {
       await invoke("cmd_set_pull_state", { owner, repo, number, state });
       onStateChanged?.(state);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const setDraft = async (draft: boolean) => {
+    setBusy(draft ? "draft" : "ready");
+    setError(null);
+    try {
+      await invoke("cmd_set_pull_draft", { owner, repo, number, draft });
+      onDraftChanged?.(draft);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -185,6 +204,20 @@ export function PrFooterBar({
         >
           {busy === "APPROVE" ? "Submitting…" : "Approve"}
         </Button>
+        {canToggleDraft && (
+          <Button
+            variant="ghost"
+            disabled={busy !== null}
+            onClick={() => void setDraft(!isDraft)}
+            title={isDraft ? "Mark ready for review" : "Convert to draft"}
+          >
+            {busy === "draft" || busy === "ready"
+              ? "Updating…"
+              : isDraft
+                ? "Ready for review"
+                : "Convert to draft"}
+          </Button>
+        )}
         {canClose && (
           <Button
             variant="ghost"

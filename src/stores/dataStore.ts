@@ -117,6 +117,12 @@ export interface DataState {
   setReleases: (releases: ReleaseSummary[]) => void;
   patchPullReviewState: (repo: string, number: number, reviewState: string) => void;
   patchPullState: (repo: string, number: number, state: string) => void;
+  patchPullDraft: (repo: string, number: number, isDraft: boolean) => void;
+  patchPullReviewers: (
+    repo: string,
+    number: number,
+    reviewers: { login: string; avatarUrl: string }[],
+  ) => void;
   patchIssue: (
     repo: string,
     number: number,
@@ -151,6 +157,20 @@ export const useDataStore = create<DataState>((set) => ({
               state: nextState,
               mergedAt: nextState === "closed" && p.mergedAt ? p.mergedAt : p.mergedAt,
             }
+          : p,
+      ),
+    })),
+  patchPullDraft: (repo, number, isDraft) =>
+    set((state) => ({
+      pulls: state.pulls.map((p) =>
+        p.repo === repo && p.number === number ? { ...p, isDraft } : p,
+      ),
+    })),
+  patchPullReviewers: (repo, number, reviewers) =>
+    set((state) => ({
+      pulls: state.pulls.map((p) =>
+        p.repo === repo && p.number === number
+          ? { ...p, requestedReviewers: reviewers }
           : p,
       ),
     })),

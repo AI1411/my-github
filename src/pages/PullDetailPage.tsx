@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { invoke } from "@tauri-apps/api/core";
 import { Tabs, type TabItem } from "../components/common/Tabs";
 import { StatusPill } from "../components/common/StatusPill";
 import { Spinner } from "../components/common/Spinner";
@@ -52,6 +53,8 @@ export default function PullDetailPage() {
   const currentUser = useAuthStore((s) => s.user?.login ?? null);
   const patchPullReviewState = useDataStore((s) => s.patchPullReviewState);
   const patchPullState = useDataStore((s) => s.patchPullState);
+  const patchPullDraft = useDataStore((s) => s.patchPullDraft);
+  const patchPullReviewers = useDataStore((s) => s.patchPullReviewers);
 
   const [tab, setTab] = useState<DetailTab>("conversation");
   const [viewMode, setViewMode] = useState<DiffViewMode>("unified");
@@ -325,6 +328,39 @@ export default function PullDetailPage() {
           milestone={null}
           linkedIssues={[]}
           checks={[]}
+          onAddReviewer={() => {
+            const login = window.prompt("Reviewer login");
+            if (!login || !owner || !repo) return;
+            void invoke<string[]>("cmd_update_pull_reviewers", {
+              owner,
+              repo,
+              number: pull.number,
+              add: [login.trim()],
+              remove: null,
+            }).then((logins) => {
+              patchPullReviewers(
+                pull.repo,
+                pull.number,
+                logins.map((l) => ({ login: l, avatarUrl: "" })),
+              );
+            });
+          }}
+          onRemoveReviewer={(login) => {
+            if (!owner || !repo) return;
+            void invoke<string[]>("cmd_update_pull_reviewers", {
+              owner,
+              repo,
+              number: pull.number,
+              add: null,
+              remove: [login],
+            }).then((logins) => {
+              patchPullReviewers(
+                pull.repo,
+                pull.number,
+                logins.map((l) => ({ login: l, avatarUrl: "" })),
+              );
+            });
+          }}
         />
       </div>
       <PrFooterBar
@@ -333,8 +369,10 @@ export default function PullDetailPage() {
         number={pull.number}
         canMerge={statusLabel === "open"}
         canApprove={canReview}
-        canClose={statusLabel === "open"}
+        canClose={statusLabel === "open" || statusLabel === "draft"}
         canReopen={statusLabel === "closed"}
+        canToggleDraft={statusLabel === "open" || statusLabel === "draft"}
+        isDraft={statusLabel === "draft"}
         approveDisabledReason={reviewDisabledReason}
         htmlUrl={pull.htmlUrl ?? ""}
         onOpenInEditor={handleOpenInEditor}
@@ -349,6 +387,10 @@ export default function PullDetailPage() {
         }}
         onStateChanged={(state) => {
           patchPullState(pull.repo, pull.number, state);
+          setReadinessKey((k) => k + 1);
+        }}
+        onDraftChanged={(draft) => {
+          patchPullDraft(pull.repo, pull.number, draft);
           setReadinessKey((k) => k + 1);
         }}
       />
