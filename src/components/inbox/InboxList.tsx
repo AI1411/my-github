@@ -93,6 +93,8 @@ export function InboxList({
         items={staleItems}
         selectedId={selectedId}
         onSelect={onSelect}
+        onTogglePin={onTogglePin}
+        onSnooze={onSnooze}
         registerItemRef={registerItemRef}
       />
       <Section

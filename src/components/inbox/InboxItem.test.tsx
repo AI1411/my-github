@@ -67,4 +67,14 @@ describe("InboxItemRow", () => {
     fireEvent.click(screen.getByLabelText("Snooze until Tomorrow"));
     expect(onSnooze).toHaveBeenCalledWith(item, "tomorrow");
   });
+
+  it("keeps pin and snooze hover-only until the row is selected", () => {
+    const { rerender } = render(
+      <InboxItemRow item={item} onTogglePin={vi.fn()} onSnooze={vi.fn()} />,
+    );
+    expect(screen.getByLabelText("Pin").parentElement).toHaveClass("hidden", "group-hover:flex");
+    rerender(<InboxItemRow item={item} selected onTogglePin={vi.fn()} onSnooze={vi.fn()} />);
+    expect(screen.getByLabelText("Pin").parentElement).toHaveClass("flex");
+    expect(screen.getByLabelText("Pin").parentElement).not.toHaveClass("hidden");
+  });
 });

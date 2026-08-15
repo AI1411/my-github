@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Toolbar } from "../components/common/Toolbar";
 import { Spinner } from "../components/common/Spinner";
@@ -11,6 +11,7 @@ import { useSettingsShortcut } from "../hooks/useSettingsShortcut";
 import { useKeyboardShortcut } from "../hooks/useKeyboardShortcut";
 import { useListNavigation } from "../hooks/useListNavigation";
 import { focusAfterRemoval } from "../lib/inboxFocus";
+import { CHORD_TIMEOUT_MS } from "../lib/shortcutKeys";
 import {
   loadLastSnoozeOption,
   saveLastSnoozeOption,
@@ -85,10 +86,13 @@ export default function InboxPage() {
   }, [activeItem, selected?.id]);
 
   async function handleTogglePin(item: InboxItem) {
+    const target =
+      resolveSnoozeTarget(item, flatItems) ?? (item.id.startsWith("stale-") ? null : item);
+    if (!target) return;
     try {
       await invoke("cmd_pin_inbox_item", {
-        itemId: item.id,
-        pinned: !item.pinned,
+        itemId: target.id,
+        pinned: !target.pinned,
       });
       refetch();
     } catch {
@@ -97,7 +101,8 @@ export default function InboxPage() {
   }
 
   async function handleSnooze(item: InboxItem, option: SnoozeOption) {
-    const target = resolveSnoozeTarget(item, flatItems) ?? (item.id.startsWith("stale-") ? null : item);
+    const target =
+      resolveSnoozeTarget(item, flatItems) ?? (item.id.startsWith("stale-") ? null : item);
     if (!target) return;
     try {
       await invoke("cmd_snooze_inbox_item", {
@@ -178,6 +183,25 @@ export default function InboxPage() {
 
   useSettingsShortcut("markAllRead", () => {
     void handleDismissAll();
+  });
+
+  const lastGAtRef = useRef(0);
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() === "g" && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        lastGAtRef.current = Date.now();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  useKeyboardShortcut({ key: "p", preventDefault: true }, () => {
+    if (pickerOpen) return;
+    if (Date.now() - lastGAtRef.current < CHORD_TIMEOUT_MS) return;
+    const current = activeItem ?? selected;
+    if (!current) return;
+    void handleTogglePin(current);
   });
 
   useEffect(() => {

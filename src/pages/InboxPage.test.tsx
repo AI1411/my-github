@@ -186,4 +186,29 @@ describe("InboxPage snooze shortcuts", () => {
       expect(screen.getByText("You're all caught up")).toBeInTheDocument();
     });
   });
+
+  it("toggles pin on the selected item with P", async () => {
+    render(<InboxPage />);
+    await waitFor(() => expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0));
+    fireEvent.click(screen.getAllByText("Needs review")[0]);
+    fireEvent.keyDown(window, { key: "p" });
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("cmd_pin_inbox_item", {
+        itemId: "pr-1",
+        pinned: true,
+      });
+    });
+  });
+
+  it("does not pin when P is the second key of G then P", async () => {
+    render(<InboxPage />);
+    await waitFor(() => expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0));
+    fireEvent.click(screen.getAllByText("Needs review")[0]);
+    fireEvent.keyDown(window, { key: "g" });
+    fireEvent.keyDown(window, { key: "p" });
+    expect(invoke).not.toHaveBeenCalledWith(
+      "cmd_pin_inbox_item",
+      expect.objectContaining({ itemId: "pr-1" }),
+    );
+  });
 });
