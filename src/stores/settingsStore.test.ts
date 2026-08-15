@@ -17,6 +17,7 @@ describe("settingsStore", () => {
         mentions: "immediate",
       },
       pollingInterval: "60s",
+      pushSyncEnabled: false,
       dockBadgeEnabled: true,
       density: "comfortable",
       shortcuts: DEFAULT_SHORTCUTS,
@@ -49,6 +50,12 @@ describe("settingsStore", () => {
 
     expect(useSettingsStore.getState().pollingInterval).toBe("5m");
     expect(useSettingsStore.getState().notificationSettings.ciFailures).toBe("off");
+  });
+
+  it("toggles push-assisted sync", () => {
+    expect(useSettingsStore.getState().pushSyncEnabled).toBe(false);
+    useSettingsStore.getState().setPushSyncEnabled(true);
+    expect(useSettingsStore.getState().pushSyncEnabled).toBe(true);
   });
 
   it("migrates legacy boolean notification settings", () => {

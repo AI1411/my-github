@@ -32,6 +32,7 @@ describe("SettingsPage", () => {
         mentions: "immediate",
       },
       pollingInterval: "60s",
+      pushSyncEnabled: false,
       dockBadgeEnabled: true,
       density: "comfortable",
       shortcuts: DEFAULT_SHORTCUTS,
@@ -188,6 +189,21 @@ describe("SettingsPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "5 min" }));
 
     expect(useSettingsStore.getState().pollingInterval).toBe("5m");
+  });
+
+  it("toggles push-assisted sync without claiming real webhooks", () => {
+    render(<SettingsPage />);
+
+    fireEvent.click(screen.getByRole("tab", { name: "Notifications" }));
+    expect(useSettingsStore.getState().pushSyncEnabled).toBe(false);
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Enable push-assisted sync" }));
+
+    expect(useSettingsStore.getState().pushSyncEnabled).toBe(true);
+    expect(
+      screen.getByText(/cannot host a durable public GitHub webhook/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/not inbound webhooks/i)).toBeInTheDocument();
   });
 
   it("customizes shortcuts", () => {

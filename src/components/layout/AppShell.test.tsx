@@ -41,6 +41,7 @@ describe("AppShell offline banner", () => {
       notificationLifecycle.disposeClickHandler,
     );
     useUiStore.setState({ offline: false, sidebarCollapsed: false, rateLimitHit: null });
+    useSettingsStore.setState({ pushSyncEnabled: false, digestAutoShowEnabled: true });
   });
 
   it("shows an offline banner when uiStore is offline", () => {
@@ -67,6 +68,20 @@ describe("AppShell offline banner", () => {
     );
 
     expect(screen.getByRole("status")).toHaveTextContent(/rate limit low \(12 remaining\)/i);
+  });
+
+  it("shows a push-assisted banner when the setting is enabled", () => {
+    useSettingsStore.setState({ pushSyncEnabled: true });
+
+    render(
+      <MemoryRouter>
+        <AppShell sidebar={<div />} main={<div>Main</div>} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByTestId("push-assisted-banner")).toHaveTextContent(
+      /no GitHub webhooks/i,
+    );
   });
 
   it("starts notification polling and click handling without mounting Activity", () => {
