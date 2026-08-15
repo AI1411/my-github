@@ -7,7 +7,29 @@ export interface ParsedShortcut {
   alt: boolean;
   /** Chord sequences like "G then I" are not single keydown matches. */
   chord: boolean;
+  /** First key of a `G then I` sequence, lowercased. */
+  chordPrefix: string | null;
   raw: string;
+}
+
+export const CHORD_TIMEOUT_MS = 800;
+
+export interface ChordArmState {
+  prefix: string | null;
+  armedAt: number;
+}
+
+const EMPTY_CHORD: ChordArmState = { prefix: null, armedAt: 0 };
+
+function letterToken(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  const last = trimmed.split("+").pop() ?? trimmed;
+  return last.length === 1 ? last.toLowerCase() : last.toLowerCase();
+}
+
+export function eventKeyToken(event: KeyboardEvent): string {
+  return event.key.length === 1 ? event.key.toLowerCase() : event.key;
 }
 
 /**
@@ -17,13 +39,45 @@ export interface ParsedShortcut {
 export function parseShortcutKeys(raw: string): ParsedShortcut {
   const trimmed = raw.trim();
   if (!trimmed) {
-    return { key: "", meta: false, shift: false, alt: false, chord: false, raw: trimmed };
+    return {
+      key: "",
+      meta: false,
+      shift: false,
+      alt: false,
+      chord: false,
+      chordPrefix: null,
+      raw: trimmed,
+    };
   }
-  if (/\bthen\b/i.test(trimmed) || trimmed.includes("/")) {
-    // Chords / multi-option labels are display-only for now
-    return { key: "", meta: false, shift: false, alt: false, chord: true, raw: trimmed };
+  if (/\bthen\b/i.test(trimmed)) {
+    const [left, right] = trimmed.split(/\bthen\b/i);
+    const chordPrefix = letterToken(left ?? "");
+    const second = letterToken((right ?? "").split("/")[0] ?? "");
+    return {
+      key: second,
+      meta: false,
+      shift: false,
+      alt: false,
+      chord: true,
+      chordPrefix,
+      raw: trimmed,
+    };
   }
-  const parts = trimmed.split("+").map((p) => p.trim()).filter(Boolean);
+  if (trimmed.includes("/")) {
+    return {
+      key: "",
+      meta: false,
+      shift: false,
+      alt: false,
+      chord: true,
+      chordPrefix: null,
+      raw: trimmed,
+    };
+  }
+  const parts = trimmed
+    .split("+")
+    .map((p) => p.trim())
+    .filter(Boolean);
   let meta = false;
   let shift = false;
   let alt = false;
@@ -52,7 +106,38 @@ export function parseShortcutKeys(raw: string): ParsedShortcut {
   };
   const alias = aliases[key.toLowerCase()];
   if (alias) key = alias;
-  return { key, meta, shift, alt, chord: false, raw: trimmed };
+  return { key, meta, shift, alt, chord: false, chordPrefix: null, raw: trimmed };
+}
+
+/**
+ * Advance a two-key chord. First keydown matching `chordPrefix` arms;
+ * the next keydown matching `key` within CHORD_TIMEOUT_MS matches.
+ */
+export function applyChordKeydown(
+  state: ChordArmState,
+  event: KeyboardEvent,
+  parsed: ParsedShortcut,
+  now = Date.now(),
+): { matched: boolean; next: ChordArmState } {
+  if (!parsed.chord || !parsed.chordPrefix || !parsed.key) {
+    return { matched: false, next: EMPTY_CHORD };
+  }
+  if (event.metaKey || event.ctrlKey || event.altKey) {
+    return { matched: false, next: EMPTY_CHORD };
+  }
+  const key = eventKeyToken(event);
+  const prefix = state.prefix && now - state.armedAt <= CHORD_TIMEOUT_MS ? state.prefix : null;
+
+  if (prefix === parsed.chordPrefix && key === parsed.key) {
+    return { matched: true, next: EMPTY_CHORD };
+  }
+  if (key === parsed.chordPrefix && !event.shiftKey) {
+    return { matched: false, next: { prefix: parsed.chordPrefix, armedAt: now } };
+  }
+  if (prefix) {
+    return { matched: false, next: EMPTY_CHORD };
+  }
+  return { matched: false, next: EMPTY_CHORD };
 }
 
 export function formatShortcutEvent(event: KeyboardEvent): string | null {
