@@ -3,7 +3,7 @@ import {
   buildPrSummaryPrompt,
   generateLocalSummary,
   type LocalLlmSettings,
-} from "../lib/localLlm";
+} from "../../lib/localLlm";
 
 interface FileStat {
   filename: string;

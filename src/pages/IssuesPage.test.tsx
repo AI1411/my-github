@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import IssuesPage from "./IssuesPage";
@@ -11,6 +11,18 @@ vi.mock("@tauri-apps/api/event", () => ({
 }));
 
 describe("IssuesPage", () => {
+  beforeEach(() => {
+    // jsdom reports 0 height; virtualizer needs a viewport to mount rows.
+    Object.defineProperty(HTMLElement.prototype, "clientHeight", {
+      configurable: true,
+      value: 800,
+    });
+    Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
+      configurable: true,
+      value: 800,
+    });
+  });
+
   it("renders the three-column grid sections", () => {
     render(
       <MemoryRouter>

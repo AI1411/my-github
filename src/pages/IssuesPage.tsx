@@ -1,5 +1,6 @@
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { Toolbar } from "../components/common/Toolbar";
 import { SaveViewControl } from "../components/common/SaveViewControl";
 import { ListSearchBar } from "../components/common/ListSearchBar";
@@ -14,6 +15,7 @@ import { IssueRow } from "../components/issues/IssueRow";
 import { useListNavigation } from "../hooks/useListNavigation";
 import { useListSearch } from "../hooks/useListSearch";
 import { useDetailPrefetch } from "../hooks/useDetailPrefetch";
+import { listRowHeight } from "../lib/appearance";
 import { matchesListSearch } from "../lib/listSearch";
 import { issueFilterToQuery, queryToIssueFilter } from "../lib/savedFilters";
 
@@ -24,7 +26,9 @@ export default function IssuesPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const searchKey = searchParams.toString();
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const addSavedFilter = useSettingsStore((s) => s.addSavedFilter);
+  const density = useSettingsStore((s) => s.density);
   const accountId = useAuthStore((s) => s.user?.login ?? "");
   const listSearch = useListSearch(accountId, "issues");
 
@@ -64,10 +68,13 @@ export default function IssuesPage() {
     [issues, listSearch.query],
   );
 
-  const openIssue = (i: (typeof issues)[number]) => {
-    const [owner, repo] = i.repo.split("/");
-    navigate(`/issues/${owner}/${repo}/${i.number}`);
-  };
+  const openIssue = useCallback(
+    (i: (typeof issues)[number]) => {
+      const [owner, repo] = i.repo.split("/");
+      navigate(`/issues/${owner}/${repo}/${i.number}`);
+    },
+    [navigate],
+  );
 
   const { activeIndex, setActiveId, activeItem } = useListNavigation({
     items: visibleIssues,
@@ -80,6 +87,13 @@ export default function IssuesPage() {
     "issue",
     activeItem ? { repo: activeItem.repo, number: activeItem.number } : null,
   );
+
+  const rowVirtualizer = useVirtualizer({
+    count: visibleIssues.length,
+    getScrollElement: () => containerRef.current,
+    estimateSize: () => listRowHeight(density),
+    overscan: 10,
+  });
 
   return (
     <div className="flex flex-col h-full">
@@ -127,19 +141,44 @@ export default function IssuesPage() {
             inputRef={listSearch.inputRef}
             placeholder="Filter issues…"
           />
-          <div data-testid="issues-list" className="flex-1 overflow-auto">
+          <div
+            ref={containerRef}
+            data-testid="issues-list"
+            className="flex-1 overflow-auto"
+            role="grid"
+            tabIndex={0}
+          >
             {loading && issues.length === 0 ? (
               <ListSkeleton />
             ) : (
-              visibleIssues.map((issue, idx) => (
-                <IssueRow
-                  key={issue.id}
-                  issue={issue}
-                  selected={activeIndex === idx}
-                  onSelect={() => setActiveId(String(issue.id))}
-                  onOpen={() => openIssue(issue)}
-                />
-              ))
+              <div
+                style={{
+                  height: rowVirtualizer.getTotalSize(),
+                  width: "100%",
+                  position: "relative",
+                }}
+              >
+                {rowVirtualizer.getVirtualItems().map((v) => {
+                  const issue = visibleIssues[v.index];
+                  return (
+                    <IssueRow
+                      key={issue.id}
+                      issue={issue}
+                      selected={activeIndex === v.index}
+                      onSelect={() => setActiveId(String(issue.id))}
+                      onOpen={() => openIssue(issue)}
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: v.size,
+                        transform: `translateY(${v.start}px)`,
+                      }}
+                    />
+                  );
+                })}
+              </div>
             )}
           </div>
         </section>
