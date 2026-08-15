@@ -188,6 +188,8 @@ export default function SettingsPage() {
   const removeAccountHost = useSettingsStore((state) => state.removeAccountHost);
   const watchedRepositories = useSettingsStore((state) => state.watchedRepositories);
   const notificationSettings = useSettingsStore((state) => state.notificationSettings);
+  const quietHours = useSettingsStore((state) => state.quietHours);
+  const setQuietHours = useSettingsStore((state) => state.setQuietHours);
   const pollingInterval = useSettingsStore((state) => state.pollingInterval);
   const pushSyncEnabled = useSettingsStore((state) => state.pushSyncEnabled);
   const setPushSyncEnabled = useSettingsStore((state) => state.setPushSyncEnabled);
@@ -207,8 +209,7 @@ export default function SettingsPage() {
   const removeNotificationRule = useSettingsStore((state) => state.removeNotificationRule);
   const [ruleRepoInput, setRuleRepoInput] = useState("");
   const [ruleKindInput, setRuleKindInput] = useState<NotificationRuleKind>("ciFailures");
-  const [rulePriorityInput, setRulePriorityInput] =
-    useState<NotificationDelivery>("immediate");
+  const [rulePriorityInput, setRulePriorityInput] = useState<NotificationDelivery>("immediate");
   const releaseNotificationsEnabled = useSettingsStore(
     (state) => state.releaseNotificationsEnabled,
   );
@@ -332,9 +333,7 @@ export default function SettingsPage() {
     removeAccountHost(user.login);
   };
 
-  const activeHostLabel = hostDisplayLabel(
-    user ? accountHosts[user.login] : undefined,
-  );
+  const activeHostLabel = hostDisplayLabel(user ? accountHosts[user.login] : undefined);
 
   return (
     <div className="flex h-full flex-col">
@@ -570,10 +569,12 @@ export default function SettingsPage() {
                   color: "var(--text-primary)",
                 }}
               />
-              <InlineButton onClick={() => {
-                addWorkMode(workModeName);
-                setWorkModeName("");
-              }}>
+              <InlineButton
+                onClick={() => {
+                  addWorkMode(workModeName);
+                  setWorkModeName("");
+                }}
+              >
                 Save current as mode
               </InlineButton>
             </form>
@@ -584,7 +585,10 @@ export default function SettingsPage() {
                 </p>
               ) : (
                 workModes.map((mode) => (
-                  <div key={mode.id} className="flex min-h-11 items-center justify-between gap-3 py-2">
+                  <div
+                    key={mode.id}
+                    className="flex min-h-11 items-center justify-between gap-3 py-2"
+                  >
                     <div className="min-w-0">
                       <div className="truncate text-sm" style={{ color: "var(--text-primary)" }}>
                         {mode.name}
@@ -681,7 +685,10 @@ export default function SettingsPage() {
                   <div key={repo} className="flex min-h-11 items-center justify-between gap-3 py-2">
                     <div className="min-w-0">
                       <div className="truncate text-sm">{repo}</div>
-                      <div className="truncate font-mono text-xs" style={{ color: "var(--text-muted)" }}>
+                      <div
+                        className="truncate font-mono text-xs"
+                        style={{ color: "var(--text-muted)" }}
+                      >
                         {path}
                       </div>
                     </div>
@@ -721,9 +728,9 @@ export default function SettingsPage() {
                   onChange={setPushSyncEnabled}
                 />
                 <p className="text-xs leading-relaxed" style={{ color: "var(--text-muted)" }}>
-                  Desktop apps cannot host a durable public GitHub webhook. When enabled, this
-                  mode relies on sync-on-focus/resume (<code>cmd_sync_now</code>) plus a shorter
-                  poll (30s) while the window is focused — not inbound webhooks.
+                  Desktop apps cannot host a durable public GitHub webhook. When enabled, this mode
+                  relies on sync-on-focus/resume (<code>cmd_sync_now</code>) plus a shorter poll
+                  (30s) while the window is focused — not inbound webhooks.
                 </p>
               </div>
             </Row>
@@ -780,6 +787,55 @@ export default function SettingsPage() {
                 label="Unread count"
                 onChange={setDockBadgeEnabled}
               />
+            </Row>
+            <Row label="Quiet hours">
+              <div className="flex flex-col gap-3">
+                <Toggle
+                  checked={quietHours.enabled}
+                  label="Skip OS notifications during quiet hours"
+                  onChange={(enabled) => setQuietHours({ enabled })}
+                />
+                <div className="flex flex-wrap items-center gap-2">
+                  <label
+                    className="flex items-center gap-2 text-sm"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    Start
+                    <input
+                      type="time"
+                      aria-label="Quiet hours start"
+                      value={quietHours.start}
+                      disabled={!quietHours.enabled}
+                      onChange={(event) => setQuietHours({ start: event.currentTarget.value })}
+                      className="rounded-md px-2 py-1 text-sm outline-none"
+                      style={{
+                        backgroundColor: "var(--bg-secondary)",
+                        border: "1px solid var(--border-default)",
+                        color: "var(--text-primary)",
+                      }}
+                    />
+                  </label>
+                  <label
+                    className="flex items-center gap-2 text-sm"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    End
+                    <input
+                      type="time"
+                      aria-label="Quiet hours end"
+                      value={quietHours.end}
+                      disabled={!quietHours.enabled}
+                      onChange={(event) => setQuietHours({ end: event.currentTarget.value })}
+                      className="rounded-md px-2 py-1 text-sm outline-none"
+                      style={{
+                        backgroundColor: "var(--bg-secondary)",
+                        border: "1px solid var(--border-default)",
+                        color: "var(--text-primary)",
+                      }}
+                    />
+                  </label>
+                </div>
+              </div>
             </Row>
             <Row label="Startup digest">
               <Toggle
@@ -1078,9 +1134,7 @@ export default function SettingsPage() {
                     style={{
                       backgroundColor: "var(--bg-secondary)",
                       border: `1px solid ${
-                        recordingId === id
-                          ? "var(--accent-blue)"
-                          : "var(--border-default)"
+                        recordingId === id ? "var(--accent-blue)" : "var(--border-default)"
                       }`,
                       color: "var(--text-primary)",
                     }}

@@ -30,6 +30,7 @@ describe("settingsStore", () => {
       recentPullsByAccount: {},
       notificationRules: [],
       repoNotificationRules: {},
+      quietHours: { enabled: false, start: "22:00", end: "08:00" },
     });
   });
 
@@ -53,6 +54,11 @@ describe("settingsStore", () => {
 
     expect(state.pollingInterval).toBe("60s");
     expect(state.notificationSettings.enabled).toBe(true);
+    expect(state.quietHours).toEqual({
+      enabled: false,
+      start: "22:00",
+      end: "08:00",
+    });
   });
 
   it("adds and removes watched repositories without duplicates", () => {
@@ -72,6 +78,15 @@ describe("settingsStore", () => {
 
     expect(useSettingsStore.getState().pollingInterval).toBe("5m");
     expect(useSettingsStore.getState().notificationSettings.ciFailures).toBe("off");
+  });
+
+  it("updates quiet hours", () => {
+    useSettingsStore.getState().setQuietHours({ enabled: true, start: "21:00", end: "07:00" });
+    expect(useSettingsStore.getState().quietHours).toEqual({
+      enabled: true,
+      start: "21:00",
+      end: "07:00",
+    });
   });
 
   it("toggles push-assisted sync", () => {
