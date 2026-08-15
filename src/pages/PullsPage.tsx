@@ -3,13 +3,17 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Toolbar } from "../components/common/Toolbar";
 import { EmptyState } from "../components/common/EmptyState";
+import { ListSearchBar } from "../components/common/ListSearchBar";
 import { Spinner } from "../components/common/Spinner";
 import { Tabs, type TabItem } from "../components/common/Tabs";
 import { PullRow } from "../components/pulls/PullRow";
 import { FilterChips } from "../components/pulls/FilterChips";
 import { usePullsQuery, type PullFilter, type PullTab } from "../features/pulls/usePullsQuery";
 import { useListNavigation } from "../hooks/useListNavigation";
+import { useListSearch } from "../hooks/useListSearch";
+import { matchesListSearch } from "../lib/listSearch";
 import { pullFilterToQuery, queryToPullFilter } from "../lib/savedFilters";
+import { useAuthStore } from "../stores/authStore";
 import { useSettingsStore } from "../stores/settingsStore";
 
 const TABS: TabItem<PullTab>[] = [
@@ -33,6 +37,8 @@ export default function PullsPage() {
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const addSavedFilter = useSettingsStore((s) => s.addSavedFilter);
+  const accountId = useAuthStore((s) => s.user?.login ?? "");
+  const listSearch = useListSearch(accountId, "pulls");
 
   const handleSaveView = () => {
     const name = window.prompt("View name");
@@ -47,20 +53,28 @@ export default function PullsPage() {
   );
   const availableLabels: string[] = [];
 
+  const visiblePulls = useMemo(
+    () =>
+      pulls.filter((p) =>
+        matchesListSearch(`${p.title} ${p.repo} ${p.author ?? ""}`, listSearch.query),
+      ),
+    [pulls, listSearch.query],
+  );
+
   const openPull = (p: (typeof pulls)[number]) => {
     const [owner, repo] = p.repo.split("/");
     navigate(`/pulls/${owner}/${repo}/${p.number}`);
   };
 
   const { activeIndex, setActiveId } = useListNavigation({
-    items: pulls,
+    items: visiblePulls,
     getId: (p) => String(p.id),
     onOpen: openPull,
-    enabled: pulls.length > 0,
+    enabled: visiblePulls.length > 0,
   });
 
   const rowVirtualizer = useVirtualizer({
-    count: pulls.length,
+    count: visiblePulls.length,
     getScrollElement: () => containerRef.current,
     estimateSize: () => ROW_HEIGHT,
     overscan: 10,
@@ -98,13 +112,20 @@ export default function PullsPage() {
         availableAuthors={availableAuthors}
         availableLabels={availableLabels}
       />
+      <ListSearchBar
+        open={listSearch.open}
+        query={listSearch.query}
+        onQueryChange={listSearch.setQuery}
+        inputRef={listSearch.inputRef}
+        placeholder="Filter pull requests…"
+      />
       {loading && pulls.length === 0 ? (
         <div className="flex-1 flex items-center justify-center">
           <Spinner />
         </div>
       ) : error ? (
         <EmptyState title="Failed to load pull requests" subtitle={error} />
-      ) : pulls.length === 0 ? (
+      ) : visiblePulls.length === 0 ? (
         <EmptyState
           title="No pull requests"
           subtitle="Try changing the filter, or sync to fetch fresh data."
@@ -119,7 +140,7 @@ export default function PullsPage() {
             }}
           >
             {rowVirtualizer.getVirtualItems().map((v) => {
-              const pull = pulls[v.index];
+              const pull = visiblePulls[v.index];
               return (
                 <PullRow
                   key={pull.id}

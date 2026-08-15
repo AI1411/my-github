@@ -1,13 +1,17 @@
 import { useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Toolbar } from "../components/common/Toolbar";
+import { ListSearchBar } from "../components/common/ListSearchBar";
 import { useIssuesQuery } from "../features/issues/useIssuesQuery";
+import { useAuthStore } from "../stores/authStore";
 import { useUiStore } from "../stores/uiStore";
 import { useSettingsStore } from "../stores/settingsStore";
 import { FilterSidebar, type AvailableLabel } from "../components/issues/FilterSidebar";
 import { AppliedFilters } from "../components/issues/AppliedFilters";
 import { IssueRow } from "../components/issues/IssueRow";
 import { useListNavigation } from "../hooks/useListNavigation";
+import { useListSearch } from "../hooks/useListSearch";
+import { matchesListSearch } from "../lib/listSearch";
 import { issueFilterToQuery, queryToIssueFilter } from "../lib/savedFilters";
 
 export default function IssuesPage() {
@@ -18,6 +22,8 @@ export default function IssuesPage() {
   const [searchParams] = useSearchParams();
   const searchKey = searchParams.toString();
   const addSavedFilter = useSettingsStore((s) => s.addSavedFilter);
+  const accountId = useAuthStore((s) => s.user?.login ?? "");
+  const listSearch = useListSearch(accountId, "issues");
 
   useEffect(() => {
     if (searchKey) setFilter(queryToIssueFilter(searchKey));
@@ -51,16 +57,24 @@ export default function IssuesPage() {
     [issues],
   );
 
+  const visibleIssues = useMemo(
+    () =>
+      issues.filter((i) =>
+        matchesListSearch(`${i.title} ${i.repo} ${i.number}`, listSearch.query),
+      ),
+    [issues, listSearch.query],
+  );
+
   const openIssue = (i: (typeof issues)[number]) => {
     const [owner, repo] = i.repo.split("/");
     navigate(`/issues/${owner}/${repo}/${i.number}`);
   };
 
   const { activeIndex, setActiveId } = useListNavigation({
-    items: issues,
+    items: visibleIssues,
     getId: (i) => String(i.id),
     onOpen: openIssue,
-    enabled: issues.length > 0,
+    enabled: visibleIssues.length > 0,
   });
 
   return (
@@ -115,8 +129,15 @@ export default function IssuesPage() {
           >
             <AppliedFilters filter={filter} onChange={setFilter} />
           </div>
+          <ListSearchBar
+            open={listSearch.open}
+            query={listSearch.query}
+            onQueryChange={listSearch.setQuery}
+            inputRef={listSearch.inputRef}
+            placeholder="Filter issues…"
+          />
           <div data-testid="issues-list" className="flex-1 overflow-auto">
-            {issues.map((issue, idx) => (
+            {visibleIssues.map((issue, idx) => (
               <IssueRow
                 key={issue.id}
                 issue={issue}
