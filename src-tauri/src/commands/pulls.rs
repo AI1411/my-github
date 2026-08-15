@@ -250,6 +250,14 @@ impl From<PullRequestFile> for FileDiff {
     }
 }
 
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct BlockingCheck {
+    pub name: String,
+    /// Conclusion for completed runs (`failure`, `timed_out`, …), or `pending` while in progress.
+    pub conclusion: String,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MergeReadiness {
@@ -260,7 +268,12 @@ pub struct MergeReadiness {
     pub ci_state: Option<String>,
     pub is_draft: bool,
     pub ready: bool,
+    /// Human-readable summary lines (kept for compact badge / tooltips).
     pub blockers: Vec<String>,
+    /// Individual check runs that are blocking merge (failed or still running).
+    pub blocking_checks: Vec<BlockingCheck>,
+    /// Approvals still needed before merge (MVP: 1 when none yet, else 0).
+    pub required_reviews_remaining: u32,
 }
 
 /// Reduces a chronological review list to each reviewer's latest meaningful
@@ -310,6 +323,31 @@ fn summarize_check_runs(runs: &[CheckRun]) -> Option<String> {
     Some("success".to_string())
 }
 
+/// Collects check runs that block merge: non-success completed, or not yet completed.
+fn collect_blocking_checks(runs: &[CheckRun]) -> Vec<BlockingCheck> {
+    runs.iter()
+        .filter_map(|r| {
+            if r.status != "completed" {
+                return Some(BlockingCheck {
+                    name: r.name.clone(),
+                    conclusion: "pending".to_string(),
+                });
+            }
+            match r.conclusion.as_deref() {
+                Some("success") | Some("neutral") | Some("skipped") => None,
+                Some(conclusion) => Some(BlockingCheck {
+                    name: r.name.clone(),
+                    conclusion: conclusion.to_string(),
+                }),
+                None => Some(BlockingCheck {
+                    name: r.name.clone(),
+                    conclusion: "pending".to_string(),
+                }),
+            }
+        })
+        .collect()
+}
+
 fn compute_merge_readiness(
     pr: &PullRequest,
     reviews: &[Review],
@@ -317,6 +355,8 @@ fn compute_merge_readiness(
 ) -> MergeReadiness {
     let (approvals, changes_requested) = summarize_reviews(reviews);
     let ci_state = summarize_check_runs(runs);
+    let blocking_checks = collect_blocking_checks(runs);
+    let required_reviews_remaining = if approvals == 0 { 1 } else { 0 };
     let mut blockers: Vec<String> = Vec::new();
 
     if pr.draft {
@@ -352,6 +392,8 @@ fn compute_merge_readiness(
         is_draft: pr.draft,
         ready: blockers.is_empty(),
         blockers,
+        blocking_checks,
+        required_reviews_remaining,
     }
 }
 
@@ -1061,9 +1103,13 @@ mod tests {
     }
 
     fn check_run(status: &str, conclusion: Option<&str>) -> CheckRun {
+        named_check_run("ci", status, conclusion)
+    }
+
+    fn named_check_run(name: &str, status: &str, conclusion: Option<&str>) -> CheckRun {
         CheckRun {
             id: 1,
-            name: "ci".into(),
+            name: name.into(),
             status: status.into(),
             conclusion: conclusion.map(String::from),
             started_at: None,
@@ -1132,6 +1178,8 @@ mod tests {
         );
         assert!(readiness.ready);
         assert!(readiness.blockers.is_empty());
+        assert!(readiness.blocking_checks.is_empty());
+        assert_eq!(readiness.required_reviews_remaining, 0);
         assert_eq!(readiness.approvals, 1);
     }
 
@@ -1156,6 +1204,46 @@ mod tests {
                 "No approvals yet"
             ]
         );
+        assert_eq!(
+            readiness.blocking_checks,
+            vec![BlockingCheck {
+                name: "ci".into(),
+                conclusion: "failure".into(),
+            }]
+        );
+        assert_eq!(readiness.required_reviews_remaining, 1);
+    }
+
+    #[test]
+    fn compute_merge_readiness_lists_pending_and_failed_checks() {
+        let mut pr = sample_pr(1, "CI PR", "open", false);
+        pr.mergeable = Some(true);
+        pr.mergeable_state = Some("clean".into());
+        let readiness = compute_merge_readiness(
+            &pr,
+            &[review("alice", "APPROVED")],
+            &[
+                named_check_run("lint", "completed", Some("failure")),
+                named_check_run("build", "in_progress", None),
+                named_check_run("unit", "completed", Some("success")),
+                named_check_run("e2e", "completed", Some("skipped")),
+            ],
+        );
+        assert!(!readiness.ready);
+        assert_eq!(
+            readiness.blocking_checks,
+            vec![
+                BlockingCheck {
+                    name: "lint".into(),
+                    conclusion: "failure".into(),
+                },
+                BlockingCheck {
+                    name: "build".into(),
+                    conclusion: "pending".into(),
+                },
+            ]
+        );
+        assert_eq!(readiness.required_reviews_remaining, 0);
     }
 
     #[test]
@@ -1170,5 +1258,7 @@ mod tests {
         );
         assert!(!readiness.ready);
         assert_eq!(readiness.blockers, vec!["Blocked by branch protection"]);
+        assert!(readiness.blocking_checks.is_empty());
+        assert_eq!(readiness.required_reviews_remaining, 0);
     }
 }
