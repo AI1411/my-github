@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Toolbar } from "../components/common/Toolbar";
+import { SaveViewControl } from "../components/common/SaveViewControl";
 import { EmptyState } from "../components/common/EmptyState";
 import { ListSearchBar } from "../components/common/ListSearchBar";
 import { Spinner } from "../components/common/Spinner";
@@ -52,9 +53,7 @@ export default function PullsPage() {
   const isPinned = (repo: string, number: number) =>
     pinnedRefs.some((p) => p.repo === repo && p.number === number);
 
-  const handleSaveView = () => {
-    const name = window.prompt("View name");
-    if (!name) return;
+  const handleSaveView = (name: string) => {
     addSavedFilter({ name, target: "pulls", query: pullFilterToQuery(filter) });
   };
 
@@ -104,20 +103,7 @@ export default function PullsPage() {
       <Toolbar
         title="Pull Requests"
         subtitle={refreshing ? "Refreshing…" : undefined}
-        actions={
-          <button
-            type="button"
-            onClick={handleSaveView}
-            className="rounded-md px-2.5 py-1.5 text-xs font-medium"
-            style={{
-              backgroundColor: "var(--bg-tertiary)",
-              border: "1px solid var(--border-default)",
-              color: "var(--text-secondary)",
-            }}
-          >
-            Save view
-          </button>
-        }
+        actions={<SaveViewControl onSave={handleSaveView} />}
       />
       <Tabs
         items={TABS}

@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Toolbar } from "../components/common/Toolbar";
+import { SaveViewControl } from "../components/common/SaveViewControl";
 import { ListSearchBar } from "../components/common/ListSearchBar";
 import { useIssuesQuery } from "../features/issues/useIssuesQuery";
 import { useAuthStore } from "../stores/authStore";
@@ -30,9 +31,7 @@ export default function IssuesPage() {
     if (searchKey) setFilter(queryToIssueFilter(searchKey));
   }, [searchKey, setFilter]);
 
-  const handleSaveView = () => {
-    const name = window.prompt("View name");
-    if (!name) return;
+  const handleSaveView = (name: string) => {
     addSavedFilter({ name, target: "issues", query: issueFilterToQuery(filter) });
   };
 
@@ -60,9 +59,7 @@ export default function IssuesPage() {
 
   const visibleIssues = useMemo(
     () =>
-      issues.filter((i) =>
-        matchesListSearch(`${i.title} ${i.repo} ${i.number}`, listSearch.query),
-      ),
+      issues.filter((i) => matchesListSearch(`${i.title} ${i.repo} ${i.number}`, listSearch.query)),
     [issues, listSearch.query],
   );
 
@@ -88,20 +85,7 @@ export default function IssuesPage() {
       <Toolbar
         title="Issues"
         subtitle={refreshing ? "Refreshing…" : undefined}
-        actions={
-          <button
-            type="button"
-            onClick={handleSaveView}
-            className="rounded-md px-2.5 py-1.5 text-xs font-medium"
-            style={{
-              backgroundColor: "var(--bg-tertiary)",
-              border: "1px solid var(--border-default)",
-              color: "var(--text-secondary)",
-            }}
-          >
-            Save view
-          </button>
-        }
+        actions={<SaveViewControl onSave={handleSaveView} />}
       />
       <div
         data-testid="issues-page-root"
