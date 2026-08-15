@@ -28,7 +28,11 @@ export type ShortcutId =
   | "goInbox"
   | "goPulls"
   | "goSettings"
-  | "shortcutHelp";
+  | "shortcutHelp"
+  | "listSearch"
+  | "snooze"
+  | "snoozeLast"
+  | "nextQueue";
 
 export interface ShortcutSetting {
   label: string;
@@ -104,6 +108,10 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutSetting> = {
   goPulls: { label: "Go to Pulls", keys: "G then P" },
   goSettings: { label: "Go to Settings", keys: "G then S" },
   shortcutHelp: { label: "Shortcut help", keys: "?" },
+  listSearch: { label: "Find in list", keys: "Cmd+F" },
+  snooze: { label: "Snooze", keys: "H" },
+  snoozeLast: { label: "Snooze last", keys: "Shift+H" },
+  nextQueue: { label: "Next in review queue", keys: "]" },
 };
 
 const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
@@ -461,11 +469,24 @@ export const useSettingsStore = create<SettingsState>()(
           raw.accountHosts && typeof raw.accountHosts === "object"
             ? raw.accountHosts
             : current.accountHosts;
+        const shortcuts = {
+          ...DEFAULT_SHORTCUTS,
+          ...(raw.shortcuts ?? {}),
+        };
+        for (const id of Object.keys(DEFAULT_SHORTCUTS) as ShortcutId[]) {
+          shortcuts[id] = {
+            ...DEFAULT_SHORTCUTS[id],
+            ...(raw.shortcuts?.[id] ?? {}),
+            keys: raw.shortcuts?.[id]?.keys ?? DEFAULT_SHORTCUTS[id].keys,
+            label: DEFAULT_SHORTCUTS[id].label,
+          };
+        }
         return {
           ...current,
           ...raw,
           hosts,
           accountHosts,
+          shortcuts,
           notificationSettings: normalizeNotificationSettings(
             raw.notificationSettings ?? current.notificationSettings,
           ),

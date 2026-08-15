@@ -7,7 +7,7 @@ import { useSettingsStore } from "../../stores/settingsStore";
 import { useUiStore } from "../../stores/uiStore";
 import { Avatar } from "../common/Avatar";
 import { useAccountAttentionSummaries } from "../../hooks/useAccountAttentionSummaries";
-import { useKeyboardShortcut } from "../../hooks/useKeyboardShortcut";
+import { useSettingsShortcut } from "../../hooks/useSettingsShortcut";
 import { attentionTotal } from "../../lib/accountAttention";
 import {
   accountIndexFromDigitKey,
@@ -92,7 +92,7 @@ export function WorkspaceSwitcher({ onSignOut }: WorkspaceSwitcherProps) {
   const accountsRef = useRef(accounts);
   accountsRef.current = accounts;
 
-  useKeyboardShortcut({ key: "t", meta: true, preventDefault: true }, () => {
+  useSettingsShortcut("workspaceSwitcher", () => {
     if (isOpen) {
       close();
       return;

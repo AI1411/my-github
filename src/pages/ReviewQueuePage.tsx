@@ -4,6 +4,7 @@ import { Toolbar } from "../components/common/Toolbar";
 import { Spinner } from "../components/common/Spinner";
 import { EmptyState } from "../components/common/EmptyState";
 import { useInboxQuery } from "../features/inbox/useInboxQuery";
+import { useSettingsShortcut } from "../hooks/useSettingsShortcut";
 import { useKeyboardShortcut } from "../hooks/useKeyboardShortcut";
 import { formatRelativeTime } from "../lib/relativeTime";
 import {
@@ -93,13 +94,9 @@ export default function ReviewQueuePage() {
     if (path) navigate(path);
   }
 
-  useKeyboardShortcut(
-    { key: "]", preventDefault: true },
-    () => {
-      if (queue.length > 0) goNext();
-    },
-    {},
-  );
+  useSettingsShortcut("nextQueue", () => {
+    if (queue.length > 0) goNext();
+  });
 
   useKeyboardShortcut(
     { key: "n", preventDefault: true },
@@ -109,13 +106,9 @@ export default function ReviewQueuePage() {
     {},
   );
 
-  useKeyboardShortcut(
-    { key: "Enter", preventDefault: true },
-    () => {
-      openCurrent();
-    },
-    {},
-  );
+  useSettingsShortcut("openDetail", () => {
+    openCurrent();
+  });
 
   return (
     <div className="h-full flex flex-col">

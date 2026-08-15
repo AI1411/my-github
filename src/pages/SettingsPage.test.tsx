@@ -226,6 +226,19 @@ describe("SettingsPage", () => {
     expect(useSettingsStore.getState().shortcuts.commandPalette.keys).toBe("Ctrl+K");
   });
 
+  it("warns when shortcuts conflict", () => {
+    render(<SettingsPage />);
+
+    fireEvent.click(screen.getByRole("tab", { name: "Shortcuts" }));
+    fireEvent.change(screen.getByLabelText("Move up shortcut"), {
+      target: { value: "J" },
+    });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(/Conflicting shortcuts/i);
+    expect(screen.getByRole("alert")).toHaveTextContent(/Move up/);
+    expect(screen.getByRole("alert")).toHaveTextContent(/Move down/);
+  });
+
   it("shows about version and GitHub API rate limit", async () => {
     render(<SettingsPage />);
 
