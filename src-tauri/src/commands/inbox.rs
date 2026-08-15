@@ -1,9 +1,7 @@
 use serde::Serialize;
 use tauri::{AppHandle, Manager, Runtime};
 
-use crate::auth::token_store::{load_last_account_id, load_token};
 use crate::db::SqlitePool;
-use crate::github::client::GithubClient;
 use crate::github::graphql::{fetch_inbox, inbox_query};
 use crate::github::rest::list_notifications;
 use crate::github::types::Notification;
@@ -307,9 +305,7 @@ pub async fn cmd_get_account_attention_summaries<R: Runtime>(
 
 #[tauri::command]
 pub async fn cmd_get_inbox<R: Runtime>(app: AppHandle<R>) -> Result<InboxData, String> {
-    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
-    let token = load_token(&account_id).ok_or_else(|| "no token".to_string())?;
-    let client = GithubClient::new(token);
+    let client = crate::github::client::client_for_active_account()?;
     let pool = app
         .try_state::<SqlitePool>()
         .ok_or_else(|| "db not initialized".to_string())?;
@@ -398,9 +394,7 @@ pub async fn cmd_dismiss_inbox_items<R: Runtime>(
 pub async fn cmd_get_notifications<R: Runtime>(
     app: AppHandle<R>,
 ) -> Result<Vec<NotificationItem>, String> {
-    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
-    let token = load_token(&account_id).ok_or_else(|| "no token".to_string())?;
-    let client = GithubClient::new(token);
+    let client = crate::github::client::client_for_active_account()?;
     let pool = app
         .try_state::<SqlitePool>()
         .ok_or_else(|| "db not initialized".to_string())?;

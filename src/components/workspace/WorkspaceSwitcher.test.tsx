@@ -7,6 +7,8 @@ import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 import { useUiStore } from "../../stores/uiStore";
 import { useAuthStore } from "../../stores/authStore";
 import { useDataStore } from "../../stores/dataStore";
+import { useSettingsStore } from "../../stores/settingsStore";
+import { DEFAULT_GITHUB_HOST } from "../../lib/githubHost";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn().mockResolvedValue(null),
@@ -33,12 +35,51 @@ describe("WorkspaceSwitcher", () => {
       status: "authenticated",
     });
     useDataStore.getState().reset();
+    useSettingsStore.setState({
+      hosts: [DEFAULT_GITHUB_HOST],
+      accountHosts: {},
+    });
   });
 
   it("renders Accounts header when open", () => {
     useUiStore.setState({ workspaceSwitcherOpen: true });
     renderSwitcher();
     expect(screen.getByText("Accounts")).toBeInTheDocument();
+  });
+
+  it("shows host under each account", () => {
+    useSettingsStore.setState({
+      accountHosts: {
+        octocat: "https://github.com",
+        work: "https://github.example.com",
+      },
+    });
+    (invoke as ReturnType<typeof vi.fn>).mockImplementation((cmd: string) => {
+      if (cmd === "cmd_get_account_attention_summaries") {
+        return Promise.resolve([
+          {
+            login: "octocat",
+            avatarUrl: null,
+            isActive: true,
+            reviewRequests: 0,
+            ciFailures: 0,
+            mentions: 0,
+          },
+          {
+            login: "work",
+            avatarUrl: null,
+            isActive: false,
+            reviewRequests: 0,
+            ciFailures: 0,
+            mentions: 0,
+          },
+        ]);
+      }
+      return Promise.resolve(null);
+    });
+    useUiStore.setState({ workspaceSwitcherOpen: true });
+    renderSwitcher();
+    expect(screen.getByTestId("account-host-octocat")).toHaveTextContent("github.com");
   });
 
   it("renders the current user login", () => {

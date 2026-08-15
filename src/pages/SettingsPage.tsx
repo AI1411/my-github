@@ -4,6 +4,7 @@ import packageJson from "../../package.json";
 import { Tabs } from "../components/common/Tabs";
 import { Toolbar } from "../components/common/Toolbar";
 import { useRepoSearchQuery } from "../features/settings/useRepoSearchQuery";
+import { hostDisplayLabel } from "../lib/githubHost";
 import { useAuthStore } from "../stores/authStore";
 import { useDataStore } from "../stores/dataStore";
 import {
@@ -14,6 +15,7 @@ import {
   type PollingInterval,
   type ShortcutId,
 } from "../stores/settingsStore";
+import { PATTab } from "./components/PATTab";
 
 type SettingsTab =
   | "accounts"
@@ -166,14 +168,19 @@ function formatReset(epochSeconds: number): string {
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>("accounts");
+  const [addingAccount, setAddingAccount] = useState(false);
   const [repoInput, setRepoInput] = useState("");
   const [rateLimit, setRateLimit] = useState<RateLimitInfo | null>(null);
   const [rateError, setRateError] = useState<string | null>(null);
   const [rateLimitLoaded, setRateLimitLoaded] = useState(false);
   const user = useAuthStore((state) => state.user);
+  const setUser = useAuthStore((state) => state.setUser);
   const pulls = useDataStore((state) => state.pulls);
   const issues = useDataStore((state) => state.issues);
   const notifications = useDataStore((state) => state.notifications);
+  const accountHosts = useSettingsStore((state) => state.accountHosts);
+  const setAccountHost = useSettingsStore((state) => state.setAccountHost);
+  const removeAccountHost = useSettingsStore((state) => state.removeAccountHost);
   const watchedRepositories = useSettingsStore((state) => state.watchedRepositories);
   const notificationSettings = useSettingsStore((state) => state.notificationSettings);
   const pollingInterval = useSettingsStore((state) => state.pollingInterval);
@@ -296,7 +303,12 @@ export default function SettingsPage() {
   const handleRemoveAccount = async () => {
     if (!user) return;
     await invoke("cmd_logout", { accountId: user.login });
+    removeAccountHost(user.login);
   };
+
+  const activeHostLabel = hostDisplayLabel(
+    user ? accountHosts[user.login] : undefined,
+  );
 
   return (
     <div className="flex h-full flex-col">
@@ -309,10 +321,28 @@ export default function SettingsPage() {
       />
       <div className="flex-1 overflow-y-auto">
         {activeTab === "accounts" && (
-          <Section title="Accounts" action={<InlineButton>Add account</InlineButton>}>
+          <Section
+            title="Accounts"
+            action={
+              <InlineButton onClick={() => setAddingAccount((v) => !v)}>
+                {addingAccount ? "Cancel" : "Add account"}
+              </InlineButton>
+            }
+          >
             <Row label="Active account">
               <div className="flex items-center justify-between gap-3">
-                <span className="truncate">{user?.login ?? "Not signed in"}</span>
+                <div className="min-w-0">
+                  <span className="truncate block">{user?.login ?? "Not signed in"}</span>
+                  {user && (
+                    <span
+                      className="text-xs"
+                      style={{ color: "var(--text-muted)" }}
+                      data-testid="active-account-host"
+                    >
+                      {activeHostLabel}
+                    </span>
+                  )}
+                </div>
                 <span
                   className="rounded-full px-2 py-0.5 text-[11px] font-medium"
                   style={{
@@ -330,6 +360,19 @@ export default function SettingsPage() {
                 <InlineButton onClick={() => void handleRemoveAccount()}>Remove</InlineButton>
               </div>
             </Row>
+            {addingAccount && (
+              <Row label="Add with PAT">
+                <div className="max-w-md">
+                  <PATTab
+                    onSuccess={(nextUser, hostWebBase) => {
+                      setAccountHost(nextUser.login, hostWebBase);
+                      setUser(nextUser);
+                      setAddingAccount(false);
+                    }}
+                  />
+                </div>
+              </Row>
+            )}
           </Section>
         )}
 

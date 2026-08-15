@@ -1,11 +1,9 @@
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 
-use crate::auth::token_store::{load_last_account_id, load_token};
 use crate::cache::issues::upsert_issue;
 use crate::commands::sync::run_sync_for_scopes;
 use crate::db::SqlitePool;
-use crate::github::client::GithubClient;
 use crate::github::types::{Issue, IssueComment};
 use crate::sync::types::{SyncReport, SyncScope, SyncStepStatus};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -332,9 +330,9 @@ pub async fn cmd_get_issue<R: Runtime>(
     repo: String,
     number: u32,
 ) -> Result<IssueSummary, String> {
-    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
-    let token = load_token(&account_id).ok_or_else(|| "no token for account".to_string())?;
-    let client = GithubClient::new(token);
+    let account_id = crate::auth::token_store::load_last_account_id()
+        .ok_or_else(|| "no signed-in account".to_string())?;
+    let client = crate::github::client::client_for_active_account()?;
     let issue = crate::github::rest::get_issue(&client, &owner, &repo, number)
         .await
         .map_err(|e| e.to_string())?;
@@ -371,9 +369,7 @@ pub async fn cmd_list_issue_comments(
     repo: String,
     number: u32,
 ) -> Result<Vec<CommentSummary>, String> {
-    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
-    let token = load_token(&account_id).ok_or_else(|| "no token for account".to_string())?;
-    let client = GithubClient::new(token);
+    let client = crate::github::client::client_for_active_account()?;
     let comments = crate::github::rest::list_issue_comments(&client, &owner, &repo, number)
         .await
         .map_err(|e| e.to_string())?;
@@ -456,9 +452,7 @@ pub async fn cmd_list_issue_timeline(
     repo: String,
     number: u32,
 ) -> Result<Vec<TimelineEventSummary>, String> {
-    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
-    let token = load_token(&account_id).ok_or_else(|| "no token for account".to_string())?;
-    let client = GithubClient::new(token);
+    let client = crate::github::client::client_for_active_account()?;
     let events = crate::github::rest::list_issue_timeline(&client, &owner, &repo, number)
         .await
         .map_err(|e| e.to_string())?;
@@ -478,9 +472,9 @@ pub async fn cmd_toggle_issue_reaction(
     if !crate::github::rest::is_valid_reaction_content(&content) {
         return Err(format!("invalid reaction content: {content}"));
     }
-    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
-    let token = load_token(&account_id).ok_or_else(|| "no token for account".to_string())?;
-    let client = GithubClient::new(token);
+    let account_id = crate::auth::token_store::load_last_account_id()
+        .ok_or_else(|| "no signed-in account".to_string())?;
+    let client = crate::github::client::client_for_active_account()?;
 
     let existing = if let Some(cid) = comment_id {
         crate::github::rest::list_issue_comment_reactions_by_content(
@@ -564,9 +558,7 @@ pub async fn cmd_update_issue<R: Runtime>(
     if state.is_none() && labels.is_none() && assignees.is_none() {
         return Err("at least one of state, labels, assignees is required".to_string());
     }
-    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
-    let token = load_token(&account_id).ok_or_else(|| "no token for account".to_string())?;
-    let client = GithubClient::new(token);
+    let client = crate::github::client::client_for_active_account()?;
     let state_owned = state.map(|s| s.to_lowercase());
     if let Some(ref s) = state_owned {
         if !matches!(s.as_str(), "open" | "closed") {

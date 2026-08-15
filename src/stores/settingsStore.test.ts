@@ -11,6 +11,8 @@ describe("settingsStore", () => {
     localStorage.clear();
     useSettingsStore.setState({
       watchedRepositories: [],
+      hosts: [{ id: "github.com", baseUrl: "https://api.github.com", label: "github.com" }],
+      accountHosts: {},
       notificationSettings: {
         enabled: true,
         ciFailures: "immediate",
@@ -27,6 +29,21 @@ describe("settingsStore", () => {
       notificationRules: [],
       repoNotificationRules: {},
     });
+  });
+
+  it("defaults hosts to github.com and stores accountHosts", () => {
+    const state = useSettingsStore.getState();
+    expect(state.hosts).toEqual([
+      { id: "github.com", baseUrl: "https://api.github.com", label: "github.com" },
+    ]);
+    expect(state.accountHosts).toEqual({});
+
+    state.setAccountHost("octocat", "https://github.example.com");
+    expect(useSettingsStore.getState().accountHosts.octocat).toBe("https://github.example.com");
+    expect(useSettingsStore.getState().hosts.map((h) => h.id)).toContain("github.example.com");
+
+    useSettingsStore.getState().removeAccountHost("octocat");
+    expect(useSettingsStore.getState().accountHosts.octocat).toBeUndefined();
   });
 
   it("defaults to 60 second polling and enabled notifications", () => {

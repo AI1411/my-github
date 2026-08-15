@@ -1,7 +1,5 @@
 use serde::Serialize;
 
-use crate::auth::token_store::{load_last_account_id, load_token};
-use crate::github::client::GithubClient;
 use crate::github::rest::{search_code, search_issues, search_repositories};
 use crate::github::types::{CodeSearchItem, RepoSearchItem, SearchIssueItem};
 
@@ -42,9 +40,7 @@ fn search_item_to_result(item: &SearchIssueItem) -> SearchResultItem {
 
 #[tauri::command]
 pub async fn cmd_search_github(query: String) -> Result<Vec<SearchResultItem>, String> {
-    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
-    let token = load_token(&account_id).ok_or_else(|| "no token".to_string())?;
-    let client = GithubClient::new(token);
+    let client = crate::github::client::client_for_active_account()?;
     let items = search_issues(&client, &query)
         .await
         .map_err(|e| e.to_string())?;
@@ -76,9 +72,9 @@ fn build_repo_search_query(query: &str, login: &str) -> String {
 
 #[tauri::command]
 pub async fn cmd_search_repositories(query: String) -> Result<Vec<RepoSearchResult>, String> {
-    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
-    let token = load_token(&account_id).ok_or_else(|| "no token".to_string())?;
-    let client = GithubClient::new(token);
+    let account_id = crate::auth::token_store::load_last_account_id()
+        .ok_or_else(|| "no signed-in account".to_string())?;
+    let client = crate::github::client::client_for_active_account()?;
     let scoped_query = build_repo_search_query(&query, &account_id);
     let items = search_repositories(&client, &scoped_query)
         .await
@@ -133,9 +129,7 @@ pub async fn cmd_search_code(repo: String, query: String) -> Result<Vec<CodeSear
     if query.is_empty() {
         return Err("query is required".to_string());
     }
-    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
-    let token = load_token(&account_id).ok_or_else(|| "no token".to_string())?;
-    let client = GithubClient::new(token);
+    let client = crate::github::client::client_for_active_account()?;
     let scoped = build_code_search_query(&query, &repo);
     let items = search_code(&client, &scoped)
         .await

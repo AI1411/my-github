@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { DeviceFlowTab } from "./components/DeviceFlowTab";
 import { PATTab } from "./components/PATTab";
+import { DEFAULT_GITHUB_WEB_BASE } from "../lib/githubHost";
+import { useSettingsStore } from "../stores/settingsStore";
 
 type Tab = "oauth" | "pat";
 
@@ -15,8 +17,10 @@ interface LoginPageProps {
 
 export default function LoginPage({ onSuccess }: LoginPageProps) {
   const [activeTab, setActiveTab] = useState<Tab>("oauth");
+  const setAccountHost = useSettingsStore((s) => s.setAccountHost);
 
-  const handleAuthSuccess = (user: AuthUser) => {
+  const handleAuthSuccess = (user: AuthUser, hostWebBase?: string) => {
+    setAccountHost(user.login, hostWebBase ?? DEFAULT_GITHUB_WEB_BASE);
     onSuccess?.(user);
   };
 

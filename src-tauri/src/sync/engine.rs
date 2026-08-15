@@ -17,10 +17,19 @@ pub struct SyncEngine<'a> {
 }
 
 impl<'a> SyncEngine<'a> {
-    pub fn new(pool: &'a SqlitePool, token: String, user: PatUser) -> Self {
+    pub fn new(
+        pool: &'a SqlitePool,
+        token: String,
+        user: PatUser,
+        api_base: Option<String>,
+    ) -> Self {
+        let client = match api_base {
+            Some(base) if !base.is_empty() => GithubClient::with_base_url(token, base),
+            _ => GithubClient::new(token),
+        };
         Self {
             pool,
-            client: GithubClient::new(token),
+            client,
             user,
         }
     }
