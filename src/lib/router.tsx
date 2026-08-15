@@ -3,6 +3,7 @@ import { AppShell } from "../components/layout/AppShell";
 import { Sidebar } from "../components/layout/Sidebar";
 import { ErrorBoundary } from "../components/common/ErrorBoundary";
 import InboxPage from "../pages/InboxPage";
+import ReviewQueuePage from "../pages/ReviewQueuePage";
 import PullsPage from "../pages/PullsPage";
 import IssuesPage from "../pages/IssuesPage";
 import ActivityPage from "../pages/ActivityPage";
@@ -38,6 +39,7 @@ export function createAppRouter(onSignOut: () => void) {
       children: [
         { index: true, element: <Navigate to="/inbox" replace /> },
         { path: "inbox", element: <InboxPage /> },
+        { path: "review-queue", element: <ReviewQueuePage /> },
         { path: "pulls", element: <PullsPage /> },
         { path: "pulls/:owner/:repo/:number", element: <PullDetailPage /> },
         { path: "issues", element: <IssuesPage /> },
