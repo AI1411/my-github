@@ -13,6 +13,11 @@ export function homePathForLayout(layout: AppearanceLayout): string {
   return layout === "pulls-first" ? "/pulls" : "/inbox";
 }
 
+/** Virtualized list row height for the current density setting. */
+export function listRowHeight(density: "compact" | "comfortable"): number {
+  return density === "compact" ? 40 : 56;
+}
+
 /** Apply theme/density/layout attributes on documentElement. */
 export function applyAppearanceToDocument(opts: {
   theme: AppearanceTheme;

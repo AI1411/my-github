@@ -14,6 +14,7 @@ import { useListSearch } from "../hooks/useListSearch";
 import { useDetailPrefetch } from "../hooks/useDetailPrefetch";
 import { matchesListSearch } from "../lib/listSearch";
 import { isOwnPullStale } from "../lib/stalePulls";
+import { listRowHeight } from "../lib/appearance";
 import { pullFilterToQuery, queryToPullFilter } from "../lib/savedFilters";
 import { useAuthStore } from "../stores/authStore";
 import { useSettingsStore, type PinnedPullRef } from "../stores/settingsStore";
@@ -27,8 +28,6 @@ const TABS: TabItem<PullTab>[] = [
   { id: "mentioned", label: "Mentioned" },
   { id: "all", label: "All" },
 ];
-
-const ROW_HEIGHT = 56;
 
 export default function PullsPage() {
   const [searchParams] = useSearchParams();
@@ -44,9 +43,8 @@ export default function PullsPage() {
   const accountId = useAuthStore((s) => s.user?.login ?? "");
   const currentUser = useAuthStore((s) => s.user?.login ?? null);
   const staleThresholds = useSettingsStore((s) => s.staleThresholds);
-  const pinnedRefs = useSettingsStore(
-    (s) => s.pinnedPullsByAccount[accountId] ?? EMPTY_PINS,
-  );
+  const density = useSettingsStore((s) => s.density);
+  const pinnedRefs = useSettingsStore((s) => s.pinnedPullsByAccount[accountId] ?? EMPTY_PINS);
   const togglePinnedPull = useSettingsStore((s) => s.togglePinnedPull);
   const listSearch = useListSearch(accountId, "pulls");
 
@@ -94,7 +92,7 @@ export default function PullsPage() {
   const rowVirtualizer = useVirtualizer({
     count: visiblePulls.length,
     getScrollElement: () => containerRef.current,
-    estimateSize: () => ROW_HEIGHT,
+    estimateSize: () => listRowHeight(density),
     overscan: 10,
   });
 

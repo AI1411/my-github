@@ -44,12 +44,13 @@ export function IssueRow({ issue, selected, onSelect, onOpen, style }: IssueRowP
       onKeyDown={(e) => {
         if (e.key === "Enter") onOpen?.();
       }}
-      className="px-4 py-2 cursor-pointer border-b outline-none"
+      className="px-4 cursor-pointer border-b outline-none"
       style={{
         ...GRID,
         ...style,
         backgroundColor: bg,
         borderColor: "var(--border-subtle)",
+        paddingBlock: "var(--row-pad-y)",
       }}
     >
       <div style={{ justifySelf: "center" }}>

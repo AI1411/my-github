@@ -21,6 +21,11 @@ describe("InboxItemRow", () => {
     expect(screen.getByText("Fix critical bug")).toBeInTheDocument();
   });
 
+  it("uses density-aware vertical padding", () => {
+    render(<InboxItemRow item={item} />);
+    expect(screen.getByRole("row")).toHaveStyle({ paddingBlock: "var(--row-pad-y)" });
+  });
+
   it("renders repo and number", () => {
     render(<InboxItemRow item={item} />);
     expect(screen.getByText(/octocat\/hello/)).toBeInTheDocument();

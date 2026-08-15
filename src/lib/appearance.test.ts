@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { homePathForLayout, resolveTheme } from "./appearance";
+import { homePathForLayout, listRowHeight, resolveTheme } from "./appearance";
 
 describe("resolveTheme", () => {
   it("resolves system from prefers-color-scheme", () => {
@@ -13,5 +13,12 @@ describe("homePathForLayout", () => {
   it("maps layout presets to routes", () => {
     expect(homePathForLayout("inbox-first")).toBe("/inbox");
     expect(homePathForLayout("pulls-first")).toBe("/pulls");
+  });
+});
+
+describe("listRowHeight", () => {
+  it("uses a shorter row in compact density", () => {
+    expect(listRowHeight("compact")).toBe(40);
+    expect(listRowHeight("comfortable")).toBe(56);
   });
 });
