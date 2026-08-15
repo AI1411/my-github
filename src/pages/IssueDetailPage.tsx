@@ -13,6 +13,7 @@ import type { ReactionInfo } from "../components/issues/ReactionPills";
 import { useIssueQuery } from "../features/issues/useIssueQuery";
 import { useIssueCommentsQuery } from "../features/issues/useIssueCommentsQuery";
 import { useIssueTimelineQuery } from "../features/issues/useIssueTimelineQuery";
+import { enqueueWrite } from "../lib/writeQueue";
 import { useDataStore, type IssueSummary } from "../stores/dataStore";
 
 export default function IssueDetailPage() {
@@ -41,15 +42,16 @@ export default function IssueDetailPage() {
     if (!owner || !repo || !num) return;
     setBusy(true);
     setActionError(null);
+    const args = {
+      owner,
+      repo,
+      number: num,
+      state: payload.state ?? null,
+      labels: payload.labels ?? null,
+      assignees: payload.assignees ?? null,
+    };
     try {
-      const updated = await invoke<IssueSummary>("cmd_update_issue", {
-        owner,
-        repo,
-        number: num,
-        state: payload.state ?? null,
-        labels: payload.labels ?? null,
-        assignees: payload.assignees ?? null,
-      });
+      const updated = await invoke<IssueSummary>("cmd_update_issue", args);
       setIssue(updated);
       patchIssue(updated.repo, updated.number, {
         state: updated.state,
@@ -57,7 +59,12 @@ export default function IssueDetailPage() {
         assignees: updated.assignees,
       });
     } catch (e) {
-      setActionError(e instanceof Error ? e.message : String(e));
+      if (typeof navigator !== "undefined" && navigator.onLine === false) {
+        enqueueWrite({ command: "cmd_update_issue", args });
+        setActionError("Offline — update queued for retry");
+      } else {
+        setActionError(e instanceof Error ? e.message : String(e));
+      }
     } finally {
       setBusy(false);
     }

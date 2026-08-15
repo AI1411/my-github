@@ -5,6 +5,7 @@ import { NotificationPollingContext } from "../../features/activity/Notification
 import { useNotificationPolling } from "../../features/activity/useNotificationPolling";
 import { useOnlineStatus } from "../../hooks/useOnlineStatus";
 import { useFocusResumeRevalidate } from "../../hooks/useFocusResumeRevalidate";
+import { useWriteQueue } from "../../hooks/useWriteQueue";
 import { loadDigestLastSeen, shouldShowDigest } from "../../lib/digest";
 import { registerAppNotificationClickHandler } from "../../lib/notifications";
 import { useSettingsStore } from "../../stores/settingsStore";
@@ -25,6 +26,7 @@ export function AppShell({ sidebar, main, secondary }: AppShellProps) {
   useOnlineStatus();
   const polling = useNotificationPolling();
   useFocusResumeRevalidate(polling.refetch);
+  const { pendingCount, flushing, retry, discardAll } = useWriteQueue();
   const navigate = useNavigate();
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
   const offline = useUiStore((s) => s.offline);
@@ -147,6 +149,40 @@ export function AppShell({ sidebar, main, secondary }: AppShellProps) {
               Offline
             </div>
           )}
+          {pendingCount > 0 && (
+            <div
+              role="status"
+              data-testid="pending-writes-banner"
+              className="border-b px-4 py-2 text-xs font-semibold flex items-center gap-3"
+              style={{
+                backgroundColor: "rgba(56, 139, 253, 0.12)",
+                borderColor: "var(--border-default)",
+                color: "var(--text-secondary)",
+              }}
+            >
+              <span>
+                {pendingCount} pending write{pendingCount === 1 ? "" : "s"}
+              </span>
+              <button
+                type="button"
+                className="underline disabled:opacity-50"
+                style={{ color: "var(--accent-blue, #58a6ff)" }}
+                disabled={flushing}
+                onClick={() => void retry()}
+              >
+                {flushing ? "Retrying…" : "Retry"}
+              </button>
+              <button
+                type="button"
+                className="underline disabled:opacity-50"
+                style={{ color: "var(--text-muted)" }}
+                disabled={flushing}
+                onClick={() => discardAll()}
+              >
+                Discard
+              </button>
+            </div>
+          )}
           {rateLimitHit && (
             <div
               role="status"
@@ -176,8 +212,8 @@ export function AppShell({ sidebar, main, secondary }: AppShellProps) {
                 color: "var(--text-secondary)",
               }}
             >
-              Push-assisted sync is on: no GitHub webhooks — freshness comes from sync-on-focus
-              and a shorter poll while focused.
+              Push-assisted sync is on: no GitHub webhooks — freshness comes from sync-on-focus and
+              a shorter poll while focused.
             </div>
           )}
           {main}
