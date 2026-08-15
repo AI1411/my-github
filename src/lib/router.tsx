@@ -13,6 +13,7 @@ import UnitDashboardPage from "../pages/UnitDashboardPage";
 import ReleasesPage from "../pages/ReleasesPage";
 import DiscussionsPage from "../pages/DiscussionsPage";
 import ProjectsPage from "../pages/ProjectsPage";
+import CodeSearchPage from "../pages/CodeSearchPage";
 import SettingsPage from "../pages/SettingsPage";
 import PullDetailPage from "../pages/PullDetailPage";
 import IssueDetailPage from "../pages/IssueDetailPage";
@@ -56,6 +57,7 @@ export function createAppRouter(onSignOut: () => void) {
         { path: "releases", element: <ReleasesPage /> },
         { path: "discussions", element: <DiscussionsPage /> },
         { path: "projects", element: <ProjectsPage /> },
+        { path: "code-search", element: <CodeSearchPage /> },
         { path: "ci", element: <CiStatusPage /> },
         { path: "settings", element: <SettingsPage /> },
         { path: "*", element: <NotFoundPage /> },

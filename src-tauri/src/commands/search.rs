@@ -2,8 +2,8 @@ use serde::Serialize;
 
 use crate::auth::token_store::{load_last_account_id, load_token};
 use crate::github::client::GithubClient;
-use crate::github::rest::{search_issues, search_repositories};
-use crate::github::types::{RepoSearchItem, SearchIssueItem};
+use crate::github::rest::{search_code, search_issues, search_repositories};
+use crate::github::types::{CodeSearchItem, RepoSearchItem, SearchIssueItem};
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -86,10 +86,67 @@ pub async fn cmd_search_repositories(query: String) -> Result<Vec<RepoSearchResu
     Ok(items.iter().map(repo_item_to_result).collect())
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodeSearchResult {
+    pub name: String,
+    pub path: String,
+    pub sha: String,
+    pub html_url: String,
+    pub snippet: String,
+}
+
+/// Build `q` for GET /search/code — `terms repo:owner/name`.
+fn build_code_search_query(query: &str, repo: &str) -> String {
+    let q = query.trim();
+    let r = repo.trim();
+    if q.is_empty() {
+        format!("repo:{r}")
+    } else {
+        format!("{q} repo:{r}")
+    }
+}
+
+fn code_item_to_result(item: &CodeSearchItem) -> CodeSearchResult {
+    let snippet = item
+        .text_matches
+        .iter()
+        .find_map(|m| m.fragment.as_ref())
+        .cloned()
+        .unwrap_or_default();
+    CodeSearchResult {
+        name: item.name.clone(),
+        path: item.path.clone(),
+        sha: item.sha.clone(),
+        html_url: item.html_url.clone(),
+        snippet,
+    }
+}
+
+#[tauri::command]
+pub async fn cmd_search_code(repo: String, query: String) -> Result<Vec<CodeSearchResult>, String> {
+    let repo = repo.trim().to_string();
+    let query = query.trim().to_string();
+    if repo.is_empty() {
+        return Err("repo is required".to_string());
+    }
+    if query.is_empty() {
+        return Err("query is required".to_string());
+    }
+    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
+    let token = load_token(&account_id).ok_or_else(|| "no token".to_string())?;
+    let client = GithubClient::new(token);
+    let scoped = build_code_search_query(&query, &repo);
+    let items = search_code(&client, &scoped)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(items.iter().map(code_item_to_result).collect())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::github::types::{SearchIssueItem, User};
+    use crate::github::types::{CodeSearchTextMatch, SearchIssueItem, User};
 
     fn user() -> User {
         User {
@@ -171,5 +228,49 @@ mod tests {
         assert!(json.contains("\"fullName\""));
         assert!(json.contains("\"stars\""));
         assert!(json.contains("\"private\""));
+    }
+
+    #[test]
+    fn build_code_search_query_appends_repo() {
+        assert_eq!(
+            build_code_search_query("fn ping", "octocat/hello"),
+            "fn ping repo:octocat/hello"
+        );
+        assert_eq!(
+            build_code_search_query("  path:src ", "o/r"),
+            "path:src repo:o/r"
+        );
+    }
+
+    #[test]
+    fn code_item_to_result_uses_first_fragment() {
+        let item = CodeSearchItem {
+            name: "lib.rs".into(),
+            path: "src/lib.rs".into(),
+            sha: "abc".into(),
+            html_url: "https://github.com/o/r/blob/main/src/lib.rs".into(),
+            text_matches: vec![CodeSearchTextMatch {
+                fragment: Some("pub fn ping() {}".into()),
+                property: Some("content".into()),
+            }],
+        };
+        let r = code_item_to_result(&item);
+        assert_eq!(r.path, "src/lib.rs");
+        assert_eq!(r.snippet, "pub fn ping() {}");
+        assert_eq!(r.html_url, item.html_url);
+    }
+
+    #[test]
+    fn code_search_result_serializes_camel_case() {
+        let r = CodeSearchResult {
+            name: "a.rs".into(),
+            path: "src/a.rs".into(),
+            sha: "1".into(),
+            html_url: "https://github.com/o/r/blob/HEAD/src/a.rs".into(),
+            snippet: "hi".into(),
+        };
+        let json = serde_json::to_string(&r).unwrap();
+        assert!(json.contains("\"htmlUrl\""));
+        assert!(json.contains("\"snippet\""));
     }
 }

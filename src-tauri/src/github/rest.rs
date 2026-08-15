@@ -1,8 +1,9 @@
 use crate::github::client::{ClientError, GithubClient, RateLimitInfo};
 use crate::github::types::{
-    CheckRunsResponse, Issue, IssueComment, Notification, PullCommit, PullRequest, PullRequestFile,
-    PullReviewComment, Reaction, Release, RepoSearchItem, RepoSearchResponse, Repository, Review,
-    SearchIssueItem, SearchIssuesResponse, TimelineEvent, WorkflowRun, WorkflowRunsResponse,
+    CheckRunsResponse, CodeSearchItem, CodeSearchResponse, Issue, IssueComment, Notification,
+    PullCommit, PullRequest, PullRequestFile, PullReviewComment, Reaction, Release, RepoSearchItem,
+    RepoSearchResponse, Repository, Review, SearchIssueItem, SearchIssuesResponse, TimelineEvent,
+    WorkflowRun, WorkflowRunsResponse,
 };
 use serde::Serialize;
 
@@ -1156,6 +1157,28 @@ pub async fn search_repositories(
     Ok(r.items)
 }
 
+pub async fn search_code(
+    client: &GithubClient,
+    query: &str,
+) -> Result<Vec<CodeSearchItem>, ClientError> {
+    let encoded = query.replace(' ', "+");
+    let resp = client
+        .get(&format!("/search/code?q={}&per_page=30", encoded))
+        .header("Accept", "application/vnd.github.text-match+json")
+        .send()
+        .await?;
+    let status = resp.status();
+    if !status.is_success() {
+        let message = resp.text().await.unwrap_or_default();
+        return Err(ClientError::Api {
+            status: status.as_u16(),
+            message,
+        });
+    }
+    let r: CodeSearchResponse = resp.json().await?;
+    Ok(r.items)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1397,6 +1420,17 @@ mod tests {
         let encoded = query.replace(' ', "+");
         let path = format!("/search/issues?q={}&per_page=10", encoded);
         assert_eq!(path, "/search/issues?q=is:open+label:bug&per_page=10");
+    }
+
+    #[test]
+    fn search_code_builds_correct_path() {
+        let query = "ping repo:octocat/hello";
+        let encoded = query.replace(' ', "+");
+        let path = format!("/search/code?q={}&per_page=30", encoded);
+        assert_eq!(
+            path,
+            "/search/code?q=ping+repo:octocat/hello&per_page=30"
+        );
     }
 
     #[test]
