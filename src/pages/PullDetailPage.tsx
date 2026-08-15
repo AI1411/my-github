@@ -11,6 +11,7 @@ import { useSettingsStore } from "../stores/settingsStore";
 import { useCloseDetailShortcut } from "../hooks/useCloseDetailShortcut";
 import { useInboxQueueAdvance } from "../hooks/useInboxQueueAdvance";
 import { useFileDiffNav } from "../hooks/useFileDiffNav";
+import { useOpenInBrowserShortcut } from "../hooks/useOpenInBrowserShortcut";
 import { CiBanner } from "../components/pulls/CiBanner";
 import { CommentDraftPanel } from "../components/pulls/CommentDraftPanel";
 import { ReviewCommentsPanel } from "../components/pulls/ReviewCommentsPanel";
@@ -62,6 +63,7 @@ export default function PullDetailPage() {
   const pull = useDataStore((s) =>
     s.pulls.find((p) => p.repo === `${owner}/${repo}` && p.number === num),
   );
+  useOpenInBrowserShortcut(pull?.htmlUrl ?? null);
   const accountId = useAuthStore((s) => s.user?.login ?? "");
   const repoFull = owner && repo ? `${owner}/${repo}` : "";
   const pinned = useSettingsStore((s) => {
