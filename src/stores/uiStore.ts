@@ -1,12 +1,18 @@
 import { create } from "zustand";
 import type { IssueFilter } from "../features/issues/issueFilter";
 
+export interface RateLimitBannerState {
+  remaining: number;
+  reset: number;
+}
+
 export interface UiState {
   selectedItemId: string | null;
   sidebarCollapsed: boolean;
   commandPaletteOpen: boolean;
   workspaceSwitcherOpen: boolean;
   offline: boolean;
+  rateLimitHit: RateLimitBannerState | null;
   issueFilters: IssueFilter;
   setSelectedItemId: (id: string | null) => void;
   toggleSidebar: () => void;
@@ -17,6 +23,7 @@ export interface UiState {
   openWorkspaceSwitcher: () => void;
   closeWorkspaceSwitcher: () => void;
   setOffline: (offline: boolean) => void;
+  setRateLimitHit: (info: RateLimitBannerState | null) => void;
   setIssueFilters: (filter: IssueFilter) => void;
 }
 
@@ -26,6 +33,7 @@ export const useUiStore = create<UiState>((set) => ({
   commandPaletteOpen: false,
   workspaceSwitcherOpen: false,
   offline: false,
+  rateLimitHit: null,
   issueFilters: { labels: [] },
   setSelectedItemId: (id) => set({ selectedItemId: id }),
   toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
@@ -36,5 +44,6 @@ export const useUiStore = create<UiState>((set) => ({
   openWorkspaceSwitcher: () => set({ workspaceSwitcherOpen: true }),
   closeWorkspaceSwitcher: () => set({ workspaceSwitcherOpen: false }),
   setOffline: (offline) => set({ offline }),
+  setRateLimitHit: (info) => set({ rateLimitHit: info }),
   setIssueFilters: (filter) => set({ issueFilters: filter }),
 }));
