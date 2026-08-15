@@ -467,6 +467,158 @@ pub async fn cmd_submit_pull_review<R: Runtime>(
     })
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReviewCommentSummary {
+    pub id: u64,
+    pub user_login: String,
+    pub body: String,
+    pub path: String,
+    pub html_url: String,
+    pub created_at: String,
+    pub in_reply_to_id: Option<u64>,
+    pub has_suggestion: bool,
+    pub line: Option<u64>,
+}
+
+#[tauri::command]
+pub async fn cmd_list_pull_review_comments(
+    owner: String,
+    repo: String,
+    number: u32,
+) -> Result<Vec<ReviewCommentSummary>, String> {
+    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
+    let token = load_token(&account_id).ok_or_else(|| "no token for account".to_string())?;
+    let client = GithubClient::new(token);
+    let comments = crate::github::rest::list_pull_review_comments(&client, &owner, &repo, number)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(comments
+        .into_iter()
+        .map(|c| ReviewCommentSummary {
+            id: c.id,
+            user_login: c.user.login,
+            body: c.body.clone(),
+            path: c.path,
+            html_url: c.html_url,
+            created_at: c.created_at,
+            in_reply_to_id: c.in_reply_to_id,
+            has_suggestion: crate::github::rest::extract_suggestion_block(&c.body).is_some(),
+            line: c.line.or(c.original_line),
+        })
+        .collect())
+}
+
+#[tauri::command]
+pub async fn cmd_reply_pull_review_comment(
+    owner: String,
+    repo: String,
+    number: u32,
+    comment_id: u64,
+    body: String,
+) -> Result<ReviewCommentSummary, String> {
+    if body.trim().is_empty() {
+        return Err("reply body is required".to_string());
+    }
+    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
+    let token = load_token(&account_id).ok_or_else(|| "no token for account".to_string())?;
+    let client = GithubClient::new(token);
+    let c = crate::github::rest::reply_pull_review_comment(
+        &client,
+        &owner,
+        &repo,
+        number,
+        comment_id,
+        body.trim(),
+    )
+    .await
+    .map_err(format_mutation_api_error)?;
+    Ok(ReviewCommentSummary {
+        id: c.id,
+        user_login: c.user.login,
+        body: c.body.clone(),
+        path: c.path,
+        html_url: c.html_url,
+        created_at: c.created_at,
+        in_reply_to_id: c.in_reply_to_id,
+        has_suggestion: crate::github::rest::extract_suggestion_block(&c.body).is_some(),
+        line: c.line.or(c.original_line),
+    })
+}
+
+fn apply_suggestion_to_content(content: &str, line: Option<u64>, suggestion: &str) -> String {
+    let ends_with_newline = content.ends_with('\n');
+    let mut lines: Vec<String> = content.lines().map(|l| l.to_string()).collect();
+    let suggestion_lines: Vec<String> = suggestion.lines().map(|l| l.to_string()).collect();
+    if let Some(line) = line {
+        let idx = (line as usize).saturating_sub(1);
+        if idx < lines.len() {
+            lines.splice(idx..=idx, suggestion_lines);
+        } else {
+            lines.extend(suggestion_lines);
+        }
+    } else {
+        lines = suggestion_lines;
+    }
+    let mut out = lines.join("\n");
+    if ends_with_newline {
+        out.push('\n');
+    }
+    out
+}
+
+#[tauri::command]
+pub async fn cmd_apply_pull_suggestion(
+    owner: String,
+    repo: String,
+    number: u32,
+    comment_id: u64,
+) -> Result<(), String> {
+    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
+    let token = load_token(&account_id).ok_or_else(|| "no token for account".to_string())?;
+    let client = GithubClient::new(token);
+    let comments = crate::github::rest::list_pull_review_comments(&client, &owner, &repo, number)
+        .await
+        .map_err(|e| e.to_string())?;
+    let comment = comments
+        .into_iter()
+        .find(|c| c.id == comment_id)
+        .ok_or_else(|| "review comment not found".to_string())?;
+    let suggestion = crate::github::rest::extract_suggestion_block(&comment.body)
+        .ok_or_else(|| "comment has no suggestion block".to_string())?;
+    let pr = get_pull_request(&client, &owner, &repo, number)
+        .await
+        .map_err(|e| e.to_string())?;
+    let branch = pr.head.ref_name.clone();
+    let git_ref = comment
+        .commit_id
+        .clone()
+        .unwrap_or_else(|| pr.head.sha.clone());
+    let (sha, content) = crate::github::rest::get_file_contents(
+        &client,
+        &owner,
+        &repo,
+        &comment.path,
+        &git_ref,
+    )
+    .await
+    .map_err(format_mutation_api_error)?;
+    let next = apply_suggestion_to_content(&content, comment.line.or(comment.original_line), &suggestion);
+    crate::github::rest::update_file_contents(
+        &client,
+        &owner,
+        &repo,
+        &comment.path,
+        &format!("Apply suggestion from review comment"),
+        &next,
+        &sha,
+        &branch,
+    )
+    .await
+    .map_err(format_mutation_api_error)?;
+    Ok(())
+}
+
 fn format_mutation_api_error(err: crate::github::client::ClientError) -> String {
     match err {
         crate::github::client::ClientError::Api { status: 403, .. } => {

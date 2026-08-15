@@ -10,6 +10,7 @@ import { useDataStore } from "../stores/dataStore";
 import { useSettingsStore } from "../stores/settingsStore";
 import { CiBanner } from "../components/pulls/CiBanner";
 import { CommentDraftPanel } from "../components/pulls/CommentDraftPanel";
+import { ReviewCommentsPanel } from "../components/pulls/ReviewCommentsPanel";
 import { MergeReadinessBadge } from "../components/pulls/MergeReadinessBadge";
 import { PrSummaryCard } from "../components/pulls/PrSummaryCard";
 import { PrSidebar } from "../components/pulls/PrSidebar";
@@ -218,6 +219,7 @@ export default function PullDetailPage() {
                   commits: null,
                 }}
               />
+              <ReviewCommentsPanel owner={owner ?? ""} repo={repo ?? ""} number={num ?? 0} />
               <CommentDraftPanel
                 owner={owner ?? ""}
                 repo={repo ?? ""}
