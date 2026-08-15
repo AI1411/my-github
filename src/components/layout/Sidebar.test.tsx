@@ -37,6 +37,7 @@ describe("Sidebar badge integration", () => {
       density: "comfortable",
       shortcuts: DEFAULT_SHORTCUTS,
       pinnedPullsByAccount: {},
+      recentPullsByAccount: {},
     });
     useDataStore.setState({
       pulls: [],
@@ -146,6 +147,31 @@ describe("Sidebar badge integration", () => {
     expect(screen.getByText("Pinned")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Watch me/ })).toHaveAttribute("href", "/pulls/o/r/7");
     expect(screen.getByLabelText("CI failing")).toBeInTheDocument();
+  });
+
+  it("lists recent pulls for the active account", () => {
+    useSettingsStore.setState({
+      recentPullsByAccount: {
+        octocat: [
+          {
+            repo: "o/r",
+            number: 3,
+            title: "Recent work",
+            openedAt: "2026-08-15T00:00:00.000Z",
+          },
+        ],
+      },
+    });
+    render(
+      <MemoryRouter>
+        <Sidebar />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText("Recent")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Recent work/ })).toHaveAttribute(
+      "href",
+      "/pulls/o/r/3",
+    );
   });
 
   it("shows cross-account attention total in the workspace header", async () => {

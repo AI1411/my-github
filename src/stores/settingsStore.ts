@@ -1,8 +1,11 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { createSavedSearch, type SavedSearch } from "../lib/advancedSearch";
+import { pushRecent, type RecentPullRef } from "../lib/recentPulls";
 import { DEFAULT_STALE_THRESHOLDS, type StaleThresholds } from "../lib/stalePulls";
 import type { SavedFilter } from "../lib/savedFilters";
+
+export type { RecentPullRef };
 
 export type PollingInterval = "30s" | "60s" | "5m" | "off";
 export type AppearanceDensity = "compact" | "comfortable";
@@ -108,6 +111,7 @@ export interface SettingsState {
   savedFilters: SavedFilter[];
   savedSearches: SavedSearch[];
   pinnedPullsByAccount: Record<string, PinnedPullRef[]>;
+  recentPullsByAccount: Record<string, RecentPullRef[]>;
   repoNotificationRules: RepoNotificationRules;
   releaseNotificationsEnabled: boolean;
   setReleaseNotificationsEnabled: (enabled: boolean) => void;
@@ -116,6 +120,10 @@ export interface SettingsState {
   shortcutChipsEnabled: boolean;
   setShortcutChipsEnabled: (enabled: boolean) => void;
   togglePinnedPull: (accountId: string, repo: string, number: number) => void;
+  recordRecentPull: (
+    accountId: string,
+    entry: Omit<RecentPullRef, "openedAt"> & { openedAt?: string },
+  ) => void;
   setRepoNotificationRule: (
     repo: string,
     key: keyof RepoNotificationRule,
@@ -155,6 +163,7 @@ export const useSettingsStore = create<SettingsState>()(
       savedFilters: [],
       savedSearches: [],
       pinnedPullsByAccount: {},
+      recentPullsByAccount: {},
       repoNotificationRules: {},
       releaseNotificationsEnabled: true,
       setReleaseNotificationsEnabled: (enabled) => set({ releaseNotificationsEnabled: enabled }),
@@ -241,6 +250,23 @@ export const useSettingsStore = create<SettingsState>()(
             },
           };
         }),
+      recordRecentPull: (accountId, entry) =>
+        set((state) => {
+          if (!accountId) return state;
+          const current = state.recentPullsByAccount[accountId] ?? [];
+          const next = pushRecent(current, {
+            repo: entry.repo,
+            number: entry.number,
+            title: entry.title,
+            openedAt: entry.openedAt ?? new Date().toISOString(),
+          });
+          return {
+            recentPullsByAccount: {
+              ...state.recentPullsByAccount,
+              [accountId]: next,
+            },
+          };
+        }),
       addWatchedRepository: (repo) =>
         set((state) => {
           const normalized = normalizeRepo(repo);
@@ -312,6 +338,7 @@ export const useSettingsStore = create<SettingsState>()(
         savedFilters: state.savedFilters,
         savedSearches: state.savedSearches,
         pinnedPullsByAccount: state.pinnedPullsByAccount,
+        recentPullsByAccount: state.recentPullsByAccount,
         repoNotificationRules: state.repoNotificationRules,
         releaseNotificationsEnabled: state.releaseNotificationsEnabled,
         digestAutoShowEnabled: state.digestAutoShowEnabled,
