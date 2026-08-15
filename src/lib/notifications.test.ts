@@ -3,6 +3,7 @@ import type { Options } from "@tauri-apps/plugin-notification";
 import {
   enabledForKind,
   ensureNotificationPermission,
+  priorityForKind,
   registerAppNotificationClickHandler,
   sendAppNotification,
 } from "./notifications";
@@ -19,9 +20,9 @@ vi.mock("@tauri-apps/plugin-notification", () => notificationPlugin);
 
 const settings = {
   enabled: true,
-  ciFailures: "immediate",
-  reviewRequests: "immediate",
-  mentions: "immediate",
+  ciFailures: "immediate" as const,
+  reviewRequests: "immediate" as const,
+  mentions: "immediate" as const,
 };
 
 const reviewNotification = {
@@ -58,15 +59,82 @@ describe("ensureNotificationPermission", () => {
   });
 });
 
-describe("enabledForKind", () => {
+describe("priorityForKind / enabledForKind", () => {
   it("falls back to global settings when no repo rule exists", () => {
+    expect(priorityForKind("ciFailure", settings, { repo: "octocat/hello" })).toBe("immediate");
+    expect(
+      priorityForKind(
+        "ciFailure",
+        { ...settings, ciFailures: "off" },
+        { repo: "octocat/hello" },
+      ),
+    ).toBe("off");
     expect(enabledForKind("ciFailure", settings, "octocat/hello", {})).toBe(true);
     expect(
       enabledForKind("ciFailure", { ...settings, ciFailures: "off" }, "octocat/hello", {}),
     ).toBe(false);
   });
 
-  it("prefers the repo rule over global settings", () => {
+  it("prefers notificationRules priority over global settings", () => {
+    const notificationRules = [
+      {
+        id: "1",
+        repo: "octocat/hello",
+        kind: "ciFailures" as const,
+        priority: "digest" as const,
+      },
+      {
+        id: "2",
+        repo: "octocat/hello",
+        kind: "reviewRequests" as const,
+        priority: "immediate" as const,
+      },
+      {
+        id: "3",
+        repo: "octocat/hello",
+        kind: "mentions" as const,
+        priority: "off" as const,
+      },
+    ];
+    expect(
+      priorityForKind("ciFailure", settings, { repo: "octocat/hello", notificationRules }),
+    ).toBe("digest");
+    expect(
+      priorityForKind("reviewRequest", settings, { repo: "octocat/hello", notificationRules }),
+    ).toBe("immediate");
+    expect(
+      priorityForKind("mention", settings, { repo: "octocat/hello", notificationRules }),
+    ).toBe("off");
+    expect(enabledForKind("ciFailure", settings, "octocat/hello", {}, notificationRules)).toBe(
+      false,
+    );
+    expect(
+      enabledForKind("reviewRequest", settings, "octocat/hello", {}, notificationRules),
+    ).toBe(true);
+  });
+
+  it("prefers notificationRules over legacy boolean repo rules", () => {
+    const repoRules = {
+      "octocat/hello": { ciFailures: false, reviewRequests: true, mentions: true },
+    };
+    const notificationRules = [
+      {
+        id: "1",
+        repo: "octocat/hello",
+        kind: "ciFailures" as const,
+        priority: "immediate" as const,
+      },
+    ];
+    expect(
+      priorityForKind("ciFailure", settings, {
+        repo: "octocat/hello",
+        repoRules,
+        notificationRules,
+      }),
+    ).toBe("immediate");
+  });
+
+  it("uses legacy boolean repo rules when no notificationRule matches", () => {
     const rules = {
       "octocat/hello": { ciFailures: false, reviewRequests: true, mentions: false },
     };
@@ -76,25 +144,48 @@ describe("enabledForKind", () => {
   });
 
   it("keeps the master switch authoritative even with a permissive rule", () => {
-    const rules = {
-      "octocat/hello": { ciFailures: true, reviewRequests: true, mentions: true },
-    };
+    const notificationRules = [
+      {
+        id: "1",
+        repo: "octocat/hello",
+        kind: "ciFailures" as const,
+        priority: "immediate" as const,
+      },
+    ];
     expect(
-      enabledForKind("ciFailure", { ...settings, enabled: false }, "octocat/hello", rules),
-    ).toBe(false);
+      priorityForKind(
+        "ciFailure",
+        { ...settings, enabled: false },
+        { repo: "octocat/hello", notificationRules },
+      ),
+    ).toBe("off");
   });
 
   it("uses global settings for repositories without a rule", () => {
-    const rules = {
-      "octocat/other": { ciFailures: false, reviewRequests: false, mentions: false },
-    };
-    expect(enabledForKind("mention", settings, "octocat/hello", rules)).toBe(true);
+    const notificationRules = [
+      {
+        id: "1",
+        repo: "octocat/other",
+        kind: "mentions" as const,
+        priority: "off" as const,
+      },
+    ];
+    expect(
+      priorityForKind("mention", settings, { repo: "octocat/hello", notificationRules }),
+    ).toBe("immediate");
   });
 
   it("treats digest delivery as non-immediate", () => {
     expect(
       enabledForKind("mention", { ...settings, mentions: "digest" }, "octocat/hello", {}),
     ).toBe(false);
+    expect(
+      priorityForKind(
+        "mention",
+        { ...settings, mentions: "digest" },
+        { repo: "octocat/hello" },
+      ),
+    ).toBe("digest");
   });
 });
 
@@ -118,6 +209,39 @@ describe("sendAppNotification with repo rules", () => {
     });
     expect(sent).toBe(true);
     expect(notificationPlugin.sendNotification).toHaveBeenCalledTimes(1);
+  });
+
+  it("respects notificationRules priority over legacy rules", async () => {
+    const sent = await sendAppNotification(
+      reviewNotification,
+      settings,
+      {
+        "AI1411/my-github": { ciFailures: true, reviewRequests: false, mentions: true },
+      },
+      [
+        {
+          id: "r1",
+          repo: "AI1411/my-github",
+          kind: "reviewRequests",
+          priority: "immediate",
+        },
+      ],
+    );
+    expect(sent).toBe(true);
+    expect(notificationPlugin.sendNotification).toHaveBeenCalledTimes(1);
+  });
+
+  it("suppresses when notificationRules priority is digest", async () => {
+    const sent = await sendAppNotification(reviewNotification, settings, {}, [
+      {
+        id: "r1",
+        repo: "AI1411/my-github",
+        kind: "reviewRequests",
+        priority: "digest",
+      },
+    ]);
+    expect(sent).toBe(false);
+    expect(notificationPlugin.sendNotification).not.toHaveBeenCalled();
   });
 });
 

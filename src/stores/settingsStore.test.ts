@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   DEFAULT_SHORTCUTS,
+  normalizeNotificationRules,
   normalizeNotificationSettings,
   useSettingsStore,
 } from "./settingsStore";
@@ -23,6 +24,8 @@ describe("settingsStore", () => {
       shortcuts: DEFAULT_SHORTCUTS,
       pinnedPullsByAccount: {},
       recentPullsByAccount: {},
+      notificationRules: [],
+      repoNotificationRules: {},
     });
   });
 
@@ -72,6 +75,18 @@ describe("settingsStore", () => {
       reviewRequests: "off",
       mentions: "immediate",
     });
+  });
+
+  it("normalizes notification rules and drops invalid entries", () => {
+    expect(
+      normalizeNotificationRules([
+        { id: "ok", repo: "o/r", kind: "ciFailures", priority: "digest" },
+        { repo: " ", kind: "mentions", priority: "off" },
+        { id: "bad-kind", repo: "o/r", kind: "other", priority: "immediate" },
+        { id: "bad-pri", repo: "o/r", kind: "mentions", priority: "loud" },
+        null,
+      ]),
+    ).toEqual([{ id: "ok", repo: "o/r", kind: "ciFailures", priority: "digest" }]);
   });
 
   it("customizes and resets shortcuts", () => {
@@ -170,5 +185,44 @@ describe("settingsStore", () => {
 
     useSettingsStore.getState().removeSavedSearch(searches[0].id);
     expect(useSettingsStore.getState().savedSearches).toEqual([]);
+  });
+
+  it("adds, updates, and removes notification rules by repo × kind", () => {
+    useSettingsStore.setState({ notificationRules: [] });
+    useSettingsStore.getState().addNotificationRule({
+      repo: " octocat/hello ",
+      kind: "ciFailures",
+      priority: "digest",
+    });
+    useSettingsStore.getState().addNotificationRule({
+      repo: "octocat/hello",
+      kind: "ciFailures",
+      priority: "off",
+    });
+    useSettingsStore.getState().addNotificationRule({
+      repo: "octocat/hello",
+      kind: "mentions",
+      priority: "immediate",
+    });
+
+    const rules = useSettingsStore.getState().notificationRules;
+    expect(rules).toHaveLength(2);
+    expect(rules.find((rule) => rule.kind === "ciFailures")).toMatchObject({
+      repo: "octocat/hello",
+      priority: "off",
+    });
+
+    const mentions = rules.find((rule) => rule.kind === "mentions");
+    expect(mentions).toBeTruthy();
+    useSettingsStore.getState().updateNotificationRule(mentions!.id, {
+      priority: "digest",
+    });
+    expect(
+      useSettingsStore.getState().notificationRules.find((rule) => rule.id === mentions!.id)
+        ?.priority,
+    ).toBe("digest");
+
+    useSettingsStore.getState().removeNotificationRule(mentions!.id);
+    expect(useSettingsStore.getState().notificationRules).toHaveLength(1);
   });
 });
