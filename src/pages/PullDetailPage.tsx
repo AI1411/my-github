@@ -12,6 +12,7 @@ import { CiBanner } from "../components/pulls/CiBanner";
 import { CommentDraftPanel } from "../components/pulls/CommentDraftPanel";
 import { ReviewCommentsPanel } from "../components/pulls/ReviewCommentsPanel";
 import { MergeReadinessBadge } from "../components/pulls/MergeReadinessBadge";
+import { ReviewContextPanel } from "../components/pulls/ReviewContextPanel";
 import { PrSummaryCard } from "../components/pulls/PrSummaryCard";
 import { PrSidebar } from "../components/pulls/PrSidebar";
 import { PrFooterBar } from "../components/pulls/PrFooterBar";
@@ -256,6 +257,14 @@ export default function PullDetailPage() {
                   commits: null,
                 }}
               />
+              {owner && repo && num !== undefined && (
+                <ReviewContextPanel
+                  owner={owner}
+                  repo={repo}
+                  number={num}
+                  reviewState={pull.reviewState}
+                />
+              )}
               <ReviewCommentsPanel owner={owner ?? ""} repo={repo ?? ""} number={num ?? 0} />
               <CommentDraftPanel
                 owner={owner ?? ""}

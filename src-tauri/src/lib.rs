@@ -44,6 +44,7 @@ pub fn run() {
             commands::pulls::cmd_list_pulls,
             commands::pulls::cmd_get_pull_files,
             commands::pulls::cmd_get_merge_readiness,
+            commands::pulls::cmd_get_review_context,
             commands::pulls::cmd_submit_pull_review,
             commands::pulls::cmd_merge_pull,
             commands::pulls::cmd_set_pull_state,

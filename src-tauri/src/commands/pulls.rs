@@ -415,6 +415,116 @@ pub async fn cmd_get_merge_readiness(
     Ok(compute_merge_readiness(&pr, &reviews, &runs))
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReviewContextReviewer {
+    pub login: String,
+    pub avatar_url: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReviewContextTeam {
+    pub slug: String,
+    pub name: String,
+    pub combined_slug: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReviewContextReview {
+    pub login: String,
+    pub state: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReviewContext {
+    pub requested_reviewers: Vec<ReviewContextReviewer>,
+    pub requested_teams: Vec<ReviewContextTeam>,
+    pub changed_files: Vec<String>,
+    pub codeowners_text: Option<String>,
+    pub codeowners_path: Option<String>,
+    pub reviews: Vec<ReviewContextReview>,
+}
+
+const CODEOWNERS_CANDIDATES: &[&str] = &["CODEOWNERS", "docs/CODEOWNERS", ".github/CODEOWNERS"];
+
+async fn load_codeowners(
+    client: &crate::github::client::GithubClient,
+    owner: &str,
+    repo: &str,
+    git_ref: &str,
+) -> (Option<String>, Option<String>) {
+    for path in CODEOWNERS_CANDIDATES {
+        match crate::github::rest::get_file_contents(client, owner, repo, path, git_ref).await {
+            Ok((_sha, text)) => return (Some(text), Some((*path).to_string())),
+            Err(_) => continue,
+        }
+    }
+    (None, None)
+}
+
+/// CODEOWNERS text + requested users/teams + reviews for PR detail context.
+#[tauri::command]
+pub async fn cmd_get_review_context(
+    owner: String,
+    repo: String,
+    number: u32,
+) -> Result<ReviewContext, String> {
+    let client = crate::github::client::client_for_active_account()?;
+    let pr = get_pull_request(&client, &owner, &repo, number)
+        .await
+        .map_err(|e| e.to_string())?;
+    let files = get_pull_request_files(&client, &owner, &repo, number)
+        .await
+        .unwrap_or_default();
+    let reviews = list_pull_request_reviews(&client, &owner, &repo, number)
+        .await
+        .unwrap_or_default();
+    let (codeowners_text, codeowners_path) =
+        load_codeowners(&client, &owner, &repo, &pr.base.ref_name).await;
+
+    let requested_teams = pr
+        .requested_teams
+        .iter()
+        .map(|t| {
+            let org = t
+                .organization
+                .as_ref()
+                .map(|o| o.login.as_str())
+                .unwrap_or(owner.as_str());
+            ReviewContextTeam {
+                slug: t.slug.clone(),
+                name: t.name.clone(),
+                combined_slug: format!("{org}/{}", t.slug),
+            }
+        })
+        .collect();
+
+    Ok(ReviewContext {
+        requested_reviewers: pr
+            .requested_reviewers
+            .into_iter()
+            .map(|u| ReviewContextReviewer {
+                login: u.login,
+                avatar_url: u.avatar_url,
+            })
+            .collect(),
+        requested_teams,
+        changed_files: files.into_iter().map(|f| f.filename).collect(),
+        codeowners_text,
+        codeowners_path,
+        reviews: reviews
+            .into_iter()
+            .map(|r| ReviewContextReview {
+                login: r.user.login,
+                state: r.state,
+            })
+            .collect(),
+    })
+}
+
 #[tauri::command]
 pub async fn cmd_get_pull_files(
     owner: String,
@@ -900,6 +1010,7 @@ mod tests {
                 repo: None,
             },
             requested_reviewers: vec![],
+            requested_teams: vec![],
             mergeable: None,
             mergeable_state: None,
         }
