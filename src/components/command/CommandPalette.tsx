@@ -1,6 +1,12 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
+import {
+  defaultSavedSearchName,
+  isAdvancedSearchQuery,
+  shouldRunGithubSearch,
+} from "../../lib/advancedSearch";
+import { useSettingsStore } from "../../stores/settingsStore";
 import { useUiStore } from "../../stores/uiStore";
 import { useDataStore } from "../../stores/dataStore";
 import { useKeyboardShortcut } from "../../hooks/useKeyboardShortcut";
@@ -9,8 +15,10 @@ interface CommandItem {
   id: string;
   label: string;
   subtitle?: string;
-  kind: "nav" | "pr" | "issue" | "search" | "next";
+  kind: "nav" | "pr" | "issue" | "search" | "next" | "saved" | "action";
   href?: string;
+  /** When true, selecting fills the query and keeps the palette open. */
+  keepOpen?: boolean;
   action?: () => void;
 }
 
@@ -33,6 +41,8 @@ const KIND_LABEL: Record<CommandItem["kind"], string> = {
   issue: "ISS",
   search: "GH",
   next: "!",
+  saved: "★",
+  action: "+",
 };
 
 function fuzzyMatch(query: string, target: string): boolean {
@@ -45,14 +55,19 @@ export function CommandPalette() {
   const toggle = useUiStore((s) => s.toggleCommandPalette);
   const pulls = useDataStore((s) => s.pulls);
   const issues = useDataStore((s) => s.issues);
+  const savedSearches = useSettingsStore((s) => s.savedSearches);
+  const addSavedSearch = useSettingsStore((s) => s.addSavedSearch);
   const navigate = useNavigate();
 
   const [query, setQuery] = useState("");
+  const [searchMode, setSearchMode] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [remoteResults, setRemoteResults] = useState<CommandItem[]>([]);
   const [searching, setSearching] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const advanced = searchMode || isAdvancedSearchQuery(query);
 
   useKeyboardShortcut({ key: "k", meta: true, preventDefault: true }, toggle, {
     allowInInputs: true,
@@ -61,6 +76,7 @@ export function CommandPalette() {
   useEffect(() => {
     if (isOpen) {
       setQuery("");
+      setSearchMode(false);
       setSelectedIndex(0);
       setRemoteResults([]);
       setTimeout(() => inputRef.current?.focus(), 0);
@@ -68,8 +84,36 @@ export function CommandPalette() {
   }, [isOpen]);
 
   const localItems = useMemo((): CommandItem[] => {
-    const nextActions: CommandItem[] = [];
+    if (advanced && query.trim()) {
+      const alreadySaved = savedSearches.some((s) => s.query === query.trim());
+      const saveItem: CommandItem | null = alreadySaved
+        ? null
+        : {
+            id: "action-save-search",
+            label: "Save this search",
+            subtitle: query.trim(),
+            kind: "action",
+            keepOpen: true,
+            action: () => {
+              addSavedSearch(defaultSavedSearchName(query), query);
+            },
+          };
+      return saveItem ? [saveItem] : [];
+    }
+
     if (!query) {
+      const savedItems: CommandItem[] = savedSearches.map((s) => ({
+        id: `saved-${s.id}`,
+        label: s.name,
+        subtitle: s.query,
+        kind: "saved" as const,
+        keepOpen: true,
+        action: () => {
+          setSearchMode(true);
+          setQuery(s.query);
+        },
+      }));
+      const nextActions: CommandItem[] = [];
       for (const pull of pulls) {
         if (pull.state !== "open" || pull.isDraft) continue;
         if (pull.ciState === "failure") {
@@ -95,8 +139,9 @@ export function CommandPalette() {
         }
         if (nextActions.length >= 5) break;
       }
-      return [...nextActions, ...NAV_COMMANDS];
+      return [...savedItems, ...nextActions, ...NAV_COMMANDS];
     }
+
     const navMatches = NAV_COMMANDS.filter((c) => fuzzyMatch(query, c.label));
     const prMatches = pulls
       .filter((p) => fuzzyMatch(query, p.title) || fuzzyMatch(query, p.repo))
@@ -123,16 +168,21 @@ export function CommandPalette() {
         }),
       );
     return [...navMatches, ...prMatches, ...issueMatches];
-  }, [query, pulls, issues]);
+  }, [query, pulls, issues, advanced, savedSearches, addSavedSearch]);
 
-  const allItems = useMemo(() => [...localItems, ...remoteResults], [localItems, remoteResults]);
+  const allItems = useMemo(() => {
+    if (advanced && query.trim()) {
+      return [...remoteResults, ...localItems];
+    }
+    return [...localItems, ...remoteResults];
+  }, [localItems, remoteResults, advanced, query]);
 
   useEffect(() => {
     setSelectedIndex(0);
   }, [allItems.length]);
 
   useEffect(() => {
-    if (!query || query.length < 3) {
+    if (!shouldRunGithubSearch(query, searchMode)) {
       setRemoteResults([]);
       return;
     }
@@ -149,10 +199,11 @@ export function CommandPalette() {
           repo: string;
           kind: string;
         }[]
-      >("cmd_search_github", { query })
+      >("cmd_search_github", { query: query.trim() })
         .then((results) => {
+          const limit = advanced ? 10 : 5;
           setRemoteResults(
-            results.slice(0, 5).map((r) => ({
+            results.slice(0, limit).map((r) => ({
               id: `gh-${r.id}`,
               label: r.title,
               subtitle: `#${r.number} · ${r.repo} · GitHub`,
@@ -170,10 +221,14 @@ export function CommandPalette() {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query]);
+  }, [query, searchMode, advanced]);
 
   const handleSelect = (item: CommandItem) => {
     item.action?.();
+    if (item.keepOpen) {
+      setSelectedIndex(0);
+      return;
+    }
     if (item.href) navigate(item.href);
     close();
   };
@@ -181,6 +236,11 @@ export function CommandPalette() {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Escape") {
       close();
+      return;
+    }
+    if (e.key === "Tab") {
+      e.preventDefault();
+      setSearchMode((mode) => !mode);
       return;
     }
     if (e.key === "ArrowDown") {
@@ -220,10 +280,25 @@ export function CommandPalette() {
           <span className="mr-2 text-sm" style={{ color: "var(--text-muted)" }}>
             ⌘
           </span>
+          {searchMode && (
+            <span
+              className="mr-2 text-xs px-1.5 py-0.5 rounded"
+              style={{
+                color: "var(--text-primary)",
+                backgroundColor: "var(--bg-tertiary)",
+              }}
+            >
+              Search
+            </span>
+          )}
           <input
             ref={inputRef}
             type="text"
-            placeholder="Search or jump to…"
+            placeholder={
+              searchMode
+                ? "GitHub search (is:pr, repo:…)"
+                : "Search or jump to… (Tab: search mode)"
+            }
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -237,9 +312,21 @@ export function CommandPalette() {
           )}
         </div>
         <div className="max-h-80 overflow-y-auto py-1">
+          {!query && savedSearches.length > 0 && (
+            <p
+              className="px-4 pt-2 pb-1 text-xs font-medium uppercase tracking-wide"
+              style={{ color: "var(--text-muted)" }}
+            >
+              Saved searches
+            </p>
+          )}
           {allItems.length === 0 && (
             <p className="px-4 py-3 text-sm" style={{ color: "var(--text-muted)" }}>
-              No results
+              {advanced && query.trim()
+                ? searching
+                  ? "Searching…"
+                  : "No GitHub results"
+                : "No results"}
             </p>
           )}
           {allItems.map((item, i) => (
@@ -281,6 +368,7 @@ export function CommandPalette() {
         >
           <span>↑↓ navigate</span>
           <span>↵ select</span>
+          <span>Tab search</span>
           <span>Esc close</span>
         </div>
       </div>

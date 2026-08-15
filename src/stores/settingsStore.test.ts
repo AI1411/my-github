@@ -101,4 +101,22 @@ describe("settingsStore", () => {
 
     expect(localStorage.getItem("pulse-settings")).toContain("30s");
   });
+
+  it("adds and removes saved searches without duplicate queries", () => {
+    useSettingsStore.setState({ savedSearches: [] });
+    useSettingsStore.getState().addSavedSearch("My reviews", "is:pr review-requested:@me");
+    useSettingsStore.getState().addSavedSearch("Dup", "is:pr review-requested:@me");
+    useSettingsStore.getState().addSavedSearch("  ", "is:issue");
+
+    const searches = useSettingsStore.getState().savedSearches;
+    expect(searches).toHaveLength(1);
+    expect(searches[0]).toMatchObject({
+      name: "My reviews",
+      query: "is:pr review-requested:@me",
+    });
+    expect(searches[0].id).toBeTruthy();
+
+    useSettingsStore.getState().removeSavedSearch(searches[0].id);
+    expect(useSettingsStore.getState().savedSearches).toEqual([]);
+  });
 });
