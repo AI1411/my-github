@@ -44,10 +44,11 @@ export function InboxItemRow({
       onKeyDown={(e) => {
         if (e.key === "Enter") onSelect?.();
       }}
-      className="group px-4 py-3 flex items-start gap-3 cursor-pointer border-b outline-none"
+      className="group px-4 flex items-start gap-3 cursor-pointer border-b outline-none"
       style={{
         backgroundColor: selected ? "var(--bg-overlay)" : "transparent",
         borderColor: "var(--border-subtle)",
+        paddingBlock: "var(--row-pad-y)",
       }}
     >
       {item.unread ? (

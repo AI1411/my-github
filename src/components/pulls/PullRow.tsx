@@ -34,11 +34,7 @@ export function PullRow({
   style,
 }: PullRowProps) {
   const kind = classifyPull(pull);
-  const bg = selected
-    ? "var(--bg-overlay)"
-    : stale
-      ? "rgba(251, 146, 60, 0.08)"
-      : "transparent";
+  const bg = selected ? "var(--bg-overlay)" : stale ? "rgba(251, 146, 60, 0.08)" : "transparent";
   return (
     <div
       role="row"
@@ -50,12 +46,13 @@ export function PullRow({
           onOpen?.();
         }
       }}
-      className="px-4 py-2 cursor-pointer border-b outline-none"
+      className="px-4 cursor-pointer border-b outline-none"
       style={{
         ...GRID,
         ...style,
         backgroundColor: bg,
         borderColor: stale ? "rgba(251, 146, 60, 0.35)" : "var(--border-subtle)",
+        paddingBlock: "var(--row-pad-y)",
       }}
       aria-label={stale ? `${pull.title} (stale)` : undefined}
     >

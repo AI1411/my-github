@@ -29,10 +29,11 @@ export function ActivityRow({ notification, selected, onSelect }: ActivityRowPro
       onKeyDown={(e) => {
         if (e.key === "Enter") onSelect?.();
       }}
-      className="px-4 py-2.5 flex items-start gap-3 cursor-pointer border-b outline-none"
+      className="px-4 flex items-start gap-3 cursor-pointer border-b outline-none"
       style={{
         backgroundColor: selected ? "var(--bg-overlay)" : "transparent",
         borderColor: "var(--border-subtle)",
+        paddingBlock: "var(--row-pad-y)",
       }}
     >
       <span
