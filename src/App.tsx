@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useAppearanceEffect } from "./hooks/useAppearanceEffect";
+import { useWindowTitle } from "./hooks/useWindowTitle";
 import { useAuthStore, type AuthUser } from "./stores/authStore";
 import { isAuthExpiredError } from "./lib/authErrors";
 import { useDataStore } from "./stores/dataStore";
@@ -9,6 +10,7 @@ import { AppRouter } from "./lib/router";
 
 function App() {
   useAppearanceEffect();
+  useWindowTitle();
   const status = useAuthStore((s) => s.status);
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
