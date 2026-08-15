@@ -9,6 +9,7 @@ import { SnoozePicker } from "../components/inbox/SnoozePicker";
 import { useInboxQuery } from "../features/inbox/useInboxQuery";
 import { useKeyboardShortcut } from "../hooks/useKeyboardShortcut";
 import { useListNavigation } from "../hooks/useListNavigation";
+import { focusAfterRemoval } from "../lib/inboxFocus";
 import {
   loadLastSnoozeOption,
   saveLastSnoozeOption,
@@ -115,6 +116,43 @@ export default function InboxPage() {
     return resolveSnoozeTarget(activeItem ?? selected, flatItems);
   }
 
+  async function handleDismiss(item: InboxItem) {
+    const target = resolveSnoozeTarget(item, flatItems);
+    if (!target) return;
+    const idsBefore = flatItems.map((entry) => entry.id);
+    const nextId = focusAfterRemoval(idsBefore, item.id);
+    try {
+      await invoke("cmd_dismiss_inbox_item", { itemId: target.id });
+      setPickerOpen(false);
+      if (nextId) {
+        setActiveId(nextId);
+        setSelected(flatItems.find((entry) => entry.id === nextId) ?? null);
+      } else {
+        setSelected(null);
+      }
+      refetch();
+    } catch {
+      // 失敗時は項目が残るだけなので黙って無視する
+    }
+  }
+
+  async function handleDismissAll() {
+    const targets = new Set<string>();
+    for (const item of flatItems) {
+      const resolved = resolveSnoozeTarget(item, flatItems);
+      if (resolved) targets.add(resolved.id);
+    }
+    if (targets.size === 0) return;
+    try {
+      await invoke("cmd_dismiss_inbox_items", { itemIds: [...targets] });
+      setPickerOpen(false);
+      setSelected(null);
+      refetch();
+    } catch {
+      // 失敗時は項目が残るだけなので黙って無視する
+    }
+  }
+
   useKeyboardShortcut(
     { key: "h", preventDefault: true },
     () => {
@@ -135,6 +173,24 @@ export default function InboxPage() {
       } else {
         setPickerOpen(true);
       }
+    },
+    {},
+  );
+
+  useKeyboardShortcut(
+    { key: "x", preventDefault: true },
+    () => {
+      const current = activeItem ?? selected;
+      if (!current) return;
+      void handleDismiss(current);
+    },
+    {},
+  );
+
+  useKeyboardShortcut(
+    { key: "x", shift: true, preventDefault: true },
+    () => {
+      void handleDismissAll();
     },
     {},
   );

@@ -190,7 +190,7 @@ fn read_ci_failures(pool: &SqlitePool) -> Result<Vec<InboxItem>, String> {
     Ok(out)
 }
 
-/// Drops snoozed items and floats pinned items to the top of their section,
+/// Drops snoozed / dismissed items and floats pinned items to the top of their section,
 /// preserving the underlying (updated_at desc) order otherwise.
 fn apply_item_states(
     items: Vec<InboxItem>,
@@ -200,9 +200,14 @@ fn apply_item_states(
     let mut out: Vec<InboxItem> = items
         .into_iter()
         .filter(|item| {
-            states
-                .get(&item.id)
-                .and_then(|s| s.snoozed_until)
+            let Some(state) = states.get(&item.id) else {
+                return true;
+            };
+            if state.dismissed {
+                return false;
+            }
+            state
+                .snoozed_until
                 .is_none_or(|until| until <= now)
         })
         .map(|mut item| {
@@ -283,6 +288,34 @@ pub async fn cmd_snooze_inbox_item<R: Runtime>(
         snoozed_until,
     )
     .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn cmd_dismiss_inbox_item<R: Runtime>(
+    app: AppHandle<R>,
+    item_id: String,
+) -> Result<(), String> {
+    let pool = app
+        .try_state::<SqlitePool>()
+        .ok_or_else(|| "db not initialized".to_string())?;
+    let account_db_id =
+        get_active_account_db_id(pool.inner()).ok_or_else(|| "no active account".to_string())?;
+    crate::cache::inbox_state::set_dismissed(pool.inner(), account_db_id, &item_id, true)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn cmd_dismiss_inbox_items<R: Runtime>(
+    app: AppHandle<R>,
+    item_ids: Vec<String>,
+) -> Result<(), String> {
+    let pool = app
+        .try_state::<SqlitePool>()
+        .ok_or_else(|| "db not initialized".to_string())?;
+    let account_db_id =
+        get_active_account_db_id(pool.inner()).ok_or_else(|| "no active account".to_string())?;
+    crate::cache::inbox_state::set_dismissed_many(pool.inner(), account_db_id, &item_ids, true)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -580,6 +613,7 @@ mod tests {
             InboxItemState {
                 pinned: false,
                 snoozed_until: Some(2_000),
+                dismissed: false,
             },
         );
         states.insert(
@@ -587,6 +621,7 @@ mod tests {
             InboxItemState {
                 pinned: false,
                 snoozed_until: Some(500),
+                dismissed: false,
             },
         );
         let items = vec![
@@ -600,6 +635,24 @@ mod tests {
     }
 
     #[test]
+    fn apply_item_states_drops_dismissed_items() {
+        use crate::cache::inbox_state::InboxItemState;
+        let mut states = std::collections::HashMap::new();
+        states.insert(
+            "done".to_string(),
+            InboxItemState {
+                pinned: false,
+                snoozed_until: None,
+                dismissed: true,
+            },
+        );
+        let items = vec![make_item("done"), make_item("plain")];
+        let out = apply_item_states(items, &states, 1_000);
+        let ids: Vec<&str> = out.iter().map(|i| i.id.as_str()).collect();
+        assert_eq!(ids, vec!["plain"]);
+    }
+
+    #[test]
     fn apply_item_states_floats_pinned_to_top_keeping_order() {
         use crate::cache::inbox_state::InboxItemState;
         let mut states = std::collections::HashMap::new();
@@ -608,6 +661,7 @@ mod tests {
             InboxItemState {
                 pinned: true,
                 snoozed_until: None,
+                dismissed: false,
             },
         );
         let items = vec![make_item("a"), make_item("b"), make_item("c")];
