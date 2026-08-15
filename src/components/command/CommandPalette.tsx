@@ -32,6 +32,7 @@ const NAV_COMMANDS: CommandItem[] = [
   { id: "nav-releases", label: "Go to Releases", kind: "nav", href: "/releases" },
   { id: "nav-discussions", label: "Go to Discussions", kind: "nav", href: "/discussions" },
   { id: "nav-projects", label: "Go to Projects", kind: "nav", href: "/projects" },
+  { id: "nav-code-search", label: "Go to Code search", kind: "nav", href: "/code-search" },
   { id: "nav-ci", label: "Go to CI Status", kind: "nav", href: "/ci" },
   { id: "nav-settings", label: "Go to Settings", kind: "nav", href: "/settings" },
 ];

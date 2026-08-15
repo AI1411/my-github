@@ -409,6 +409,28 @@ pub struct RepoSearchResponse {
     pub items: Vec<RepoSearchItem>,
 }
 
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct CodeSearchTextMatch {
+    pub fragment: Option<String>,
+    pub property: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct CodeSearchItem {
+    pub name: String,
+    pub path: String,
+    pub sha: String,
+    pub html_url: String,
+    #[serde(default)]
+    pub text_matches: Vec<CodeSearchTextMatch>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct CodeSearchResponse {
+    pub total_count: u32,
+    pub items: Vec<CodeSearchItem>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1043,6 +1065,25 @@ mod tests {
         assert_eq!(item.id, 500);
         assert_eq!(item.number, 7);
         assert_eq!(item.title, "Fix the thing");
+    }
+
+    #[test]
+    fn code_search_item_deserializes_with_snippet() {
+        let json = r#"{
+            "name": "lib.rs",
+            "path": "src/lib.rs",
+            "sha": "abc123",
+            "html_url": "https://github.com/octocat/hello/blob/main/src/lib.rs",
+            "text_matches": [
+                {
+                    "fragment": "pub fn ping() {}",
+                    "property": "content"
+                }
+            ]
+        }"#;
+        let item: CodeSearchItem = serde_json::from_str(json).unwrap();
+        assert_eq!(item.path, "src/lib.rs");
+        assert_eq!(item.text_matches[0].fragment.as_deref(), Some("pub fn ping() {}"));
     }
 
     #[test]
