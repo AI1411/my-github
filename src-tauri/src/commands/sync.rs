@@ -76,12 +76,13 @@ pub async fn run_sync_for_scopes<R: Runtime>(
         .ok_or_else(|| "sqlite pool not initialized".to_string())?;
     let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
     let token = load_token(&account_id).ok_or_else(|| "no token for account".to_string())?;
+    let api_base = crate::auth::token_store::load_host(&account_id);
     let client = reqwest::Client::new();
-    let (user, _) = validate_pat(&client, &token)
+    let (user, _) = validate_pat(&client, &token, api_base.as_deref())
         .await
         .map_err(|err| err.to_string())?;
 
-    SyncEngine::new(pool.inner(), token, user)
+    SyncEngine::new(pool.inner(), token, user, api_base)
         .sync_now(scopes)
         .await
 }

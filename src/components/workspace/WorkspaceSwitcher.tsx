@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../../stores/authStore";
 import { useDataStore } from "../../stores/dataStore";
+import { useSettingsStore } from "../../stores/settingsStore";
 import { useUiStore } from "../../stores/uiStore";
 import { Avatar } from "../common/Avatar";
 import { useAccountAttentionSummaries } from "../../hooks/useAccountAttentionSummaries";
@@ -13,6 +14,7 @@ import {
   accountSwitchShortcutLabel,
   resolveAccountSwitchTarget,
 } from "../../lib/accountSwitcherShortcut";
+import { hostDisplayLabel } from "../../lib/githubHost";
 
 interface WorkspaceSwitcherProps {
   onSignOut?: () => void;
@@ -37,6 +39,7 @@ export function WorkspaceSwitcher({ onSignOut }: WorkspaceSwitcherProps) {
   const pulls = useDataStore((s) => s.pulls);
   const issues = useDataStore((s) => s.issues);
   const notifications = useDataStore((s) => s.notifications);
+  const accountHosts = useSettingsStore((s) => s.accountHosts);
   // Keep summaries warm so ⌘1–4 works globally, not only while the switcher is open.
   const { summaries } = useAccountAttentionSummaries(true);
   const navigate = useNavigate();
@@ -151,6 +154,7 @@ export function WorkspaceSwitcher({ onSignOut }: WorkspaceSwitcherProps) {
           const total = attentionTotal(acct);
           const isActive = acct.login === user?.login || acct.isActive;
           const shortcut = accountSwitchShortcutLabel(index);
+          const hostLabel = hostDisplayLabel(accountHosts[acct.login]);
           return (
             <button
               key={acct.login}
@@ -167,6 +171,13 @@ export function WorkspaceSwitcher({ onSignOut }: WorkspaceSwitcherProps) {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>
                   {acct.login}
+                </p>
+                <p
+                  className="text-xs truncate"
+                  style={{ color: "var(--text-muted)" }}
+                  data-testid={`account-host-${acct.login}`}
+                >
+                  {hostLabel}
                 </p>
                 <p
                   className="text-xs"

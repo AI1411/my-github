@@ -1,11 +1,18 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { createSavedSearch, type SavedSearch } from "../lib/advancedSearch";
+import {
+  DEFAULT_GITHUB_HOST,
+  hostEntryFromBaseUrl,
+  normalizeGithubWebBaseUrl,
+  type GithubHost,
+} from "../lib/githubHost";
 import { pushRecent, type RecentPullRef } from "../lib/recentPulls";
 import { DEFAULT_STALE_THRESHOLDS, type StaleThresholds } from "../lib/stalePulls";
 import type { SavedFilter } from "../lib/savedFilters";
 
 export type { RecentPullRef };
+export type { GithubHost };
 
 export type PollingInterval = "30s" | "60s" | "5m" | "off";
 export type AppearanceDensity = "compact" | "comfortable";
@@ -133,6 +140,12 @@ export interface PinnedPullRef {
 }
 
 export interface SettingsState {
+  /** Known GitHub hosts (github.com + custom GHES). API routing uses host when set. */
+  hosts: GithubHost[];
+  /** Per-account web base URL (login → https://host). Defaults to github.com when absent. */
+  accountHosts: Record<string, string>;
+  setAccountHost: (login: string, hostUrl: string) => void;
+  removeAccountHost: (login: string) => void;
   watchedRepositories: string[];
   notificationSettings: NotificationSettings;
   pollingInterval: PollingInterval;
@@ -201,6 +214,30 @@ export interface SettingsState {
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
+      hosts: [DEFAULT_GITHUB_HOST],
+      accountHosts: {},
+      setAccountHost: (login, hostUrl) =>
+        set((state) => {
+          const trimmedLogin = login.trim();
+          if (!trimmedLogin) return state;
+          const web = normalizeGithubWebBaseUrl(hostUrl);
+          const entry = hostEntryFromBaseUrl(web);
+          const hosts = state.hosts.some((h) => h.id === entry.id)
+            ? state.hosts
+            : [...state.hosts, entry];
+          return {
+            hosts,
+            accountHosts: {
+              ...state.accountHosts,
+              [trimmedLogin]: web,
+            },
+          };
+        }),
+      removeAccountHost: (login) =>
+        set((state) => {
+          const { [login]: _removed, ...rest } = state.accountHosts;
+          return { accountHosts: rest };
+        }),
       watchedRepositories: [],
       notificationSettings: DEFAULT_NOTIFICATION_SETTINGS,
       pollingInterval: "60s",
@@ -418,9 +455,17 @@ export const useSettingsStore = create<SettingsState>()(
       storage: createJSONStorage(() => localStorage),
       merge: (persisted, current) => {
         const raw = (persisted ?? {}) as Partial<SettingsState>;
+        const hosts =
+          Array.isArray(raw.hosts) && raw.hosts.length > 0 ? raw.hosts : current.hosts;
+        const accountHosts =
+          raw.accountHosts && typeof raw.accountHosts === "object"
+            ? raw.accountHosts
+            : current.accountHosts;
         return {
           ...current,
           ...raw,
+          hosts,
+          accountHosts,
           notificationSettings: normalizeNotificationSettings(
             raw.notificationSettings ?? current.notificationSettings,
           ),
@@ -430,6 +475,8 @@ export const useSettingsStore = create<SettingsState>()(
         };
       },
       partialize: (state) => ({
+        hosts: state.hosts,
+        accountHosts: state.accountHosts,
         watchedRepositories: state.watchedRepositories,
         notificationSettings: state.notificationSettings,
         pollingInterval: state.pollingInterval,

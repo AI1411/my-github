@@ -25,6 +25,8 @@ describe("SettingsPage", () => {
     });
     useSettingsStore.setState({
       watchedRepositories: [],
+      hosts: [{ id: "github.com", baseUrl: "https://api.github.com", label: "github.com" }],
+      accountHosts: {},
       notificationSettings: {
         enabled: true,
         ciFailures: "immediate",
@@ -71,9 +73,16 @@ describe("SettingsPage", () => {
     render(<SettingsPage />);
 
     expect(screen.getByText("octocat")).toBeInTheDocument();
+    expect(screen.getByTestId("active-account-host")).toHaveTextContent("github.com");
     expect(screen.getByRole("button", { name: "Add account" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Reauth" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Remove" })).toBeEnabled();
+  });
+
+  it("shows host URL field when adding an account", () => {
+    render(<SettingsPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Add account" }));
+    expect(screen.getByLabelText("Host URL (optional)")).toBeInTheDocument();
   });
 
   it("adds and removes watched repositories", () => {

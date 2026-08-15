@@ -1,10 +1,8 @@
 use serde::Serialize;
 use tauri::{AppHandle, Manager, Runtime};
 
-use crate::auth::token_store::{load_last_account_id, load_token};
 use crate::cache::releases::{list_recent_releases, upsert_release, CachedRelease};
 use crate::db::SqlitePool;
-use crate::github::client::GithubClient;
 use crate::github::rest::list_releases;
 
 #[derive(Debug, Clone, Serialize)]
@@ -81,8 +79,7 @@ pub async fn cmd_list_releases<R: Runtime>(
     let account_db_id =
         get_active_account_db_id(pool.inner()).ok_or_else(|| "no active account".to_string())?;
 
-    if let Some(token) = load_last_account_id().and_then(|id| load_token(&id)) {
-        let client = GithubClient::new(token);
+    if let Ok(client) = crate::github::client::client_for_active_account() {
         let fetched_at = now_iso8601();
         for (repo_id, full_name) in watched_repos(pool.inner(), account_db_id) {
             let Some((owner, name)) = full_name.split_once('/') else {

@@ -1,10 +1,8 @@
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 
-use crate::auth::token_store::{load_last_account_id, load_token};
 use crate::commands::sync::run_sync_for_scopes;
 use crate::db::SqlitePool;
-use crate::github::client::GithubClient;
 use crate::github::rest::{
     convert_pull_to_draft, create_pull_request_review, get_check_runs, get_pull_request,
     get_pull_request_files, list_pull_request_reviews, mark_pull_ready_for_review,
@@ -403,9 +401,7 @@ pub async fn cmd_get_merge_readiness(
     repo: String,
     number: u32,
 ) -> Result<MergeReadiness, String> {
-    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
-    let token = load_token(&account_id).ok_or_else(|| "no token for account".to_string())?;
-    let client = GithubClient::new(token);
+    let client = crate::github::client::client_for_active_account()?;
     let pr = get_pull_request(&client, &owner, &repo, number)
         .await
         .map_err(|e| e.to_string())?;
@@ -425,9 +421,7 @@ pub async fn cmd_get_pull_files(
     repo: String,
     number: u32,
 ) -> Result<Vec<FileDiff>, String> {
-    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
-    let token = load_token(&account_id).ok_or_else(|| "no token for account".to_string())?;
-    let client = GithubClient::new(token);
+    let client = crate::github::client::client_for_active_account()?;
     let files = get_pull_request_files(&client, &owner, &repo, number)
         .await
         .map_err(|e| e.to_string())?;
@@ -474,9 +468,7 @@ pub async fn cmd_submit_pull_review<R: Runtime>(
         return Err("a review body is required for Request changes and Comment".to_string());
     }
 
-    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
-    let token = load_token(&account_id).ok_or_else(|| "no token for account".to_string())?;
-    let client = GithubClient::new(token);
+    let client = crate::github::client::client_for_active_account()?;
     let review = create_pull_request_review(
         &client,
         &owner,
@@ -529,9 +521,7 @@ pub async fn cmd_list_pull_review_comments(
     repo: String,
     number: u32,
 ) -> Result<Vec<ReviewCommentSummary>, String> {
-    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
-    let token = load_token(&account_id).ok_or_else(|| "no token for account".to_string())?;
-    let client = GithubClient::new(token);
+    let client = crate::github::client::client_for_active_account()?;
     let comments = crate::github::rest::list_pull_review_comments(&client, &owner, &repo, number)
         .await
         .map_err(|e| e.to_string())?;
@@ -562,9 +552,7 @@ pub async fn cmd_reply_pull_review_comment(
     if body.trim().is_empty() {
         return Err("reply body is required".to_string());
     }
-    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
-    let token = load_token(&account_id).ok_or_else(|| "no token for account".to_string())?;
-    let client = GithubClient::new(token);
+    let client = crate::github::client::client_for_active_account()?;
     let c = crate::github::rest::reply_pull_review_comment(
         &client,
         &owner,
@@ -616,9 +604,7 @@ pub async fn cmd_apply_pull_suggestion(
     number: u32,
     comment_id: u64,
 ) -> Result<(), String> {
-    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
-    let token = load_token(&account_id).ok_or_else(|| "no token for account".to_string())?;
-    let client = GithubClient::new(token);
+    let client = crate::github::client::client_for_active_account()?;
     let comments = crate::github::rest::list_pull_review_comments(&client, &owner, &repo, number)
         .await
         .map_err(|e| e.to_string())?;
@@ -678,9 +664,7 @@ pub async fn cmd_list_pull_commits(
     repo: String,
     number: u32,
 ) -> Result<Vec<PullCommitSummary>, String> {
-    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
-    let token = load_token(&account_id).ok_or_else(|| "no token for account".to_string())?;
-    let client = GithubClient::new(token);
+    let client = crate::github::client::client_for_active_account()?;
     let commits = crate::github::rest::list_pull_commits(&client, &owner, &repo, number)
         .await
         .map_err(|e| e.to_string())?;
@@ -720,9 +704,7 @@ pub async fn cmd_list_pull_checks(
     repo: String,
     number: u32,
 ) -> Result<Vec<PullCheckSummary>, String> {
-    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
-    let token = load_token(&account_id).ok_or_else(|| "no token for account".to_string())?;
-    let client = GithubClient::new(token);
+    let client = crate::github::client::client_for_active_account()?;
     let pr = get_pull_request(&client, &owner, &repo, number)
         .await
         .map_err(|e| e.to_string())?;
@@ -774,9 +756,7 @@ pub async fn cmd_merge_pull<R: Runtime>(
     if !matches!(method.as_str(), "merge" | "squash" | "rebase") {
         return Err("merge_method must be merge, squash, or rebase".to_string());
     }
-    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
-    let token = load_token(&account_id).ok_or_else(|| "no token for account".to_string())?;
-    let client = GithubClient::new(token);
+    let client = crate::github::client::client_for_active_account()?;
     merge_pull_request(&client, &owner, &repo, number, &method)
         .await
         .map_err(format_mutation_api_error)?;
@@ -800,9 +780,7 @@ pub async fn cmd_set_pull_state<R: Runtime>(
     if !matches!(state.as_str(), "open" | "closed") {
         return Err("state must be open or closed".to_string());
     }
-    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
-    let token = load_token(&account_id).ok_or_else(|| "no token for account".to_string())?;
-    let client = GithubClient::new(token);
+    let client = crate::github::client::client_for_active_account()?;
     update_issue(
         &client,
         &owner,
@@ -830,9 +808,7 @@ pub async fn cmd_set_pull_draft<R: Runtime>(
     number: u32,
     draft: bool,
 ) -> Result<(), String> {
-    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
-    let token = load_token(&account_id).ok_or_else(|| "no token for account".to_string())?;
-    let client = GithubClient::new(token);
+    let client = crate::github::client::client_for_active_account()?;
     if draft {
         convert_pull_to_draft(&client, &owner, &repo, number)
             .await
@@ -859,9 +835,7 @@ pub async fn cmd_update_pull_reviewers<R: Runtime>(
     add: Option<Vec<String>>,
     remove: Option<Vec<String>>,
 ) -> Result<Vec<String>, String> {
-    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
-    let token = load_token(&account_id).ok_or_else(|| "no token for account".to_string())?;
-    let client = GithubClient::new(token);
+    let client = crate::github::client::client_for_active_account()?;
     if let Some(reviewers) = add.as_ref().filter(|v| !v.is_empty()) {
         request_pull_reviewers(&client, &owner, &repo, number, reviewers)
             .await

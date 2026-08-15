@@ -41,22 +41,46 @@ impl RateLimitInfo {
     }
 }
 
+/// HTTP client for GitHub REST/GraphQL.
+///
+/// Default base is `https://api.github.com`. For GHES, construct with
+/// [`GithubClient::with_base_url`] (typically `https://host/api/v3`).
+/// Call sites that load the active account token should pass the stored
+/// per-account API base when set so requests route to the correct host.
 #[derive(Debug, Clone)]
 pub struct GithubClient {
     inner: reqwest::Client,
     token: String,
+    base_url: String,
 }
 
 impl GithubClient {
     pub fn new(token: impl Into<String>) -> Self {
+        Self::with_base_url(token, GITHUB_API_BASE)
+    }
+
+    /// Create a client pointed at a specific API base (no trailing slash).
+    pub fn with_base_url(token: impl Into<String>, base_url: impl Into<String>) -> Self {
+        let base = base_url.into().trim_end_matches('/').to_string();
         Self {
             inner: reqwest::Client::new(),
             token: token.into(),
+            base_url: if base.is_empty() {
+                GITHUB_API_BASE.to_string()
+            } else {
+                base
+            },
         }
     }
 
-    pub fn base_url() -> &'static str {
+    /// Default github.com API base.
+    pub fn default_base_url() -> &'static str {
         GITHUB_API_BASE
+    }
+
+    /// Instance API base URL (github.com or GHES `/api/v3`).
+    pub fn base_url(&self) -> &str {
+        &self.base_url
     }
 
     pub fn user_agent() -> &'static str {
@@ -64,7 +88,7 @@ impl GithubClient {
     }
 
     pub fn get(&self, path: &str) -> reqwest::RequestBuilder {
-        let url = format!("{}{}", GITHUB_API_BASE, path);
+        let url = format!("{}{}", self.base_url, path);
         self.inner
             .get(url)
             .header("Authorization", format!("Bearer {}", self.token))
@@ -73,7 +97,7 @@ impl GithubClient {
     }
 
     pub fn post(&self, path: &str) -> reqwest::RequestBuilder {
-        let url = format!("{}{}", GITHUB_API_BASE, path);
+        let url = format!("{}{}", self.base_url, path);
         self.inner
             .post(url)
             .header("Authorization", format!("Bearer {}", self.token))
@@ -82,7 +106,7 @@ impl GithubClient {
     }
 
     pub fn put(&self, path: &str) -> reqwest::RequestBuilder {
-        let url = format!("{}{}", GITHUB_API_BASE, path);
+        let url = format!("{}{}", self.base_url, path);
         self.inner
             .put(url)
             .header("Authorization", format!("Bearer {}", self.token))
@@ -91,7 +115,7 @@ impl GithubClient {
     }
 
     pub fn patch(&self, path: &str) -> reqwest::RequestBuilder {
-        let url = format!("{}{}", GITHUB_API_BASE, path);
+        let url = format!("{}{}", self.base_url, path);
         self.inner
             .patch(url)
             .header("Authorization", format!("Bearer {}", self.token))
@@ -100,13 +124,31 @@ impl GithubClient {
     }
 
     pub fn delete(&self, path: &str) -> reqwest::RequestBuilder {
-        let url = format!("{}{}", GITHUB_API_BASE, path);
+        let url = format!("{}{}", self.base_url, path);
         self.inner
             .delete(url)
             .header("Authorization", format!("Bearer {}", self.token))
             .header("User-Agent", USER_AGENT)
             .header("Accept", "application/vnd.github+json")
     }
+}
+
+/// Build a [`GithubClient`] for the given account login using its stored token
+/// and optional GHES API base (`token_store::load_host`).
+pub fn client_for_account(account_id: &str) -> Result<GithubClient, String> {
+    use crate::auth::token_store::{load_host, load_token};
+    let token = load_token(account_id).ok_or_else(|| "no token for account".to_string())?;
+    Ok(match load_host(account_id) {
+        Some(base) if !base.is_empty() => GithubClient::with_base_url(token, base),
+        _ => GithubClient::new(token),
+    })
+}
+
+/// Active-account client (last account id + token + host).
+pub fn client_for_active_account() -> Result<GithubClient, String> {
+    use crate::auth::token_store::load_last_account_id;
+    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
+    client_for_account(&account_id)
 }
 
 #[cfg(test)]
@@ -117,11 +159,24 @@ mod tests {
     fn new_stores_token() {
         let client = GithubClient::new("gho_test123");
         assert_eq!(client.token, "gho_test123");
+        assert_eq!(client.base_url(), GITHUB_API_BASE);
     }
 
     #[test]
-    fn base_url_is_github_api() {
-        assert_eq!(GithubClient::base_url(), "https://api.github.com");
+    fn with_base_url_uses_ghes_api() {
+        let client =
+            GithubClient::with_base_url("gho_x", "https://github.example.com/api/v3/");
+        assert_eq!(client.base_url(), "https://github.example.com/api/v3");
+        let req = client.get("/user").build().unwrap();
+        assert_eq!(
+            req.url().as_str(),
+            "https://github.example.com/api/v3/user"
+        );
+    }
+
+    #[test]
+    fn default_base_url_is_github_api() {
+        assert_eq!(GithubClient::default_base_url(), "https://api.github.com");
     }
 
     #[test]
