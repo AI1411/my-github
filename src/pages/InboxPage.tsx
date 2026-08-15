@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useNavigate } from "react-router-dom";
 import { Toolbar } from "../components/common/Toolbar";
 import { Spinner } from "../components/common/Spinner";
 import { EmptyState } from "../components/common/EmptyState";
@@ -11,6 +12,7 @@ import { useSettingsShortcut } from "../hooks/useSettingsShortcut";
 import { useKeyboardShortcut } from "../hooks/useKeyboardShortcut";
 import { useListNavigation } from "../hooks/useListNavigation";
 import { focusAfterRemoval } from "../lib/inboxFocus";
+import { buildInboxQueue, inboxItemDetailPath, saveInboxQueue } from "../lib/inboxQueue";
 import { CHORD_TIMEOUT_MS } from "../lib/shortcutKeys";
 import {
   loadLastSnoozeOption,
@@ -45,6 +47,7 @@ export function resolveSnoozeTarget(
 }
 
 export default function InboxPage() {
+  const navigate = useNavigate();
   const { data, loading, error, refetch } = useInboxQuery();
   const [selected, setSelected] = useState<InboxItem | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -71,11 +74,24 @@ export default function InboxPage() {
 
   const getId = useCallback((item: InboxItem) => item.id, []);
 
+  const openFromInbox = useCallback(
+    (item: InboxItem) => {
+      const path = inboxItemDetailPath(item);
+      if (!path) {
+        setSelected(item);
+        return;
+      }
+      saveInboxQueue(buildInboxQueue(flatItems), item.id);
+      navigate(`${path}?from=inbox`);
+    },
+    [flatItems, navigate],
+  );
+
   const { activeId, activeItem, setActiveId, registerItemRef } = useListNavigation({
     items: flatItems,
     getId,
     onSelect: setSelected,
-    onOpen: setSelected,
+    onOpen: openFromInbox,
     enabled: flatItems.length > 0 && !pickerOpen,
   });
 
@@ -257,7 +273,7 @@ export default function InboxPage() {
           </div>
           {selected && (
             <div className="overflow-y-auto">
-              <InboxDetailPanel item={selected} />
+              <InboxDetailPanel item={selected} onOpenInApp={openFromInbox} />
             </div>
           )}
         </div>

@@ -9,6 +9,7 @@ import { useAuthStore } from "../stores/authStore";
 import { useDataStore } from "../stores/dataStore";
 import { useSettingsStore } from "../stores/settingsStore";
 import { useCloseDetailShortcut } from "../hooks/useCloseDetailShortcut";
+import { useInboxQueueAdvance } from "../hooks/useInboxQueueAdvance";
 import { CiBanner } from "../components/pulls/CiBanner";
 import { CommentDraftPanel } from "../components/pulls/CommentDraftPanel";
 import { ReviewCommentsPanel } from "../components/pulls/ReviewCommentsPanel";
@@ -51,6 +52,7 @@ function fileAnchorId(filename: string): string {
 
 export default function PullDetailPage() {
   useCloseDetailShortcut();
+  useInboxQueueAdvance();
   const { owner, repo, number } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const num = number ? Number.parseInt(number, 10) : undefined;
