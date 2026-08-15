@@ -5,12 +5,16 @@ import { Toolbar } from "../components/common/Toolbar";
 import { Tabs } from "../components/common/Tabs";
 import { Spinner } from "../components/common/Spinner";
 import { EmptyState } from "../components/common/EmptyState";
+import { ListSearchBar } from "../components/common/ListSearchBar";
 import { ActivityRow } from "../components/activity/ActivityRow";
 import { useNotificationPollingContext } from "../features/activity/NotificationPollingContext";
 import { useReleasesQuery } from "../features/activity/useReleasesQuery";
+import { useListSearch } from "../hooks/useListSearch";
+import { matchesListSearch } from "../lib/listSearch";
 import { notificationRoute } from "../lib/notificationRoutes";
 import { releaseToNotification } from "../lib/releases";
 import { getTimeGroup } from "../lib/timeGroup";
+import { useAuthStore } from "../stores/authStore";
 import { useDataStore, type NotificationSummary } from "../stores/dataStore";
 
 type TabKey = "all" | "unread" | "participating" | "mentions" | "review";
@@ -65,6 +69,8 @@ export default function ActivityPage() {
   const [activeTab, setActiveTab] = useState<TabKey>("all");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const navigate = useNavigate();
+  const accountId = useAuthStore((s) => s.user?.login ?? "");
+  const listSearch = useListSearch(accountId, "activity");
 
   const handleMarkAllRead = async () => {
     await invoke("cmd_mark_all_notifications_read");
@@ -99,8 +105,13 @@ export default function ActivityPage() {
       const allowed = TYPE_SUBJECT[typeFilter];
       if (allowed) result = result.filter((n) => allowed.includes(n.subjectType));
     }
+    if (listSearch.query.trim()) {
+      result = result.filter((n) =>
+        matchesListSearch(`${n.subjectTitle} ${n.repo ?? ""}`, listSearch.query),
+      );
+    }
     return result;
-  }, [merged, activeTab, typeFilter]);
+  }, [merged, activeTab, typeFilter, listSearch.query]);
 
   const groups = useMemo(() => {
     const map = new Map<string, NotificationSummary[]>();
@@ -156,6 +167,13 @@ export default function ActivityPage() {
           </button>
         ))}
       </div>
+      <ListSearchBar
+        open={listSearch.open}
+        query={listSearch.query}
+        onQueryChange={listSearch.setQuery}
+        inputRef={listSearch.inputRef}
+        placeholder="Filter activity…"
+      />
       {loading && !notifications.length && (
         <div className="flex-1 flex items-center justify-center">
           <Spinner />
