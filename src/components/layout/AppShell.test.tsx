@@ -1,6 +1,8 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { saveDigestLastSeen } from "../../lib/digest";
+import { useSettingsStore } from "../../stores/settingsStore";
 import { useUiStore } from "../../stores/uiStore";
 import { AppShell } from "./AppShell";
 
@@ -23,6 +25,14 @@ vi.mock("../../features/activity/useNotificationPolling", () => ({
 vi.mock("../../lib/notifications", () => ({
   registerAppNotificationClickHandler: notificationLifecycle.registerAppNotificationClickHandler,
 }));
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn(() => Promise.resolve(() => undefined)),
+}));
+
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="path">{location.pathname}</div>;
+}
 
 describe("AppShell offline banner", () => {
   beforeEach(() => {
@@ -112,5 +122,74 @@ describe("AppShell offline banner", () => {
 
     expect(notificationLifecycle.registerAppNotificationClickHandler).toHaveBeenCalledTimes(1);
     vi.useRealTimers();
+  });
+});
+
+describe("AppShell startup digest", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    notificationLifecycle.registerAppNotificationClickHandler.mockResolvedValue(
+      notificationLifecycle.disposeClickHandler,
+    );
+    useUiStore.setState({ offline: false, sidebarCollapsed: false });
+    useSettingsStore.setState({ digestAutoShowEnabled: true });
+  });
+
+  it("navigates to /digest when returning after a long gap", async () => {
+    saveDigestLastSeen(new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString());
+
+    render(
+      <MemoryRouter initialEntries={["/inbox"]}>
+        <Routes>
+          <Route
+            path="*"
+            element={
+              <AppShell
+                sidebar={<div />}
+                main={
+                  <>
+                    <LocationProbe />
+                    <div>Main</div>
+                  </>
+                }
+              />
+            }
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("path")).toHaveTextContent("/digest");
+    });
+  });
+
+  it("stays on inbox when auto digest is disabled", async () => {
+    useSettingsStore.setState({ digestAutoShowEnabled: false });
+    saveDigestLastSeen(new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString());
+
+    render(
+      <MemoryRouter initialEntries={["/inbox"]}>
+        <Routes>
+          <Route
+            path="*"
+            element={
+              <AppShell
+                sidebar={<div />}
+                main={
+                  <>
+                    <LocationProbe />
+                    <div>Main</div>
+                  </>
+                }
+              />
+            }
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByTestId("path")).toHaveTextContent("/inbox");
   });
 });

@@ -28,6 +28,7 @@ pub struct DigestData {
     pub merged_pulls: Vec<DigestPullItem>,
     pub ci_failures: Vec<DigestPullItem>,
     pub review_requests: Vec<DigestNotificationItem>,
+    pub mentions: Vec<DigestNotificationItem>,
     pub releases: Vec<ReleaseSummary>,
 }
 
@@ -118,19 +119,36 @@ fn review_requests_since(
     account_id: i64,
     since: &str,
 ) -> Vec<DigestNotificationItem> {
+    notifications_since(pool, account_id, since, "review_requested")
+}
+
+fn mentions_since(
+    pool: &SqlitePool,
+    account_id: i64,
+    since: &str,
+) -> Vec<DigestNotificationItem> {
+    notifications_since(pool, account_id, since, "mention")
+}
+
+fn notifications_since(
+    pool: &SqlitePool,
+    account_id: i64,
+    since: &str,
+    reason: &str,
+) -> Vec<DigestNotificationItem> {
     let Ok(conn) = pool.get() else {
         return Vec::new();
     };
     let Ok(mut stmt) = conn.prepare(
         "SELECT repo_full_name, subject_title, updated_at
          FROM notifications
-         WHERE account_id = ?1 AND reason = 'review_requested' AND updated_at >= ?2
+         WHERE account_id = ?1 AND reason = ?2 AND updated_at >= ?3
          ORDER BY updated_at DESC
          LIMIT 50",
     ) else {
         return Vec::new();
     };
-    stmt.query_map(rusqlite::params![account_id, since], |row| {
+    stmt.query_map(rusqlite::params![account_id, reason, since], |row| {
         Ok(DigestNotificationItem {
             repo: row.get(0)?,
             title: row.get(1)?,
@@ -167,6 +185,7 @@ pub async fn cmd_get_digest<R: Runtime>(
         merged_pulls: merged_pulls_since(pool.inner(), &since),
         ci_failures: ci_failures_since(pool.inner(), &since),
         review_requests: review_requests_since(pool.inner(), account_db_id, &since),
+        mentions: mentions_since(pool.inner(), account_db_id, &since),
         releases: releases_since(pool.inner(), account_db_id, &since),
     })
 }
@@ -297,6 +316,23 @@ mod tests {
         let items = review_requests_since(&pool, 1, "2026-07-14T00:00:00Z");
         assert_eq!(items.len(), 1);
         assert_eq!(items[0].title.as_deref(), Some("Review me"));
+    }
+
+    #[test]
+    fn mentions_since_reads_notifications() {
+        let pool = test_pool();
+        let conn = pool.get().unwrap();
+        conn.execute(
+            "INSERT INTO notifications (account_id, thread_id, reason, subject_title, is_read, updated_at, repo_full_name)
+             VALUES (1, 't1', 'mention', 'Hey you', 0, '2026-07-15T12:00:00Z', 'octocat/hello'),
+                    (1, 't2', 'review_requested', 'Not a mention', 0, '2026-07-15T12:00:00Z', 'octocat/hello')",
+            [],
+        )
+        .unwrap();
+        drop(conn);
+        let items = mentions_since(&pool, 1, "2026-07-14T00:00:00Z");
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].title.as_deref(), Some("Hey you"));
     }
 
     #[test]
