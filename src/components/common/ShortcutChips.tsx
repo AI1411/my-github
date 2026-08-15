@@ -9,7 +9,16 @@ import {
 import { useUiStore } from "../../stores/uiStore";
 
 const ROUTE_CHIPS: Record<string, ShortcutId[]> = {
-  "/inbox": ["listUp", "listDown", "openDetail", "markRead", "markAllRead", "snooze", "snoozeLast"],
+  "/inbox": [
+    "listUp",
+    "listDown",
+    "openDetail",
+    "markRead",
+    "markAllRead",
+    "snooze",
+    "snoozeLast",
+    "listSearch",
+  ],
   "/review-queue": ["openDetail", "commandPalette", "nextQueue"],
   "/pulls": ["listUp", "listDown", "openDetail", "commandPalette", "listSearch"],
   "/issues": ["listUp", "listDown", "openDetail", "commandPalette", "listSearch"],

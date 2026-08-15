@@ -7,11 +7,14 @@ import { EmptyState } from "../components/common/EmptyState";
 import { InboxList } from "../components/inbox/InboxList";
 import { InboxDetailPanel } from "../components/inbox/InboxDetailPanel";
 import { SnoozePicker } from "../components/inbox/SnoozePicker";
+import { ListSearchBar } from "../components/common/ListSearchBar";
 import { useInboxQuery } from "../features/inbox/useInboxQuery";
 import { useSettingsShortcut } from "../hooks/useSettingsShortcut";
 import { useKeyboardShortcut } from "../hooks/useKeyboardShortcut";
 import { useListNavigation } from "../hooks/useListNavigation";
+import { useListSearch } from "../hooks/useListSearch";
 import { useOpenInBrowserShortcut } from "../hooks/useOpenInBrowserShortcut";
+import { matchesListSearch } from "../lib/listSearch";
 import { focusAfterRemoval } from "../lib/inboxFocus";
 import { buildInboxQueue, inboxItemDetailPath, saveInboxQueue } from "../lib/inboxQueue";
 import { CHORD_TIMEOUT_MS } from "../lib/shortcutKeys";
@@ -55,6 +58,8 @@ export default function InboxPage() {
   const pulls = useDataStore((state) => state.pulls);
   const currentUser = useAuthStore((state) => state.user?.login ?? null);
   const staleThresholds = useSettingsStore((state) => state.staleThresholds);
+  const accountId = useAuthStore((state) => state.user?.login ?? "");
+  const listSearch = useListSearch(accountId, "inbox");
 
   const staleItems = useMemo(
     () =>
@@ -68,9 +73,26 @@ export default function InboxPage() {
     [data, pulls, currentUser, staleThresholds],
   );
 
+  const matchItem = useCallback(
+    (item: InboxItem) =>
+      matchesListSearch(`${item.title} ${item.repo} ${item.number ?? ""}`, listSearch.query),
+    [listSearch.query],
+  );
+
+  const visibleData = useMemo(() => {
+    if (!data) return null;
+    return {
+      reviewRequests: data.reviewRequests.filter(matchItem),
+      ciFailures: data.ciFailures.filter(matchItem),
+      mentions: data.mentions.filter(matchItem),
+    };
+  }, [data, matchItem]);
+
+  const visibleStaleItems = useMemo(() => staleItems.filter(matchItem), [staleItems, matchItem]);
+
   const flatItems = useMemo(
-    () => (data ? flattenInboxItems(data, staleItems) : []),
-    [data, staleItems],
+    () => (visibleData ? flattenInboxItems(visibleData, visibleStaleItems) : []),
+    [visibleData, visibleStaleItems],
   );
 
   const getId = useCallback((item: InboxItem) => item.id, []);
@@ -235,6 +257,7 @@ export default function InboxPage() {
     { key: "Escape", preventDefault: true },
     () => {
       if (document.querySelector('[role="dialog"][aria-label="Shortcut help"]')) return;
+      if (listSearch.open) return;
       if (pickerOpen) {
         setPickerOpen(false);
         return;
@@ -246,6 +269,13 @@ export default function InboxPage() {
   return (
     <div className="h-full flex flex-col">
       <Toolbar title="Inbox" subtitle="Review requests · CI failures · Mentions" />
+      <ListSearchBar
+        open={listSearch.open}
+        query={listSearch.query}
+        onQueryChange={listSearch.setQuery}
+        inputRef={listSearch.inputRef}
+        placeholder="Filter inbox…"
+      />
       {loading && !data && (
         <div className="flex-1 flex items-center justify-center">
           <Spinner />
@@ -262,8 +292,8 @@ export default function InboxPage() {
             style={{ borderColor: selected ? "var(--border-default)" : "transparent" }}
           >
             <InboxList
-              data={data}
-              staleItems={staleItems}
+              data={visibleData}
+              staleItems={visibleStaleItems}
               selectedId={activeId ?? selected?.id ?? null}
               onSelect={(item) => {
                 setActiveId(item.id);
