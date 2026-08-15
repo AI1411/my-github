@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { Tabs, type TabItem } from "../components/common/Tabs";
 import { StatusPill } from "../components/common/StatusPill";
@@ -17,6 +17,8 @@ import { PrSidebar } from "../components/pulls/PrSidebar";
 import { PrFooterBar } from "../components/pulls/PrFooterBar";
 import { FileDiff, type DiffViewMode } from "../components/pulls/FileDiff";
 import { FileTreePanel } from "../components/pulls/FileTreePanel";
+import { CommitsTab } from "../components/pulls/CommitsTab";
+import { ChecksTab } from "../components/pulls/ChecksTab";
 import { usePullFilesQuery } from "../features/pulls/usePullFilesQuery";
 import { filterFilesByQuery } from "../lib/fileTree";
 import { getViewedSet, setViewed } from "../components/pulls/diff/DiffViewedStore";
@@ -31,12 +33,20 @@ const TABS: TabItem<DetailTab>[] = [
   { id: "files", label: "Files changed" },
 ];
 
+function parseTab(raw: string | null): DetailTab {
+  if (raw === "commits" || raw === "checks" || raw === "files" || raw === "conversation") {
+    return raw;
+  }
+  return "conversation";
+}
+
 function fileAnchorId(filename: string): string {
   return `file-diff-${filename}`;
 }
 
 export default function PullDetailPage() {
   const { owner, repo, number } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const num = number ? Number.parseInt(number, 10) : undefined;
   const pullKey = `${owner}/${repo}#${number ?? ""}`;
 
@@ -57,7 +67,7 @@ export default function PullDetailPage() {
   const patchPullDraft = useDataStore((s) => s.patchPullDraft);
   const patchPullReviewers = useDataStore((s) => s.patchPullReviewers);
 
-  const [tab, setTab] = useState<DetailTab>("conversation");
+  const [tab, setTab] = useState<DetailTab>(() => parseTab(searchParams.get("tab")));
   const [viewMode, setViewMode] = useState<DiffViewMode>("unified");
   const [fileQuery, setFileQuery] = useState("");
   const [viewedSet, setViewedSet] = useState<Set<string>>(() => getViewedSet(pullKey));
@@ -66,6 +76,19 @@ export default function PullDetailPage() {
   useEffect(() => {
     setViewedSet(getViewedSet(pullKey));
   }, [pullKey]);
+
+  useEffect(() => {
+    const next = parseTab(searchParams.get("tab"));
+    setTab(next);
+  }, [searchParams]);
+
+  const handleTabChange = (next: DetailTab) => {
+    setTab(next);
+    const params = new URLSearchParams(searchParams);
+    if (next === "conversation") params.delete("tab");
+    else params.set("tab", next);
+    setSearchParams(params, { replace: true });
+  };
 
   const { files, loading: filesLoading, error: filesError } = usePullFilesQuery(owner, repo, num);
   const visibleFiles = useMemo(() => filterFilesByQuery(files, fileQuery), [files, fileQuery]);
@@ -195,7 +218,7 @@ export default function PullDetailPage() {
         )}
       </div>
 
-      <Tabs items={TABS} activeId={tab} onChange={setTab} />
+      <Tabs items={TABS} activeId={tab} onChange={handleTabChange} />
 
       <div className="flex-1 flex overflow-hidden">
         <div className="flex-1 overflow-y-auto">
@@ -231,14 +254,11 @@ export default function PullDetailPage() {
               />
             </>
           )}
-          {tab === "commits" && (
-            <EmptyState
-              title="Commit view pending"
-              subtitle="Commit list will be wired in a follow-up milestone."
-            />
+          {tab === "commits" && owner && repo && num !== undefined && (
+            <CommitsTab owner={owner} repo={repo} number={num} />
           )}
-          {tab === "checks" && (
-            <EmptyState title="Checks view pending" subtitle="Check runs will be wired in M7." />
+          {tab === "checks" && owner && repo && num !== undefined && (
+            <ChecksTab owner={owner} repo={repo} number={num} />
           )}
           {tab === "files" && (
             <div className="flex flex-col">

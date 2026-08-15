@@ -168,6 +168,31 @@ pub struct Review {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct GitCommitUser {
+    pub name: String,
+    #[serde(default)]
+    pub email: Option<String>,
+    #[serde(default)]
+    pub date: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct GitCommitDetail {
+    pub message: String,
+    pub author: Option<GitCommitUser>,
+    pub committer: Option<GitCommitUser>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PullCommit {
+    pub sha: String,
+    pub html_url: String,
+    pub commit: GitCommitDetail,
+    #[serde(default)]
+    pub author: Option<User>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PullRequestFile {
     pub sha: String,
     pub filename: String,

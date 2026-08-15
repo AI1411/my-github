@@ -1,6 +1,6 @@
 use crate::github::client::{ClientError, GithubClient, RateLimitInfo};
 use crate::github::types::{
-    CheckRunsResponse, Issue, IssueComment, Notification, PullRequest, PullRequestFile,
+    CheckRunsResponse, Issue, IssueComment, Notification, PullCommit, PullRequest, PullRequestFile,
     PullReviewComment, Release, RepoSearchItem, RepoSearchResponse, Repository, Review,
     SearchIssueItem, SearchIssuesResponse, WorkflowRun, WorkflowRunsResponse,
 };
@@ -429,6 +429,41 @@ pub async fn update_file_contents(
         });
     }
     Ok(())
+}
+
+pub async fn list_pull_commits(
+    client: &GithubClient,
+    owner: &str,
+    repo: &str,
+    number: u32,
+) -> Result<Vec<PullCommit>, ClientError> {
+    let mut commits: Vec<PullCommit> = Vec::new();
+    let mut page = 1u32;
+    loop {
+        let resp = client
+            .get(&format!(
+                "/repos/{}/{}/pulls/{}/commits?per_page=100&page={}",
+                owner, repo, number, page
+            ))
+            .send()
+            .await?;
+        let status = resp.status();
+        if !status.is_success() {
+            let message = resp.text().await.unwrap_or_default();
+            return Err(ClientError::Api {
+                status: status.as_u16(),
+                message,
+            });
+        }
+        let has_next = has_next_page(resp.headers());
+        let page_commits: Vec<PullCommit> = resp.json().await?;
+        commits.extend(page_commits);
+        if !has_next {
+            break;
+        }
+        page += 1;
+    }
+    Ok(commits)
 }
 
 pub async fn list_pull_request_reviews(
