@@ -15,6 +15,8 @@ import {
   type NotificationRuleKind,
   type PollingInterval,
   type ShortcutId,
+  type AppearanceTheme,
+  type AppearanceLayout,
 } from "../stores/settingsStore";
 import { PATTab } from "./components/PATTab";
 
@@ -189,6 +191,8 @@ export default function SettingsPage() {
   const setPushSyncEnabled = useSettingsStore((state) => state.setPushSyncEnabled);
   const dockBadgeEnabled = useSettingsStore((state) => state.dockBadgeEnabled);
   const density = useSettingsStore((state) => state.density);
+  const theme = useSettingsStore((state) => state.theme);
+  const layout = useSettingsStore((state) => state.layout);
   const shortcuts = useSettingsStore((state) => state.shortcuts);
   const addWatchedRepository = useSettingsStore((state) => state.addWatchedRepository);
   const removeWatchedRepository = useSettingsStore((state) => state.removeWatchedRepository);
@@ -214,6 +218,8 @@ export default function SettingsPage() {
   const setPollingInterval = useSettingsStore((state) => state.setPollingInterval);
   const setDockBadgeEnabled = useSettingsStore((state) => state.setDockBadgeEnabled);
   const setDensity = useSettingsStore((state) => state.setDensity);
+  const setTheme = useSettingsStore((state) => state.setTheme);
+  const setLayout = useSettingsStore((state) => state.setLayout);
   const setShortcut = useSettingsStore((state) => state.setShortcut);
   const resetShortcuts = useSettingsStore((state) => state.resetShortcuts);
   const shortcutChipsEnabled = useSettingsStore((state) => state.shortcutChipsEnabled);
@@ -795,7 +801,21 @@ export default function SettingsPage() {
 
         {activeTab === "appearance" && (
           <Section title="Appearance">
-            <Row label="Theme" value="Dark" />
+            <Row label="Theme">
+              <div className="flex flex-wrap gap-2">
+                {(
+                  [
+                    ["dark", "Dark"],
+                    ["light", "Light"],
+                    ["system", "System"],
+                  ] as [AppearanceTheme, string][]
+                ).map(([id, label]) => (
+                  <InlineButton key={id} active={theme === id} onClick={() => setTheme(id)}>
+                    {label}
+                  </InlineButton>
+                ))}
+              </div>
+            </Row>
             <Row label="Density">
               <div className="flex flex-wrap gap-2">
                 <InlineButton
@@ -807,6 +827,20 @@ export default function SettingsPage() {
                 <InlineButton active={density === "compact"} onClick={() => setDensity("compact")}>
                   Compact
                 </InlineButton>
+              </div>
+            </Row>
+            <Row label="Home layout">
+              <div className="flex flex-wrap gap-2">
+                {(
+                  [
+                    ["inbox-first", "Inbox first"],
+                    ["pulls-first", "Pulls first"],
+                  ] as [AppearanceLayout, string][]
+                ).map(([id, label]) => (
+                  <InlineButton key={id} active={layout === id} onClick={() => setLayout(id)}>
+                    {label}
+                  </InlineButton>
+                ))}
               </div>
             </Row>
           </Section>

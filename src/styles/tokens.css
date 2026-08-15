@@ -1,5 +1,6 @@
 @layer base {
-  :root {
+  :root,
+  :root[data-theme="dark"] {
     /* Backgrounds */
     --bg-primary: #0d1117;
     --bg-secondary: #161b22;
@@ -23,5 +24,40 @@
     /* Borders */
     --border-default: #30363d;
     --border-subtle: #21262d;
+
+    --row-pad-y: 0.5rem;
+    --list-gap: 0.25rem;
+  }
+
+  :root[data-theme="light"] {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f6f8fa;
+    --bg-tertiary: #eaeef2;
+    --bg-overlay: #d0d7de;
+
+    --text-primary: #1f2328;
+    --text-secondary: #656d76;
+    --text-muted: #8c959f;
+    --text-inverse: #ffffff;
+
+    --accent-blue: #0969da;
+    --accent-green: #1a7f37;
+    --accent-red: #cf222e;
+    --accent-yellow: #9a6700;
+    --accent-purple: #8250df;
+    --accent-orange: #bc4c00;
+
+    --border-default: #d0d7de;
+    --border-subtle: #eaeef2;
+  }
+
+  :root[data-density="compact"] {
+    --row-pad-y: 0.25rem;
+    --list-gap: 0;
+  }
+
+  :root[data-density="comfortable"] {
+    --row-pad-y: 0.5rem;
+    --list-gap: 0.25rem;
   }
 }

@@ -35,6 +35,8 @@ describe("Sidebar badge integration", () => {
       pollingInterval: "60s",
       dockBadgeEnabled: true,
       density: "comfortable",
+      theme: "dark",
+      layout: "inbox-first",
       shortcuts: DEFAULT_SHORTCUTS,
       pinnedPullsByAccount: {},
       recentPullsByAccount: {},
