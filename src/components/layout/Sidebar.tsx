@@ -4,13 +4,14 @@ import { updateUnreadBadge } from "../../lib/badge";
 import { useAccountAttentionSummaries } from "../../hooks/useAccountAttentionSummaries";
 import { useAuthStore } from "../../stores/authStore";
 import { useDataStore } from "../../stores/dataStore";
-import { useSettingsStore, type PinnedPullRef } from "../../stores/settingsStore";
+import { useSettingsStore, type PinnedPullRef, type RecentPullRef } from "../../stores/settingsStore";
 import { useUiStore } from "../../stores/uiStore";
 import { Avatar } from "../common/Avatar";
 import { classifyPull, StatusDot } from "../pulls/statusIcons";
 import { WorkspaceSwitcher } from "../workspace/WorkspaceSwitcher";
 
 const EMPTY_PINS: PinnedPullRef[] = [];
+const EMPTY_RECENT: RecentPullRef[] = [];
 
 interface NavItem {
   to: string;
@@ -32,6 +33,9 @@ export function Sidebar({ onSignOut }: SidebarProps) {
   const savedFilters = useSettingsStore((s) => s.savedFilters);
   const pinnedRefs = useSettingsStore(
     (s) => s.pinnedPullsByAccount[accountId] ?? EMPTY_PINS,
+  );
+  const recentRefs = useSettingsStore(
+    (s) => s.recentPullsByAccount[accountId] ?? EMPTY_RECENT,
   );
   const togglePinnedPull = useSettingsStore((s) => s.togglePinnedPull);
   const removeSavedFilter = useSettingsStore((s) => s.removeSavedFilter);
@@ -140,6 +144,43 @@ export function Sidebar({ onSignOut }: SidebarProps) {
               </li>
             ))}
           </ul>
+
+          {recentRefs.length > 0 && (
+            <div className="mt-4 px-2">
+              <p
+                className="px-3 pb-1 text-[11px] uppercase tracking-wider font-semibold"
+                style={{ color: "var(--text-muted)" }}
+              >
+                Recent
+              </p>
+              <ul className="flex flex-col gap-0.5" aria-label="Recent pull requests">
+                {recentRefs.slice(0, 10).map((ref) => {
+                  const [owner, repoName] = ref.repo.split("/");
+                  const to = `/pulls/${owner}/${repoName}/${ref.number}`;
+                  const pull = pulls.find((p) => p.repo === ref.repo && p.number === ref.number);
+                  const title = pull?.title ?? ref.title;
+                  const kind = pull ? classifyPull(pull) : "open";
+                  return (
+                    <li key={`recent-${ref.repo}#${ref.number}`}>
+                      <NavLink
+                        to={to}
+                        className="flex min-w-0 items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors"
+                        style={({ isActive }) => ({
+                          backgroundColor: isActive ? "var(--bg-tertiary)" : "transparent",
+                          color: isActive ? "var(--text-primary)" : "var(--text-secondary)",
+                          fontWeight: isActive ? 600 : 500,
+                        })}
+                        title={title}
+                      >
+                        <StatusDot kind={kind} />
+                        <span className="truncate">{title}</span>
+                      </NavLink>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
 
           {pinnedPulls.length > 0 && (
             <div className="mt-4 px-2">

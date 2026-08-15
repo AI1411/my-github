@@ -21,6 +21,7 @@ describe("settingsStore", () => {
       density: "comfortable",
       shortcuts: DEFAULT_SHORTCUTS,
       pinnedPullsByAccount: {},
+      recentPullsByAccount: {},
     });
   });
 
@@ -93,6 +94,50 @@ describe("settingsStore", () => {
 
     expect(useSettingsStore.getState().pinnedPullsByAccount.alice).toEqual([
       { repo: "o/r", number: 2 },
+    ]);
+  });
+
+  it("records recent pulls per account with newest first", () => {
+    useSettingsStore.getState().recordRecentPull("alice", {
+      repo: "o/r",
+      number: 1,
+      title: "First",
+      openedAt: "2026-08-15T01:00:00.000Z",
+    });
+    useSettingsStore.getState().recordRecentPull("alice", {
+      repo: "o/r",
+      number: 2,
+      title: "Second",
+      openedAt: "2026-08-15T02:00:00.000Z",
+    });
+    useSettingsStore.getState().recordRecentPull("bob", {
+      repo: "o/r",
+      number: 1,
+      title: "Bob PR",
+      openedAt: "2026-08-15T03:00:00.000Z",
+    });
+
+    expect(useSettingsStore.getState().recentPullsByAccount.alice).toEqual([
+      {
+        repo: "o/r",
+        number: 2,
+        title: "Second",
+        openedAt: "2026-08-15T02:00:00.000Z",
+      },
+      {
+        repo: "o/r",
+        number: 1,
+        title: "First",
+        openedAt: "2026-08-15T01:00:00.000Z",
+      },
+    ]);
+    expect(useSettingsStore.getState().recentPullsByAccount.bob).toEqual([
+      {
+        repo: "o/r",
+        number: 1,
+        title: "Bob PR",
+        openedAt: "2026-08-15T03:00:00.000Z",
+      },
     ]);
   });
 

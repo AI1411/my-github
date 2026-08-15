@@ -6,16 +6,19 @@ import {
   isAdvancedSearchQuery,
   shouldRunGithubSearch,
 } from "../../lib/advancedSearch";
-import { useSettingsStore } from "../../stores/settingsStore";
+import { useAuthStore } from "../../stores/authStore";
+import { useSettingsStore, type RecentPullRef } from "../../stores/settingsStore";
 import { useUiStore } from "../../stores/uiStore";
 import { useDataStore } from "../../stores/dataStore";
 import { useKeyboardShortcut } from "../../hooks/useKeyboardShortcut";
+
+const EMPTY_RECENT: RecentPullRef[] = [];
 
 interface CommandItem {
   id: string;
   label: string;
   subtitle?: string;
-  kind: "nav" | "pr" | "issue" | "search" | "next" | "saved" | "action";
+  kind: "nav" | "pr" | "issue" | "search" | "next" | "saved" | "action" | "recent";
   href?: string;
   /** When true, selecting fills the query and keeps the palette open. */
   keepOpen?: boolean;
@@ -44,6 +47,7 @@ const KIND_LABEL: Record<CommandItem["kind"], string> = {
   next: "!",
   saved: "★",
   action: "+",
+  recent: "R",
 };
 
 function fuzzyMatch(query: string, target: string): boolean {
@@ -56,6 +60,10 @@ export function CommandPalette() {
   const toggle = useUiStore((s) => s.toggleCommandPalette);
   const pulls = useDataStore((s) => s.pulls);
   const issues = useDataStore((s) => s.issues);
+  const accountId = useAuthStore((s) => s.user?.login ?? "");
+  const recentPulls = useSettingsStore(
+    (s) => s.recentPullsByAccount[accountId] ?? EMPTY_RECENT,
+  );
   const savedSearches = useSettingsStore((s) => s.savedSearches);
   const addSavedSearch = useSettingsStore((s) => s.addSavedSearch);
   const navigate = useNavigate();
@@ -114,6 +122,13 @@ export function CommandPalette() {
           setQuery(s.query);
         },
       }));
+      const recentItems: CommandItem[] = recentPulls.slice(0, 8).map((r) => ({
+        id: `recent-${r.repo}-${r.number}`,
+        label: r.title,
+        subtitle: `Recent · ${r.repo} #${r.number}`,
+        kind: "recent" as const,
+        href: `/pulls/${r.repo}/${r.number}`,
+      }));
       const nextActions: CommandItem[] = [];
       for (const pull of pulls) {
         if (pull.state !== "open" || pull.isDraft) continue;
@@ -140,10 +155,22 @@ export function CommandPalette() {
         }
         if (nextActions.length >= 5) break;
       }
-      return [...savedItems, ...nextActions, ...NAV_COMMANDS];
+      return [...savedItems, ...recentItems, ...nextActions, ...NAV_COMMANDS];
     }
 
     const navMatches = NAV_COMMANDS.filter((c) => fuzzyMatch(query, c.label));
+    const recentMatches = recentPulls
+      .filter((r) => fuzzyMatch(query, r.title) || fuzzyMatch(query, r.repo))
+      .slice(0, 5)
+      .map(
+        (r): CommandItem => ({
+          id: `recent-${r.repo}-${r.number}`,
+          label: r.title,
+          subtitle: `Recent · ${r.repo} #${r.number}`,
+          kind: "recent",
+          href: `/pulls/${r.repo}/${r.number}`,
+        }),
+      );
     const prMatches = pulls
       .filter((p) => fuzzyMatch(query, p.title) || fuzzyMatch(query, p.repo))
       .slice(0, 5)
@@ -168,8 +195,8 @@ export function CommandPalette() {
           href: `/issues/${i.repo}/${i.number}`,
         }),
       );
-    return [...navMatches, ...prMatches, ...issueMatches];
-  }, [query, pulls, issues, advanced, savedSearches, addSavedSearch]);
+    return [...navMatches, ...recentMatches, ...prMatches, ...issueMatches];
+  }, [query, pulls, issues, advanced, savedSearches, addSavedSearch, recentPulls]);
 
   const allItems = useMemo(() => {
     if (advanced && query.trim()) {
@@ -319,6 +346,14 @@ export function CommandPalette() {
               style={{ color: "var(--text-muted)" }}
             >
               Saved searches
+            </p>
+          )}
+          {!query && recentPulls.length > 0 && (
+            <p
+              className="px-4 pt-2 pb-1 text-xs font-medium uppercase tracking-wide"
+              style={{ color: "var(--text-muted)" }}
+            >
+              Recent
             </p>
           )}
           {allItems.length === 0 && (

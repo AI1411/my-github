@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { CommandPalette } from "./CommandPalette";
+import { useAuthStore } from "../../stores/authStore";
 import { useDataStore } from "../../stores/dataStore";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useUiStore } from "../../stores/uiStore";
@@ -25,7 +26,7 @@ describe("CommandPalette", () => {
   beforeEach(() => {
     useUiStore.setState({ commandPaletteOpen: true });
     useDataStore.setState({ pulls: [], issues: [] });
-    useSettingsStore.setState({ savedSearches: [] });
+    useSettingsStore.setState({ savedSearches: [], recentPullsByAccount: {} });
     mockedInvoke.mockReset();
     mockedInvoke.mockResolvedValue([]);
   });
@@ -116,6 +117,30 @@ describe("CommandPalette", () => {
     expect(screen.getByText("Saved searches")).toBeInTheDocument();
     expect(screen.getByText("Review requests")).toBeInTheDocument();
     expect(screen.getByText("is:pr review-requested:@me")).toBeInTheDocument();
+  });
+
+  it("lists recent pulls when the query is empty", () => {
+    useAuthStore.setState({
+      user: { login: "octocat", avatar_url: "" },
+      token: null,
+      status: "authenticated",
+    });
+    useSettingsStore.setState({
+      recentPullsByAccount: {
+        octocat: [
+          {
+            repo: "octocat/hello",
+            number: 4,
+            title: "Yesterday's PR",
+            openedAt: "2026-08-14T00:00:00.000Z",
+          },
+        ],
+      },
+    });
+    renderPalette();
+    expect(screen.getByText("Recent")).toBeInTheDocument();
+    expect(screen.getByText("Yesterday's PR")).toBeInTheDocument();
+    expect(screen.getByText(/Recent · octocat\/hello #4/)).toBeInTheDocument();
   });
 
   it("runs GitHub search for is: queries and shows results", async () => {

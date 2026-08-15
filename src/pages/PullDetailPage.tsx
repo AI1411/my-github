@@ -63,6 +63,7 @@ export default function PullDetailPage() {
     return pins.some((p) => p.repo === repoFull && p.number === num);
   });
   const togglePinnedPull = useSettingsStore((s) => s.togglePinnedPull);
+  const recordRecentPull = useSettingsStore((s) => s.recordRecentPull);
   const currentUser = useAuthStore((s) => s.user?.login ?? null);
   const patchPullReviewState = useDataStore((s) => s.patchPullReviewState);
   const patchPullState = useDataStore((s) => s.patchPullState);
@@ -80,6 +81,15 @@ export default function PullDetailPage() {
     setViewedSet(getViewedSet(pullKey));
     setReviewComments([]);
   }, [pullKey]);
+
+  useEffect(() => {
+    if (!accountId || !repoFull || num === undefined || !Number.isFinite(num)) return;
+    recordRecentPull(accountId, {
+      repo: repoFull,
+      number: num,
+      title: pull?.title ?? `${repoFull}#${num}`,
+    });
+  }, [accountId, repoFull, num, pull?.title, recordRecentPull]);
 
   useEffect(() => {
     const next = parseTab(searchParams.get("tab"));
