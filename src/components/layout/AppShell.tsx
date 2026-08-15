@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { NotificationPollingContext } from "../../features/activity/NotificationPollingContext";
 import { useNotificationPolling } from "../../features/activity/useNotificationPolling";
 import { useOnlineStatus } from "../../hooks/useOnlineStatus";
+import { useFocusResumeRevalidate } from "../../hooks/useFocusResumeRevalidate";
 import { loadDigestLastSeen, shouldShowDigest } from "../../lib/digest";
 import { registerAppNotificationClickHandler } from "../../lib/notifications";
 import { useSettingsStore } from "../../stores/settingsStore";
@@ -23,6 +24,7 @@ const CLICK_HANDLER_MAX_ATTEMPTS = 5;
 export function AppShell({ sidebar, main, secondary }: AppShellProps) {
   useOnlineStatus();
   const polling = useNotificationPolling();
+  useFocusResumeRevalidate(polling.refetch);
   const navigate = useNavigate();
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
   const offline = useUiStore((s) => s.offline);
