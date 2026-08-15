@@ -8,6 +8,7 @@ import { ReviewerGroup } from "./ReviewerGroup";
 export interface PullRowProps {
   pull: PullSummary;
   selected?: boolean;
+  stale?: boolean;
   onSelect?: () => void;
   onOpen?: () => void;
   style?: CSSProperties;
@@ -20,9 +21,13 @@ const GRID: CSSProperties = {
   gap: 12,
 };
 
-export function PullRow({ pull, selected, onSelect, onOpen, style }: PullRowProps) {
+export function PullRow({ pull, selected, stale, onSelect, onOpen, style }: PullRowProps) {
   const kind = classifyPull(pull);
-  const bg = selected ? "var(--bg-overlay)" : "transparent";
+  const bg = selected
+    ? "var(--bg-overlay)"
+    : stale
+      ? "rgba(251, 146, 60, 0.08)"
+      : "transparent";
   return (
     <div
       role="row"
@@ -39,8 +44,9 @@ export function PullRow({ pull, selected, onSelect, onOpen, style }: PullRowProp
         ...GRID,
         ...style,
         backgroundColor: bg,
-        borderColor: "var(--border-subtle)",
+        borderColor: stale ? "rgba(251, 146, 60, 0.35)" : "var(--border-subtle)",
       }}
+      aria-label={stale ? `${pull.title} (stale)` : undefined}
     >
       <div style={{ justifySelf: "center" }}>
         <StatusDot kind={kind} />
@@ -58,6 +64,14 @@ export function PullRow({ pull, selected, onSelect, onOpen, style }: PullRowProp
           title={pull.title}
         >
           {pull.title}
+          {stale && (
+            <span
+              className="ml-2 text-[10px] uppercase tracking-wide"
+              style={{ color: "var(--accent-orange, #fb923c)" }}
+            >
+              Stale
+            </span>
+          )}
         </span>
         <span className="truncate text-[11px]" style={{ color: "var(--text-muted)" }}>
           {pull.repo} · {pull.headRef} → {pull.baseRef}

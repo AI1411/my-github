@@ -12,6 +12,7 @@ import { usePullsQuery, type PullFilter, type PullTab } from "../features/pulls/
 import { useListNavigation } from "../hooks/useListNavigation";
 import { useListSearch } from "../hooks/useListSearch";
 import { matchesListSearch } from "../lib/listSearch";
+import { isOwnPullStale } from "../lib/stalePulls";
 import { pullFilterToQuery, queryToPullFilter } from "../lib/savedFilters";
 import { useAuthStore } from "../stores/authStore";
 import { useSettingsStore } from "../stores/settingsStore";
@@ -38,6 +39,8 @@ export default function PullsPage() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const addSavedFilter = useSettingsStore((s) => s.addSavedFilter);
   const accountId = useAuthStore((s) => s.user?.login ?? "");
+  const currentUser = useAuthStore((s) => s.user?.login ?? null);
+  const staleThresholds = useSettingsStore((s) => s.staleThresholds);
   const listSearch = useListSearch(accountId, "pulls");
 
   const handleSaveView = () => {
@@ -146,6 +149,7 @@ export default function PullsPage() {
                   key={pull.id}
                   pull={pull}
                   selected={activeIndex === v.index}
+                  stale={isOwnPullStale(pull, currentUser, staleThresholds)}
                   onSelect={() => setActiveId(String(pull.id))}
                   onOpen={() => openPull(pull)}
                   style={{

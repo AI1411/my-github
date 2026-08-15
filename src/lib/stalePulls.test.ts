@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_STALE_THRESHOLDS, findStaleItems, staleItemDescription } from "./stalePulls";
+import {
+  DEFAULT_STALE_THRESHOLDS,
+  findStaleItems,
+  isOwnPullStale,
+  staleItemDescription,
+} from "./stalePulls";
 import type { InboxItem, PullSummary } from "../stores/dataStore";
 
 const now = new Date("2026-07-16T12:00:00Z");
@@ -136,5 +141,25 @@ describe("staleItemDescription", () => {
   it("describes both stale kinds", () => {
     expect(staleItemDescription("stale_review_request")).toMatch(/review/i);
     expect(staleItemDescription("stale_own_pull")).toMatch(/no activity/i);
+  });
+});
+
+describe("isOwnPullStale", () => {
+  it("marks old own open pulls as stale", () => {
+    expect(isOwnPullStale(ownPull(), "me", DEFAULT_STALE_THRESHOLDS, now)).toBe(true);
+  });
+
+  it("ignores other authors and fresh pulls", () => {
+    expect(isOwnPullStale(ownPull({ author: "other" }), "me", DEFAULT_STALE_THRESHOLDS, now)).toBe(
+      false,
+    );
+    expect(
+      isOwnPullStale(
+        ownPull({ updatedAt: "2026-07-15T12:00:00Z" }),
+        "me",
+        DEFAULT_STALE_THRESHOLDS,
+        now,
+      ),
+    ).toBe(false);
   });
 });
