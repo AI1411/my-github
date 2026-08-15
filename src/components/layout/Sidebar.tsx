@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { NavLink } from "react-router-dom";
 import { updateUnreadBadge } from "../../lib/badge";
+import { useAccountAttentionSummaries } from "../../hooks/useAccountAttentionSummaries";
 import { useAuthStore } from "../../stores/authStore";
 import { useDataStore } from "../../stores/dataStore";
 import { useSettingsStore, type PinnedPullRef } from "../../stores/settingsStore";
@@ -36,8 +37,19 @@ export function Sidebar({ onSignOut }: SidebarProps) {
   const removeSavedFilter = useSettingsStore((s) => s.removeSavedFilter);
   const renameSavedFilter = useSettingsStore((s) => s.renameSavedFilter);
   const openSwitcher = useUiStore((s) => s.openWorkspaceSwitcher);
+  const { crossAccountTotal, summaries } = useAccountAttentionSummaries(true);
 
   const unreadCount = notifications.filter((n) => n.unread).length;
+  const inboxBadge =
+    crossAccountTotal > 0
+      ? crossAccountTotal
+      : unreadCount > 0
+        ? unreadCount
+        : undefined;
+
+  useEffect(() => {
+    void updateUnreadBadge(unreadCount, dockBadgeEnabled);
+  }, [unreadCount, dockBadgeEnabled]);
 
   const pinnedPulls = useMemo(
     () =>
@@ -48,12 +60,8 @@ export function Sidebar({ onSignOut }: SidebarProps) {
     [pinnedRefs, pulls],
   );
 
-  useEffect(() => {
-    void updateUnreadBadge(unreadCount, dockBadgeEnabled);
-  }, [unreadCount, dockBadgeEnabled]);
-
   const navItems: NavItem[] = [
-    { to: "/inbox", label: "Inbox", count: unreadCount || undefined },
+    { to: "/inbox", label: "Inbox", count: inboxBadge },
     { to: "/pulls", label: "Pull Requests", count: pulls.length || undefined },
     { to: "/issues", label: "Issues", count: issues.length || undefined },
     { to: "/activity", label: "Activity" },
@@ -61,6 +69,8 @@ export function Sidebar({ onSignOut }: SidebarProps) {
     { to: "/ci", label: "CI Status" },
     { to: "/settings", label: "Settings" },
   ];
+
+  const otherAccountCount = summaries.filter((s) => !s.isActive && s.login !== accountId).length;
 
   return (
     <>
@@ -82,6 +92,16 @@ export function Sidebar({ onSignOut }: SidebarProps) {
           >
             my-github
           </p>
+          {crossAccountTotal > 0 && (
+            <p
+              className="text-[11px] mt-1"
+              style={{ color: "var(--text-muted)" }}
+              title="Review + CI fail + Mentions across cached accounts"
+            >
+              All accounts · {crossAccountTotal}
+              {otherAccountCount > 0 ? ` (+${otherAccountCount} other)` : ""}
+            </p>
+          )}
         </button>
 
         <nav className="flex-1 overflow-y-auto py-2" aria-label="Primary">
