@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { DEFAULT_SHORTCUTS, useSettingsStore } from "./settingsStore";
+import {
+  DEFAULT_SHORTCUTS,
+  normalizeNotificationSettings,
+  useSettingsStore,
+} from "./settingsStore";
 
 describe("settingsStore", () => {
   beforeEach(() => {
@@ -8,9 +12,9 @@ describe("settingsStore", () => {
       watchedRepositories: [],
       notificationSettings: {
         enabled: true,
-        ciFailures: true,
-        reviewRequests: true,
-        mentions: true,
+        ciFailures: "immediate",
+        reviewRequests: "immediate",
+        mentions: "immediate",
       },
       pollingInterval: "60s",
       dockBadgeEnabled: true,
@@ -39,10 +43,26 @@ describe("settingsStore", () => {
 
   it("updates notification settings and polling interval", () => {
     useSettingsStore.getState().setPollingInterval("5m");
-    useSettingsStore.getState().setNotificationSetting("ciFailures", false);
+    useSettingsStore.getState().setNotificationSetting("ciFailures", "off");
 
     expect(useSettingsStore.getState().pollingInterval).toBe("5m");
-    expect(useSettingsStore.getState().notificationSettings.ciFailures).toBe(false);
+    expect(useSettingsStore.getState().notificationSettings.ciFailures).toBe("off");
+  });
+
+  it("migrates legacy boolean notification settings", () => {
+    expect(
+      normalizeNotificationSettings({
+        enabled: true,
+        ciFailures: true,
+        reviewRequests: false,
+        mentions: true,
+      }),
+    ).toEqual({
+      enabled: true,
+      ciFailures: "immediate",
+      reviewRequests: "off",
+      mentions: "immediate",
+    });
   });
 
   it("customizes and resets shortcuts", () => {

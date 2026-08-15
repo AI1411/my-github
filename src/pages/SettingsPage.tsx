@@ -490,22 +490,38 @@ export default function SettingsPage() {
               />
             </Row>
             <Row label="Notification types">
-              <div className="flex flex-wrap gap-4">
-                <Toggle
-                  checked={notificationSettings.ciFailures}
-                  label="CI failures"
-                  onChange={(checked) => setNotificationSetting("ciFailures", checked)}
-                />
-                <Toggle
-                  checked={notificationSettings.reviewRequests}
-                  label="Review requests"
-                  onChange={(checked) => setNotificationSetting("reviewRequests", checked)}
-                />
-                <Toggle
-                  checked={notificationSettings.mentions}
-                  label="Mentions"
-                  onChange={(checked) => setNotificationSetting("mentions", checked)}
-                />
+              <div className="flex flex-col gap-3">
+                {(
+                  [
+                    ["ciFailures", "CI failures"],
+                    ["reviewRequests", "Review requests"],
+                    ["mentions", "Mentions"],
+                  ] as const
+                ).map(([key, label]) => (
+                  <label key={key} className="flex items-center justify-between gap-4 text-sm">
+                    <span style={{ color: "var(--text-secondary)" }}>{label}</span>
+                    <select
+                      aria-label={`${label} delivery`}
+                      value={notificationSettings[key]}
+                      onChange={(event) =>
+                        setNotificationSetting(
+                          key,
+                          event.currentTarget.value as "immediate" | "digest" | "off",
+                        )
+                      }
+                      className="rounded-md px-2 py-1 text-sm outline-none"
+                      style={{
+                        backgroundColor: "var(--bg-secondary)",
+                        border: "1px solid var(--border-default)",
+                        color: "var(--text-primary)",
+                      }}
+                    >
+                      <option value="immediate">Immediate</option>
+                      <option value="digest">Digest</option>
+                      <option value="off">Off</option>
+                    </select>
+                  </label>
+                ))}
                 <Toggle
                   checked={releaseNotificationsEnabled}
                   label="Releases"

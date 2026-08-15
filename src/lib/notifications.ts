@@ -36,18 +36,40 @@ function titleForKind(kind: Exclude<DesktopNotificationKind, null>): string {
 /**
  * リポジトリ別ルールがあればそれを優先し、なければグローバル設定に従う。
  * `settings.enabled` はマスタースイッチとして常に効く。
+ * OS通知は `immediate` のときのみ送る（`digest` / `off` は送らない）。
  */
+export function deliveryForKind(
+  kind: Exclude<DesktopNotificationKind, null>,
+  settings: NotificationSettings,
+  repo?: string,
+  repoRules?: RepoNotificationRules,
+): "immediate" | "digest" | "off" {
+  if (!settings.enabled) return "off";
+  const global =
+    kind === "ciFailure"
+      ? settings.ciFailures
+      : kind === "reviewRequest"
+        ? settings.reviewRequests
+        : settings.mentions;
+  if (repo && repoRules?.[repo]) {
+    const allowed =
+      kind === "ciFailure"
+        ? repoRules[repo].ciFailures
+        : kind === "reviewRequest"
+          ? repoRules[repo].reviewRequests
+          : repoRules[repo].mentions;
+    if (!allowed) return "off";
+  }
+  return global;
+}
+
 export function enabledForKind(
   kind: Exclude<DesktopNotificationKind, null>,
   settings: NotificationSettings,
   repo?: string,
   repoRules?: RepoNotificationRules,
 ): boolean {
-  if (!settings.enabled) return false;
-  const source = (repo && repoRules?.[repo]) || settings;
-  if (kind === "ciFailure") return source.ciFailures;
-  if (kind === "reviewRequest") return source.reviewRequests;
-  return source.mentions;
+  return deliveryForKind(kind, settings, repo, repoRules) === "immediate";
 }
 
 export async function ensureNotificationPermission(): Promise<boolean> {

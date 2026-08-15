@@ -28,9 +28,9 @@ describe("Sidebar badge integration", () => {
       watchedRepositories: [],
       notificationSettings: {
         enabled: true,
-        ciFailures: true,
-        reviewRequests: true,
-        mentions: true,
+        ciFailures: "immediate",
+        reviewRequests: "immediate",
+        mentions: "immediate",
       },
       pollingInterval: "60s",
       dockBadgeEnabled: true,
