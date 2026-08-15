@@ -19,6 +19,8 @@ import { FileDiff, type DiffViewMode } from "../components/pulls/FileDiff";
 import { FileTreePanel } from "../components/pulls/FileTreePanel";
 import { CommitsTab } from "../components/pulls/CommitsTab";
 import { ChecksTab } from "../components/pulls/ChecksTab";
+import { UnresolvedCommentsList } from "../components/pulls/UnresolvedCommentsList";
+import type { ReviewCommentSummary } from "../components/pulls/ReviewCommentsPanel";
 import { usePullFilesQuery } from "../features/pulls/usePullFilesQuery";
 import { filterFilesByQuery } from "../lib/fileTree";
 import { getViewedSet, setViewed } from "../components/pulls/diff/DiffViewedStore";
@@ -72,9 +74,11 @@ export default function PullDetailPage() {
   const [fileQuery, setFileQuery] = useState("");
   const [viewedSet, setViewedSet] = useState<Set<string>>(() => getViewedSet(pullKey));
   const [readinessKey, setReadinessKey] = useState(0);
+  const [reviewComments, setReviewComments] = useState<ReviewCommentSummary[]>([]);
 
   useEffect(() => {
     setViewedSet(getViewedSet(pullKey));
+    setReviewComments([]);
   }, [pullKey]);
 
   useEffect(() => {
@@ -262,6 +266,15 @@ export default function PullDetailPage() {
           )}
           {tab === "files" && (
             <div className="flex flex-col">
+              {owner && repo && num !== undefined && (
+                <UnresolvedCommentsList
+                  owner={owner}
+                  repo={repo}
+                  number={num}
+                  onJumpToFile={scrollToFile}
+                  onCommentsLoaded={setReviewComments}
+                />
+              )}
               <div
                 className="flex items-center justify-end gap-2 px-4 pt-3"
                 style={{ color: "var(--text-secondary)" }}
@@ -333,6 +346,7 @@ export default function PullDetailPage() {
                             mode={viewMode}
                             viewed={viewedSet.has(f.filename)}
                             onToggleViewed={(v) => toggleViewed(f.filename, v)}
+                            reviewComments={reviewComments}
                           />
                         </div>
                       ))
