@@ -27,6 +27,17 @@ describe("InboxItemRow", () => {
     expect(screen.getByText(/#5/)).toBeInTheDocument();
   });
 
+  it("shows why the item is in Inbox", () => {
+    const { rerender } = render(<InboxItemRow item={item} />);
+    expect(screen.getByText(/Review requested/)).toBeInTheDocument();
+    rerender(<InboxItemRow item={{ ...item, kind: "ci_failure" }} />);
+    expect(screen.getByText(/CI failing/)).toBeInTheDocument();
+    rerender(<InboxItemRow item={{ ...item, kind: "mention" }} />);
+    expect(screen.getByText(/Mentioned/)).toBeInTheDocument();
+    rerender(<InboxItemRow item={{ ...item, kind: "stale_review_request" }} />);
+    expect(screen.getByText(/Stale/)).toBeInTheDocument();
+  });
+
   it("shows Unread indicator when unread=true", () => {
     render(<InboxItemRow item={item} />);
     expect(screen.getByLabelText("Unread")).toBeInTheDocument();
