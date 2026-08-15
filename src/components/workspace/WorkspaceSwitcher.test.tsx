@@ -149,6 +149,40 @@ describe("WorkspaceSwitcher", () => {
     expect(useAuthStore.getState().user?.avatar_url).toBe("avatar.png");
   });
 
+  it("shows attention badge per account from cache summary", async () => {
+    (invoke as ReturnType<typeof vi.fn>).mockImplementation((cmd: string) => {
+      if (cmd === "cmd_get_account_attention_summaries") {
+        return Promise.resolve([
+          {
+            login: "octocat",
+            avatarUrl: null,
+            isActive: true,
+            reviewRequests: 1,
+            ciFailures: 2,
+            mentions: 0,
+          },
+          {
+            login: "work",
+            avatarUrl: null,
+            isActive: false,
+            reviewRequests: 0,
+            ciFailures: 0,
+            mentions: 4,
+          },
+        ]);
+      }
+      return Promise.resolve(null);
+    });
+    useUiStore.setState({ workspaceSwitcherOpen: true });
+    render(<WorkspaceSwitcher />);
+
+    await waitFor(() => {
+      expect(screen.getByText("work")).toBeInTheDocument();
+    });
+    expect(screen.getByLabelText("3 attention items")).toBeInTheDocument();
+    expect(screen.getByLabelText("4 attention items")).toBeInTheDocument();
+  });
+
   it("does not render when closed", () => {
     useUiStore.setState({ workspaceSwitcherOpen: false });
     render(<WorkspaceSwitcher />);

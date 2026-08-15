@@ -3,6 +3,8 @@ import { useAuthStore } from "../../stores/authStore";
 import { useDataStore } from "../../stores/dataStore";
 import { useUiStore } from "../../stores/uiStore";
 import { Avatar } from "../common/Avatar";
+import { useAccountAttentionSummaries } from "../../hooks/useAccountAttentionSummaries";
+import { attentionTotal } from "../../lib/accountAttention";
 
 interface WorkspaceSwitcherProps {
   onSignOut?: () => void;
@@ -18,6 +20,7 @@ export function WorkspaceSwitcher({ onSignOut }: WorkspaceSwitcherProps) {
   const pulls = useDataStore((s) => s.pulls);
   const issues = useDataStore((s) => s.issues);
   const notifications = useDataStore((s) => s.notifications);
+  const { summaries } = useAccountAttentionSummaries(isOpen);
 
   if (!isOpen) return null;
 
@@ -28,6 +31,22 @@ export function WorkspaceSwitcher({ onSignOut }: WorkspaceSwitcherProps) {
       ...notifications.map((n) => n.repo),
     ]),
   ).slice(0, 6);
+
+  const accounts =
+    summaries.length > 0
+      ? summaries
+      : user
+        ? [
+            {
+              login: user.login,
+              avatarUrl: user.avatar_url,
+              isActive: true,
+              reviewRequests: 0,
+              ciFailures: 0,
+              mentions: 0,
+            },
+          ]
+        : [];
 
   const handleSwitchAccount = async (accountId: string) => {
     const nextUser = await invoke<{ login: string; avatar_url: string }>("cmd_switch_account", {
@@ -71,28 +90,49 @@ export function WorkspaceSwitcher({ onSignOut }: WorkspaceSwitcherProps) {
             Accounts
           </p>
         </div>
-        {user && (
-          <button
-            type="button"
-            onClick={() => void handleSwitchAccount(user.login)}
-            className="w-full px-4 py-3 flex items-center gap-2 text-left"
-            style={{
-              backgroundColor: "transparent",
-              border: "none",
-              cursor: "pointer",
-            }}
-          >
-            <Avatar login={user.login} src={user.avatar_url} size="sm" />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>
-                {user.login}
-              </p>
-              <p className="text-xs" style={{ color: "var(--accent-green)" }}>
-                Active
-              </p>
-            </div>
-          </button>
-        )}
+        {accounts.map((acct) => {
+          const total = attentionTotal(acct);
+          const isActive = acct.login === user?.login || acct.isActive;
+          return (
+            <button
+              key={acct.login}
+              type="button"
+              onClick={() => void handleSwitchAccount(acct.login)}
+              className="w-full px-4 py-3 flex items-center gap-2 text-left"
+              style={{
+                backgroundColor: "transparent",
+                border: "none",
+                cursor: "pointer",
+              }}
+            >
+              <Avatar login={acct.login} src={acct.avatarUrl ?? undefined} size="sm" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>
+                  {acct.login}
+                </p>
+                <p
+                  className="text-xs"
+                  style={{ color: isActive ? "var(--accent-green)" : "var(--text-muted)" }}
+                >
+                  {isActive ? "Active" : "Switch"}
+                </p>
+              </div>
+              {total > 0 && (
+                <span
+                  className="text-[11px] px-1.5 py-0.5 rounded-full tabular-nums"
+                  style={{
+                    backgroundColor: "var(--bg-overlay)",
+                    color: "var(--text-secondary)",
+                  }}
+                  title={`Review ${acct.reviewRequests} · CI ${acct.ciFailures} · Mentions ${acct.mentions}`}
+                  aria-label={`${total} attention items`}
+                >
+                  {total}
+                </span>
+              )}
+            </button>
+          );
+        })}
         <div className="px-4 py-2.5 border-t" style={{ borderColor: "var(--border-subtle)" }}>
           <p className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
             Recent workspaces

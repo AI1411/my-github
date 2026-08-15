@@ -147,4 +147,39 @@ describe("Sidebar badge integration", () => {
     expect(screen.getByRole("link", { name: /Watch me/ })).toHaveAttribute("href", "/pulls/o/r/7");
     expect(screen.getByLabelText("CI failing")).toBeInTheDocument();
   });
+
+  it("shows cross-account attention total in the workspace header", async () => {
+    const { invoke } = await import("@tauri-apps/api/core");
+    (invoke as ReturnType<typeof vi.fn>).mockImplementation((cmd: string) => {
+      if (cmd === "cmd_get_account_attention_summaries") {
+        return Promise.resolve([
+          {
+            login: "octocat",
+            avatarUrl: null,
+            isActive: true,
+            reviewRequests: 1,
+            ciFailures: 0,
+            mentions: 0,
+          },
+          {
+            login: "work",
+            avatarUrl: null,
+            isActive: false,
+            reviewRequests: 0,
+            ciFailures: 2,
+            mentions: 1,
+          },
+        ]);
+      }
+      return Promise.resolve(null);
+    });
+    render(
+      <MemoryRouter>
+        <Sidebar />
+      </MemoryRouter>,
+    );
+    await waitFor(() => {
+      expect(screen.getByText(/All accounts · 4/)).toBeInTheDocument();
+    });
+  });
 });
