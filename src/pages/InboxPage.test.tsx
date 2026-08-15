@@ -53,9 +53,10 @@ describe("InboxPage snooze shortcuts", () => {
   it("opens snooze picker with H and snoozes with number key", async () => {
     render(<InboxPage />);
     await waitFor(() => expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0));
+    fireEvent.click(screen.getAllByText("Needs review")[0]);
 
     fireEvent.keyDown(window, { key: "h" });
-    const dialog = screen.getByRole("dialog", { name: "Snooze until" });
+    const dialog = await screen.findByRole("dialog", { name: "Snooze until" });
     expect(dialog).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: "2" });
@@ -72,6 +73,7 @@ describe("InboxPage snooze shortcuts", () => {
     saveLastSnoozeOption("1h");
     render(<InboxPage />);
     await waitFor(() => expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0));
+    fireEvent.click(screen.getAllByText("Needs review")[0]);
 
     fireEvent.keyDown(window, { key: "h", shiftKey: true });
     await waitFor(() => {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Toolbar } from "../components/common/Toolbar";
 import { Spinner } from "../components/common/Spinner";
@@ -66,13 +66,21 @@ export default function InboxPage() {
     [data, staleItems],
   );
 
+  const getId = useCallback((item: InboxItem) => item.id, []);
+
   const { activeId, activeItem, setActiveId, registerItemRef } = useListNavigation({
     items: flatItems,
-    getId: (item) => item.id,
+    getId,
     onSelect: setSelected,
     onOpen: setSelected,
     enabled: flatItems.length > 0 && !pickerOpen,
   });
+
+  useEffect(() => {
+    if (activeItem && selected?.id !== activeItem.id) {
+      setSelected(activeItem);
+    }
+  }, [activeItem, selected?.id]);
 
   async function handleTogglePin(item: InboxItem) {
     try {
