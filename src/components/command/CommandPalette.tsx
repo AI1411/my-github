@@ -21,10 +21,12 @@ const NAV_COMMANDS: CommandItem[] = [
   { id: "nav-issues", label: "Go to Issues", kind: "nav", href: "/issues" },
   { id: "nav-activity", label: "Go to Activity", kind: "nav", href: "/activity" },
   { id: "nav-dashboards", label: "Go to Dashboards", kind: "nav", href: "/dashboards" },
+  { id: "nav-releases", label: "Go to Releases", kind: "nav", href: "/releases" },
+  { id: "nav-discussions", label: "Go to Discussions", kind: "nav", href: "/discussions" },
+  { id: "nav-projects", label: "Go to Projects", kind: "nav", href: "/projects" },
   { id: "nav-ci", label: "Go to CI Status", kind: "nav", href: "/ci" },
   { id: "nav-settings", label: "Go to Settings", kind: "nav", href: "/settings" },
 ];
-
 const KIND_LABEL: Record<CommandItem["kind"], string> = {
   nav: "→",
   pr: "PR",

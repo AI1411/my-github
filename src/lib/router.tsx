@@ -10,6 +10,9 @@ import IssuesPage from "../pages/IssuesPage";
 import ActivityPage from "../pages/ActivityPage";
 import DigestPage from "../pages/DigestPage";
 import UnitDashboardPage from "../pages/UnitDashboardPage";
+import ReleasesPage from "../pages/ReleasesPage";
+import DiscussionsPage from "../pages/DiscussionsPage";
+import ProjectsPage from "../pages/ProjectsPage";
 import SettingsPage from "../pages/SettingsPage";
 import PullDetailPage from "../pages/PullDetailPage";
 import IssueDetailPage from "../pages/IssueDetailPage";
@@ -50,6 +53,9 @@ export function createAppRouter(onSignOut: () => void) {
         { path: "activity", element: <ActivityPage /> },
         { path: "digest", element: <DigestPage /> },
         { path: "dashboards", element: <UnitDashboardPage /> },
+        { path: "releases", element: <ReleasesPage /> },
+        { path: "discussions", element: <DiscussionsPage /> },
+        { path: "projects", element: <ProjectsPage /> },
         { path: "ci", element: <CiStatusPage /> },
         { path: "settings", element: <SettingsPage /> },
         { path: "*", element: <NotFoundPage /> },
