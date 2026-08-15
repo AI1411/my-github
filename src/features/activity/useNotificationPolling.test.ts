@@ -96,6 +96,7 @@ describe("useNotificationPolling", () => {
       useSettingsStore.getState().notificationSettings,
       useSettingsStore.getState().repoNotificationRules,
       useSettingsStore.getState().notificationRules,
+      useSettingsStore.getState().quietHours,
     );
 
     await act(() => vi.advanceTimersByTimeAsync(30_000));
@@ -230,6 +231,7 @@ describe("useNotificationPolling", () => {
       useSettingsStore.getState().notificationSettings,
       useSettingsStore.getState().repoNotificationRules,
       useSettingsStore.getState().notificationRules,
+      useSettingsStore.getState().quietHours,
     );
   });
 

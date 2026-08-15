@@ -75,6 +75,7 @@ export function useNotificationPolling(): NotificationPollingState {
             settings,
             repoRules,
             notificationRules,
+            useSettingsStore.getState().quietHours,
           );
           if (currentGeneration !== generation.current) return;
           if (sent) {

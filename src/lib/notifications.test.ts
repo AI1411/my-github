@@ -1,11 +1,14 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Options } from "@tauri-apps/plugin-notification";
 import {
   enabledForKind,
   ensureNotificationPermission,
+  NOTIFICATION_GROUP_WINDOW_MS,
   priorityForKind,
   registerAppNotificationClickHandler,
+  resetNotificationGroupsForTests,
   sendAppNotification,
+  sendReleaseNotification,
 } from "./notifications";
 
 const notificationPlugin = vi.hoisted(() => ({
@@ -36,6 +39,21 @@ const reviewNotification = {
   updatedAt: "2026-04-29T00:00:00Z",
 };
 
+const ciNotification = {
+  id: "ci-1",
+  reason: "ci",
+  repo: "AI1411/my-github",
+  subjectTitle: "CI is failing",
+  subjectType: "CheckSuite",
+  htmlUrl: "https://github.com/AI1411/my-github/pull/189",
+  unread: true,
+  updatedAt: "2026-04-29T00:00:00Z",
+};
+
+async function flushNotificationGroups() {
+  await vi.advanceTimersByTimeAsync(NOTIFICATION_GROUP_WINDOW_MS);
+}
+
 describe("ensureNotificationPermission", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -63,11 +81,7 @@ describe("priorityForKind / enabledForKind", () => {
   it("falls back to global settings when no repo rule exists", () => {
     expect(priorityForKind("ciFailure", settings, { repo: "octocat/hello" })).toBe("immediate");
     expect(
-      priorityForKind(
-        "ciFailure",
-        { ...settings, ciFailures: "off" },
-        { repo: "octocat/hello" },
-      ),
+      priorityForKind("ciFailure", { ...settings, ciFailures: "off" }, { repo: "octocat/hello" }),
     ).toBe("off");
     expect(enabledForKind("ciFailure", settings, "octocat/hello", {})).toBe(true);
     expect(
@@ -102,15 +116,15 @@ describe("priorityForKind / enabledForKind", () => {
     expect(
       priorityForKind("reviewRequest", settings, { repo: "octocat/hello", notificationRules }),
     ).toBe("immediate");
-    expect(
-      priorityForKind("mention", settings, { repo: "octocat/hello", notificationRules }),
-    ).toBe("off");
+    expect(priorityForKind("mention", settings, { repo: "octocat/hello", notificationRules })).toBe(
+      "off",
+    );
     expect(enabledForKind("ciFailure", settings, "octocat/hello", {}, notificationRules)).toBe(
       false,
     );
-    expect(
-      enabledForKind("reviewRequest", settings, "octocat/hello", {}, notificationRules),
-    ).toBe(true);
+    expect(enabledForKind("reviewRequest", settings, "octocat/hello", {}, notificationRules)).toBe(
+      true,
+    );
   });
 
   it("prefers notificationRules over legacy boolean repo rules", () => {
@@ -170,9 +184,9 @@ describe("priorityForKind / enabledForKind", () => {
         priority: "off" as const,
       },
     ];
-    expect(
-      priorityForKind("mention", settings, { repo: "octocat/hello", notificationRules }),
-    ).toBe("immediate");
+    expect(priorityForKind("mention", settings, { repo: "octocat/hello", notificationRules })).toBe(
+      "immediate",
+    );
   });
 
   it("treats digest delivery as non-immediate", () => {
@@ -180,19 +194,22 @@ describe("priorityForKind / enabledForKind", () => {
       enabledForKind("mention", { ...settings, mentions: "digest" }, "octocat/hello", {}),
     ).toBe(false);
     expect(
-      priorityForKind(
-        "mention",
-        { ...settings, mentions: "digest" },
-        { repo: "octocat/hello" },
-      ),
+      priorityForKind("mention", { ...settings, mentions: "digest" }, { repo: "octocat/hello" }),
     ).toBe("digest");
   });
 });
 
 describe("sendAppNotification with repo rules", () => {
   beforeEach(() => {
+    vi.useFakeTimers();
     vi.clearAllMocks();
+    resetNotificationGroupsForTests();
     notificationPlugin.isPermissionGranted.mockResolvedValue(true);
+  });
+
+  afterEach(() => {
+    resetNotificationGroupsForTests();
+    vi.useRealTimers();
   });
 
   it("suppresses a notification disabled by its repo rule", async () => {
@@ -200,6 +217,7 @@ describe("sendAppNotification with repo rules", () => {
       "AI1411/my-github": { ciFailures: true, reviewRequests: false, mentions: true },
     });
     expect(sent).toBe(false);
+    await flushNotificationGroups();
     expect(notificationPlugin.sendNotification).not.toHaveBeenCalled();
   });
 
@@ -208,6 +226,7 @@ describe("sendAppNotification with repo rules", () => {
       "AI1411/my-github": { ciFailures: false, reviewRequests: true, mentions: false },
     });
     expect(sent).toBe(true);
+    await flushNotificationGroups();
     expect(notificationPlugin.sendNotification).toHaveBeenCalledTimes(1);
   });
 
@@ -228,6 +247,7 @@ describe("sendAppNotification with repo rules", () => {
       ],
     );
     expect(sent).toBe(true);
+    await flushNotificationGroups();
     expect(notificationPlugin.sendNotification).toHaveBeenCalledTimes(1);
   });
 
@@ -241,18 +261,27 @@ describe("sendAppNotification with repo rules", () => {
       },
     ]);
     expect(sent).toBe(false);
+    await flushNotificationGroups();
     expect(notificationPlugin.sendNotification).not.toHaveBeenCalled();
   });
 });
 
 describe("sendAppNotification", () => {
   beforeEach(() => {
+    vi.useFakeTimers();
     vi.clearAllMocks();
+    resetNotificationGroupsForTests();
     notificationPlugin.isPermissionGranted.mockResolvedValue(true);
+  });
+
+  afterEach(() => {
+    resetNotificationGroupsForTests();
+    vi.useRealTimers();
   });
 
   it("sends review request notifications with click route payload", async () => {
     await sendAppNotification(reviewNotification, settings);
+    await flushNotificationGroups();
 
     expect(notificationPlugin.sendNotification).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -269,6 +298,7 @@ describe("sendAppNotification", () => {
       ...settings,
       enabled: false,
     });
+    await flushNotificationGroups();
 
     expect(notificationPlugin.sendNotification).not.toHaveBeenCalled();
   });
@@ -278,7 +308,73 @@ describe("sendAppNotification", () => {
       ...settings,
       reviewRequests: "off",
     });
+    await flushNotificationGroups();
 
+    expect(notificationPlugin.sendNotification).not.toHaveBeenCalled();
+  });
+
+  it("collapses same repo and kind within 60s into CI failing ×N", async () => {
+    await sendAppNotification({ ...ciNotification, id: "ci-1" }, settings);
+    await sendAppNotification({ ...ciNotification, id: "ci-2" }, settings);
+    await sendAppNotification({ ...ciNotification, id: "ci-3" }, settings);
+
+    expect(notificationPlugin.sendNotification).not.toHaveBeenCalled();
+    await flushNotificationGroups();
+    expect(notificationPlugin.sendNotification).toHaveBeenCalledTimes(1);
+    expect(notificationPlugin.sendNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "CI failed",
+        body: "CI failing ×3",
+      }),
+    );
+  });
+
+  it("does not collapse different repos or kinds", async () => {
+    await sendAppNotification(reviewNotification, settings);
+    await sendAppNotification(
+      { ...reviewNotification, id: "other", repo: "octocat/hello" },
+      settings,
+    );
+    await sendAppNotification(ciNotification, settings);
+    await flushNotificationGroups();
+    expect(notificationPlugin.sendNotification).toHaveBeenCalledTimes(3);
+  });
+
+  it("skips OS notifications during quiet hours", async () => {
+    vi.setSystemTime(new Date("2026-08-15T23:00:00"));
+    const sent = await sendAppNotification(reviewNotification, settings, undefined, undefined, {
+      enabled: true,
+      start: "22:00",
+      end: "08:00",
+    });
+    expect(sent).toBe(false);
+    await flushNotificationGroups();
+    expect(notificationPlugin.sendNotification).not.toHaveBeenCalled();
+  });
+});
+
+describe("sendReleaseNotification", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.clearAllMocks();
+    notificationPlugin.isPermissionGranted.mockResolvedValue(true);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("skips release notifications during quiet hours", async () => {
+    vi.setSystemTime(new Date("2026-08-15T23:00:00"));
+    const sent = await sendReleaseNotification(
+      {
+        repo: "AI1411/my-github",
+        tagName: "v1.0.0",
+        htmlUrl: "https://github.com/AI1411/my-github/releases/tag/v1.0.0",
+      },
+      { enabled: true, start: "22:00", end: "08:00" },
+    );
+    expect(sent).toBe(false);
     expect(notificationPlugin.sendNotification).not.toHaveBeenCalled();
   });
 });

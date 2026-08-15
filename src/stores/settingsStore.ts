@@ -13,11 +13,13 @@ import type { SavedFilter } from "../lib/savedFilters";
 import { createWorkMode, normalizeWorkModes, type WorkMode } from "../lib/workModes";
 import { DEFAULT_LOCAL_LLM, type LocalLlmSettings } from "../lib/localLlm";
 import { normalizeRepoPathMap } from "../lib/openInEditor";
+import { DEFAULT_QUIET_HOURS, normalizeQuietHours, type QuietHours } from "../lib/quietHours";
 
 export type { RecentPullRef };
 export type { GithubHost };
 export type { WorkMode };
 export type { LocalLlmSettings };
+export type { QuietHours };
 
 export type PollingInterval = "30s" | "60s" | "5m" | "off";
 export type AppearanceDensity = "compact" | "comfortable";
@@ -165,6 +167,8 @@ export interface SettingsState {
   removeAccountHost: (login: string) => void;
   watchedRepositories: string[];
   notificationSettings: NotificationSettings;
+  quietHours: QuietHours;
+  setQuietHours: (patch: Partial<QuietHours>) => void;
   pollingInterval: PollingInterval;
   /**
    * Push-assisted sync (desktop MVP): not real GitHub webhooks.
@@ -273,6 +277,11 @@ export const useSettingsStore = create<SettingsState>()(
         }),
       watchedRepositories: [],
       notificationSettings: DEFAULT_NOTIFICATION_SETTINGS,
+      quietHours: { ...DEFAULT_QUIET_HOURS },
+      setQuietHours: (patch) =>
+        set((state) => ({
+          quietHours: { ...state.quietHours, ...patch },
+        })),
       pollingInterval: "60s",
       pushSyncEnabled: false,
       dockBadgeEnabled: true,
@@ -574,6 +583,7 @@ export const useSettingsStore = create<SettingsState>()(
           notificationSettings: normalizeNotificationSettings(
             raw.notificationSettings ?? current.notificationSettings,
           ),
+          quietHours: normalizeQuietHours(raw.quietHours ?? current.quietHours),
           notificationRules: normalizeNotificationRules(
             raw.notificationRules ?? current.notificationRules,
           ),
@@ -598,6 +608,7 @@ export const useSettingsStore = create<SettingsState>()(
         accountHosts: state.accountHosts,
         watchedRepositories: state.watchedRepositories,
         notificationSettings: state.notificationSettings,
+        quietHours: state.quietHours,
         pollingInterval: state.pollingInterval,
         pushSyncEnabled: state.pushSyncEnabled,
         dockBadgeEnabled: state.dockBadgeEnabled,

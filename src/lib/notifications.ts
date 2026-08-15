@@ -19,6 +19,7 @@ import {
   notificationRoute,
   type DesktopNotificationKind,
 } from "./notificationRoutes";
+import { isInQuietHours, type QuietHours } from "./quietHours";
 
 const APP_OPEN_ACTION = "pulse-open";
 
@@ -28,7 +29,11 @@ let activeClickHandler: {
 } | null = null;
 let clickHandlerRegistration: Promise<void> | null = null;
 
-function titleForKind(kind: Exclude<DesktopNotificationKind, null>): string {
+export const NOTIFICATION_GROUP_WINDOW_MS = 60_000;
+
+type NotificationKind = Exclude<DesktopNotificationKind, null>;
+
+function titleForKind(kind: NotificationKind): string {
   switch (kind) {
     case "ciFailure":
       return "CI failed";
@@ -39,9 +44,55 @@ function titleForKind(kind: Exclude<DesktopNotificationKind, null>): string {
   }
 }
 
-function settingsKeyForKind(
-  kind: Exclude<DesktopNotificationKind, null>,
-): NotificationRuleKind {
+function groupBodyForKind(kind: NotificationKind, count: number): string {
+  const label =
+    kind === "ciFailure" ? "CI failing" : kind === "reviewRequest" ? "Review requested" : "Mention";
+  return `${label} ×${count}`;
+}
+
+interface NotificationGroup {
+  kind: NotificationKind;
+  count: number;
+  sample: NotificationSummary;
+  quietHours?: QuietHours;
+  timer: ReturnType<typeof setTimeout>;
+}
+
+const pendingGroups = new Map<string, NotificationGroup>();
+
+function groupKey(repo: string, kind: NotificationKind): string {
+  return `${repo}::${kind}`;
+}
+
+function quietHoursActive(quietHours?: QuietHours, now = new Date()): boolean {
+  return Boolean(quietHours && isInQuietHours(now, quietHours));
+}
+
+function emitGroup(group: NotificationGroup): void {
+  if (quietHoursActive(group.quietHours)) return;
+  const route = notificationRoute(group.sample.htmlUrl);
+  const options: Options = {
+    title: titleForKind(group.kind),
+    body:
+      group.count > 1
+        ? groupBodyForKind(group.kind, group.count)
+        : `${group.sample.repo} · ${group.sample.subjectTitle}`,
+    actionTypeId: route ? APP_OPEN_ACTION : undefined,
+    autoCancel: true,
+    extra: route ? { route } : undefined,
+    group: "pulse-notifications",
+  };
+  sendNotification(options);
+}
+
+export function resetNotificationGroupsForTests(): void {
+  for (const group of pendingGroups.values()) {
+    clearTimeout(group.timer);
+  }
+  pendingGroups.clear();
+}
+
+function settingsKeyForKind(kind: Exclude<DesktopNotificationKind, null>): NotificationRuleKind {
   switch (kind) {
     case "ciFailure":
       return "ciFailures";
@@ -66,7 +117,7 @@ export interface PriorityForKindOptions {
  * 解決順: notificationRules → repoNotificationRules → global。
  */
 export function priorityForKind(
-  kind: Exclude<DesktopNotificationKind, null>,
+  kind: NotificationKind,
   settings: NotificationSettings,
   options: PriorityForKindOptions = {},
 ): NotificationDelivery {
@@ -77,9 +128,7 @@ export function priorityForKind(
   const { repo, notificationRules, repoRules } = options;
 
   if (repo && notificationRules?.length) {
-    const match = notificationRules.find(
-      (rule) => rule.repo === repo && rule.kind === key,
-    );
+    const match = notificationRules.find((rule) => rule.repo === repo && rule.kind === key);
     if (match) return match.priority;
   }
 
@@ -93,7 +142,7 @@ export function priorityForKind(
 
 /** @deprecated Use {@link priorityForKind}. Kept for call-site compatibility. */
 export function deliveryForKind(
-  kind: Exclude<DesktopNotificationKind, null>,
+  kind: NotificationKind,
   settings: NotificationSettings,
   repo?: string,
   repoRules?: RepoNotificationRules,
@@ -103,15 +152,13 @@ export function deliveryForKind(
 }
 
 export function enabledForKind(
-  kind: Exclude<DesktopNotificationKind, null>,
+  kind: NotificationKind,
   settings: NotificationSettings,
   repo?: string,
   repoRules?: RepoNotificationRules,
   notificationRules?: NotificationRule[],
 ): boolean {
-  return (
-    priorityForKind(kind, settings, { repo, repoRules, notificationRules }) === "immediate"
-  );
+  return priorityForKind(kind, settings, { repo, repoRules, notificationRules }) === "immediate";
 }
 
 export async function ensureNotificationPermission(): Promise<boolean> {
@@ -124,35 +171,49 @@ export async function sendAppNotification(
   settings: NotificationSettings,
   repoRules?: RepoNotificationRules,
   notificationRules?: NotificationRule[],
+  quietHours?: QuietHours,
 ): Promise<boolean> {
   const kind = notificationKind(notification);
-  if (
-    !kind ||
-    !enabledForKind(kind, settings, notification.repo, repoRules, notificationRules)
-  ) {
+  if (!kind || !enabledForKind(kind, settings, notification.repo, repoRules, notificationRules)) {
     return false;
   }
+  if (quietHoursActive(quietHours)) return false;
   if (!(await ensureNotificationPermission())) return false;
 
-  const route = notificationRoute(notification.htmlUrl);
-  const options: Options = {
-    title: titleForKind(kind),
-    body: `${notification.repo} · ${notification.subjectTitle}`,
-    actionTypeId: route ? APP_OPEN_ACTION : undefined,
-    autoCancel: true,
-    extra: route ? { route } : undefined,
-    group: "pulse-notifications",
+  const key = groupKey(notification.repo, kind);
+  const existing = pendingGroups.get(key);
+  if (existing) {
+    existing.count += 1;
+    existing.sample = notification;
+    existing.quietHours = quietHours;
+    return true;
+  }
+
+  const group: NotificationGroup = {
+    kind,
+    count: 1,
+    sample: notification,
+    quietHours,
+    timer: setTimeout(() => {
+      const pending = pendingGroups.get(key);
+      pendingGroups.delete(key);
+      if (pending) emitGroup(pending);
+    }, NOTIFICATION_GROUP_WINDOW_MS),
   };
-  sendNotification(options);
+  pendingGroups.set(key, group);
   return true;
 }
 
 /** 新規リリースのOS通知。種類別設定ではなく専用フラグで制御する。 */
-export async function sendReleaseNotification(release: {
-  repo: string;
-  tagName: string;
-  htmlUrl: string;
-}): Promise<boolean> {
+export async function sendReleaseNotification(
+  release: {
+    repo: string;
+    tagName: string;
+    htmlUrl: string;
+  },
+  quietHours?: QuietHours,
+): Promise<boolean> {
+  if (quietHoursActive(quietHours)) return false;
   if (!(await ensureNotificationPermission())) return false;
   sendNotification({
     title: "New release",

@@ -49,6 +49,7 @@ describe("SettingsPage", () => {
       theme: "dark",
       layout: "inbox-first",
       shortcuts: DEFAULT_SHORTCUTS,
+      quietHours: { enabled: false, start: "22:00", end: "08:00" },
     });
     (invoke as ReturnType<typeof vi.fn>).mockImplementation((cmd: string) => {
       if (cmd === "cmd_get_sync_status") {
@@ -211,6 +212,30 @@ describe("SettingsPage", () => {
     expect(useSettingsStore.getState().pollingInterval).toBe("5m");
   });
 
+  it("toggles quiet hours on the notifications tab", () => {
+    renderPage();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Notifications" }));
+    expect(useSettingsStore.getState().quietHours.enabled).toBe(false);
+
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: "Skip OS notifications during quiet hours" }),
+    );
+
+    expect(useSettingsStore.getState().quietHours.enabled).toBe(true);
+    fireEvent.change(screen.getByLabelText("Quiet hours start"), {
+      target: { value: "21:00" },
+    });
+    fireEvent.change(screen.getByLabelText("Quiet hours end"), {
+      target: { value: "07:30" },
+    });
+    expect(useSettingsStore.getState().quietHours).toMatchObject({
+      enabled: true,
+      start: "21:00",
+      end: "07:30",
+    });
+  });
+
   it("toggles push-assisted sync without claiming real webhooks", () => {
     renderPage();
 
@@ -220,9 +245,7 @@ describe("SettingsPage", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "Enable push-assisted sync" }));
 
     expect(useSettingsStore.getState().pushSyncEnabled).toBe(true);
-    expect(
-      screen.getByText(/cannot host a durable public GitHub webhook/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/cannot host a durable public GitHub webhook/i)).toBeInTheDocument();
     expect(screen.getByText(/not inbound webhooks/i)).toBeInTheDocument();
   });
 
