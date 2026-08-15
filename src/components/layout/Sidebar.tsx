@@ -26,6 +26,7 @@ export function Sidebar({ onSignOut }: SidebarProps) {
   const dockBadgeEnabled = useSettingsStore((s) => s.dockBadgeEnabled);
   const savedFilters = useSettingsStore((s) => s.savedFilters);
   const removeSavedFilter = useSettingsStore((s) => s.removeSavedFilter);
+  const renameSavedFilter = useSettingsStore((s) => s.renameSavedFilter);
   const openSwitcher = useUiStore((s) => s.openWorkspaceSwitcher);
 
   const unreadCount = notifications.filter((n) => n.unread).length;
@@ -115,6 +116,18 @@ export function Sidebar({ onSignOut }: SidebarProps) {
                     >
                       {view.name}
                     </NavLink>
+                    <button
+                      type="button"
+                      aria-label={`Rename view ${view.name}`}
+                      onClick={() => {
+                        const next = window.prompt("Rename view", view.name);
+                        if (next) renameSavedFilter(view.id, next);
+                      }}
+                      className="hidden group-hover:block px-1.5 text-xs"
+                      style={{ color: "var(--text-muted)" }}
+                    >
+                      ✎
+                    </button>
                     <button
                       type="button"
                       aria-label={`Remove view ${view.name}`}
