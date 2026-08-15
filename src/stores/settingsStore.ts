@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import { createSavedSearch, type SavedSearch } from "../lib/advancedSearch";
 import { DEFAULT_STALE_THRESHOLDS, type StaleThresholds } from "../lib/stalePulls";
 import type { SavedFilter } from "../lib/savedFilters";
 
@@ -105,6 +106,7 @@ export interface SettingsState {
   shortcuts: Record<ShortcutId, ShortcutSetting>;
   staleThresholds: StaleThresholds;
   savedFilters: SavedFilter[];
+  savedSearches: SavedSearch[];
   pinnedPullsByAccount: Record<string, PinnedPullRef[]>;
   repoNotificationRules: RepoNotificationRules;
   releaseNotificationsEnabled: boolean;
@@ -125,6 +127,8 @@ export interface SettingsState {
   addSavedFilter: (filter: Omit<SavedFilter, "id">) => void;
   removeSavedFilter: (id: string) => void;
   renameSavedFilter: (id: string, name: string) => void;
+  addSavedSearch: (name: string, query: string) => void;
+  removeSavedSearch: (id: string) => void;
   removeWatchedRepository: (repo: string) => void;
   setNotificationSetting: (
     key: keyof NotificationSettings,
@@ -149,6 +153,7 @@ export const useSettingsStore = create<SettingsState>()(
       shortcuts: DEFAULT_SHORTCUTS,
       staleThresholds: DEFAULT_STALE_THRESHOLDS,
       savedFilters: [],
+      savedSearches: [],
       pinnedPullsByAccount: {},
       repoNotificationRules: {},
       releaseNotificationsEnabled: true,
@@ -205,6 +210,22 @@ export const useSettingsStore = create<SettingsState>()(
             ),
           };
         }),
+      addSavedSearch: (name, query) =>
+        set((state) => {
+          const payload = createSavedSearch(name, query);
+          if (!payload) return state;
+          if (state.savedSearches.some((s) => s.query === payload.query)) return state;
+          return {
+            savedSearches: [
+              ...state.savedSearches,
+              { ...payload, id: crypto.randomUUID() },
+            ],
+          };
+        }),
+      removeSavedSearch: (id) =>
+        set((state) => ({
+          savedSearches: state.savedSearches.filter((search) => search.id !== id),
+        })),
       togglePinnedPull: (accountId, repo, number) =>
         set((state) => {
           if (!accountId || !repo || !Number.isFinite(number)) return state;
@@ -289,6 +310,7 @@ export const useSettingsStore = create<SettingsState>()(
         shortcuts: state.shortcuts,
         staleThresholds: state.staleThresholds,
         savedFilters: state.savedFilters,
+        savedSearches: state.savedSearches,
         pinnedPullsByAccount: state.pinnedPullsByAccount,
         repoNotificationRules: state.repoNotificationRules,
         releaseNotificationsEnabled: state.releaseNotificationsEnabled,
