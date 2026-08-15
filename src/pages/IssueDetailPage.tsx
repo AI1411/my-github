@@ -17,6 +17,7 @@ import { enqueueWrite } from "../lib/writeQueue";
 import { useDataStore, type IssueSummary } from "../stores/dataStore";
 import { useCloseDetailShortcut } from "../hooks/useCloseDetailShortcut";
 import { useInboxQueueAdvance } from "../hooks/useInboxQueueAdvance";
+import { useOpenInBrowserShortcut } from "../hooks/useOpenInBrowserShortcut";
 
 export default function IssueDetailPage() {
   useCloseDetailShortcut();
@@ -37,6 +38,8 @@ export default function IssueDetailPage() {
     setIssue(fetched);
     setReactions(fetched?.reactions ?? []);
   }, [fetched]);
+
+  useOpenInBrowserShortcut(issue?.htmlUrl ?? fetched?.htmlUrl ?? null);
 
   const updateIssue = async (payload: {
     state?: string;

@@ -11,6 +11,7 @@ import { useInboxQuery } from "../features/inbox/useInboxQuery";
 import { useSettingsShortcut } from "../hooks/useSettingsShortcut";
 import { useKeyboardShortcut } from "../hooks/useKeyboardShortcut";
 import { useListNavigation } from "../hooks/useListNavigation";
+import { useOpenInBrowserShortcut } from "../hooks/useOpenInBrowserShortcut";
 import { focusAfterRemoval } from "../lib/inboxFocus";
 import { buildInboxQueue, inboxItemDetailPath, saveInboxQueue } from "../lib/inboxQueue";
 import { CHORD_TIMEOUT_MS } from "../lib/shortcutKeys";
@@ -94,6 +95,8 @@ export default function InboxPage() {
     onOpen: openFromInbox,
     enabled: flatItems.length > 0 && !pickerOpen,
   });
+
+  useOpenInBrowserShortcut((activeItem ?? selected)?.htmlUrl ?? null);
 
   async function handleTogglePin(item: InboxItem) {
     const target =
