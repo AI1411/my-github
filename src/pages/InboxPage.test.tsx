@@ -211,4 +211,22 @@ describe("InboxPage snooze shortcuts", () => {
       expect.objectContaining({ itemId: "pr-1" }),
     );
   });
+
+  it("keeps the preview collapsed until an item is selected", async () => {
+    render(<InboxPage />);
+    await waitFor(() => expect(screen.getAllByText("Needs review").length).toBe(1));
+    expect(screen.queryByRole("button", { name: "Open in Browser" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Select an item to preview")).not.toBeInTheDocument();
+  });
+
+  it("opens the preview on click and collapses it with Escape", async () => {
+    render(<InboxPage />);
+    await waitFor(() => expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0));
+    fireEvent.click(screen.getAllByText("Needs review")[0]);
+    expect(await screen.findByRole("button", { name: "Open in Browser" })).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "Open in Browser" })).not.toBeInTheDocument();
+    });
+  });
 });

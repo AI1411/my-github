@@ -79,12 +79,6 @@ export default function InboxPage() {
     enabled: flatItems.length > 0 && !pickerOpen,
   });
 
-  useEffect(() => {
-    if (activeItem && selected?.id !== activeItem.id) {
-      setSelected(activeItem);
-    }
-  }, [activeItem, selected?.id]);
-
   async function handleTogglePin(item: InboxItem) {
     const target =
       resolveSnoozeTarget(item, flatItems) ?? (item.id.startsWith("stale-") ? null : item);
@@ -221,7 +215,12 @@ export default function InboxPage() {
   useKeyboardShortcut(
     { key: "Escape", preventDefault: true },
     () => {
-      if (pickerOpen) setPickerOpen(false);
+      if (document.querySelector('[role="dialog"][aria-label="Shortcut help"]')) return;
+      if (pickerOpen) {
+        setPickerOpen(false);
+        return;
+      }
+      setSelected(null);
     },
     {},
   );
@@ -235,10 +234,13 @@ export default function InboxPage() {
       )}
       {error && <EmptyState title="Failed to load inbox" subtitle={error} />}
       {data && (
-        <div className="flex-1 grid overflow-hidden" style={{ gridTemplateColumns: "1fr 1fr" }}>
+        <div
+          className="flex-1 grid overflow-hidden"
+          style={{ gridTemplateColumns: selected ? "1fr 1fr" : "1fr" }}
+        >
           <div
             className="overflow-y-auto border-r"
-            style={{ borderColor: "var(--border-default)" }}
+            style={{ borderColor: selected ? "var(--border-default)" : "transparent" }}
           >
             <InboxList
               data={data}
@@ -253,9 +255,11 @@ export default function InboxPage() {
               registerItemRef={registerItemRef}
             />
           </div>
-          <div className="overflow-y-auto">
-            <InboxDetailPanel item={selected} />
-          </div>
+          {selected && (
+            <div className="overflow-y-auto">
+              <InboxDetailPanel item={selected} />
+            </div>
+          )}
         </div>
       )}
       <SnoozePicker
