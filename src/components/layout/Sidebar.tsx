@@ -62,6 +62,7 @@ export function Sidebar({ onSignOut }: SidebarProps) {
 
   const navItems: NavItem[] = [
     { to: "/inbox", label: "Inbox", count: inboxBadge },
+    { to: "/review-queue", label: "Review queue" },
     { to: "/pulls", label: "Pull Requests", count: pulls.length || undefined },
     { to: "/issues", label: "Issues", count: issues.length || undefined },
     { to: "/activity", label: "Activity" },

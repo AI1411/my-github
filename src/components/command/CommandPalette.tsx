@@ -16,6 +16,7 @@ interface CommandItem {
 
 const NAV_COMMANDS: CommandItem[] = [
   { id: "nav-inbox", label: "Go to Inbox", kind: "nav", href: "/inbox" },
+  { id: "nav-review-queue", label: "Go to Review queue", kind: "nav", href: "/review-queue" },
   { id: "nav-pulls", label: "Go to Pull Requests", kind: "nav", href: "/pulls" },
   { id: "nav-issues", label: "Go to Issues", kind: "nav", href: "/issues" },
   { id: "nav-activity", label: "Go to Activity", kind: "nav", href: "/activity" },

@@ -10,6 +10,7 @@ import { useUiStore } from "../../stores/uiStore";
 
 const ROUTE_CHIPS: Record<string, ShortcutId[]> = {
   "/inbox": ["listUp", "listDown", "openDetail", "markRead", "markAllRead"],
+  "/review-queue": ["openDetail", "commandPalette"],
   "/pulls": ["listUp", "listDown", "openDetail", "commandPalette"],
   "/issues": ["listUp", "listDown", "openDetail", "commandPalette"],
   "/activity": ["markAllRead", "commandPalette"],
@@ -20,6 +21,7 @@ const EXTRA_LABELS: Record<string, { label: string; keys: string }> = {
   snooze: { label: "Snooze", keys: "H" },
   snoozeLast: { label: "Snooze last", keys: "Shift+H" },
   listSearch: { label: "Find in list", keys: "Cmd+F" },
+  nextQueue: { label: "Next", keys: "] / N" },
 };
 
 function chipsForPath(
@@ -43,6 +45,9 @@ function chipsForPath(
       { id: "snooze", ...EXTRA_LABELS.snooze },
       { id: "snoozeLast", ...EXTRA_LABELS.snoozeLast },
     );
+  }
+  if (pathname === "/review-queue") {
+    items.push({ id: "nextQueue", ...EXTRA_LABELS.nextQueue });
   }
   if (pathname === "/pulls" || pathname === "/issues" || pathname === "/activity") {
     items.push({ id: "listSearch", ...EXTRA_LABELS.listSearch });
