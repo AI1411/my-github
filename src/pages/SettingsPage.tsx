@@ -234,6 +234,8 @@ export default function SettingsPage() {
   const removeWorkMode = useSettingsStore((state) => state.removeWorkMode);
   const activateWorkMode = useSettingsStore((state) => state.activateWorkMode);
   const [workModeName, setWorkModeName] = useState("");
+  const localLlm = useSettingsStore((state) => state.localLlm);
+  const setLocalLlm = useSettingsStore((state) => state.setLocalLlm);
 
   const repoSuggestions = useMemo(
     () =>
@@ -1027,6 +1029,51 @@ export default function SettingsPage() {
               ) : (
                 <span style={{ color: "var(--text-muted)" }}>Loading</span>
               )}
+            </Row>
+          </Section>
+        )}
+
+        {activeTab === "about" && (
+          <Section title="Local LLM">
+            <Row label="Enable">
+              <Toggle
+                checked={localLlm.enabled}
+                label="Show PR summary panel"
+                onChange={(checked) => setLocalLlm({ enabled: checked })}
+              />
+            </Row>
+            <Row label="Allow remote">
+              <Toggle
+                checked={localLlm.allowRemote}
+                label="Allow non-localhost endpoints"
+                onChange={(checked) => setLocalLlm({ allowRemote: checked })}
+              />
+            </Row>
+            <Row label="Endpoint">
+              <input
+                aria-label="Local LLM endpoint"
+                value={localLlm.endpoint}
+                onChange={(event) => setLocalLlm({ endpoint: event.target.value })}
+                className="max-w-md rounded-md px-3 py-1.5 font-mono text-sm outline-none"
+                style={{
+                  backgroundColor: "var(--bg-secondary)",
+                  border: "1px solid var(--border-default)",
+                  color: "var(--text-primary)",
+                }}
+              />
+            </Row>
+            <Row label="Model">
+              <input
+                aria-label="Local LLM model"
+                value={localLlm.model}
+                onChange={(event) => setLocalLlm({ model: event.target.value })}
+                className="max-w-md rounded-md px-3 py-1.5 font-mono text-sm outline-none"
+                style={{
+                  backgroundColor: "var(--bg-secondary)",
+                  border: "1px solid var(--border-default)",
+                  color: "var(--text-primary)",
+                }}
+              />
             </Row>
           </Section>
         )}

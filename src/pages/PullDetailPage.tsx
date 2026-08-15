@@ -13,6 +13,7 @@ import { CommentDraftPanel } from "../components/pulls/CommentDraftPanel";
 import { ReviewCommentsPanel } from "../components/pulls/ReviewCommentsPanel";
 import { MergeReadinessBadge } from "../components/pulls/MergeReadinessBadge";
 import { ReviewContextPanel } from "../components/pulls/ReviewContextPanel";
+import { PrLlmSummaryPanel } from "../components/pulls/PrLlmSummaryPanel";
 import { PrSummaryCard } from "../components/pulls/PrSummaryCard";
 import { PrSidebar } from "../components/pulls/PrSidebar";
 import { PrFooterBar } from "../components/pulls/PrFooterBar";
@@ -65,6 +66,7 @@ export default function PullDetailPage() {
   });
   const togglePinnedPull = useSettingsStore((s) => s.togglePinnedPull);
   const recordRecentPull = useSettingsStore((s) => s.recordRecentPull);
+  const localLlm = useSettingsStore((s) => s.localLlm);
   const currentUser = useAuthStore((s) => s.user?.login ?? null);
   const patchPullReviewState = useDataStore((s) => s.patchPullReviewState);
   const patchPullState = useDataStore((s) => s.patchPullState);
@@ -256,6 +258,17 @@ export default function PullDetailPage() {
                   deletions: pull.deletions,
                   commits: null,
                 }}
+              />
+              <PrLlmSummaryPanel
+                title={pull.title}
+                body={null}
+                files={files.map((f) => ({
+                  filename: f.filename,
+                  status: f.status,
+                  additions: f.additions,
+                  deletions: f.deletions,
+                }))}
+                settings={localLlm}
               />
               {owner && repo && num !== undefined && (
                 <ReviewContextPanel
