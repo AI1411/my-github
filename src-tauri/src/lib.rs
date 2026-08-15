@@ -55,6 +55,7 @@ pub fn run() {
             commands::pulls::cmd_apply_pull_suggestion,
             commands::pulls::cmd_list_pull_commits,
             commands::pulls::cmd_list_pull_checks,
+            commands::pulls::cmd_get_check_failure_excerpt,
             commands::issues::cmd_list_issues,
             commands::issues::cmd_get_issue,
             commands::issues::cmd_list_issue_comments,

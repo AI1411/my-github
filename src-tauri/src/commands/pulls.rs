@@ -836,6 +836,108 @@ pub async fn cmd_list_pull_checks(
         .collect())
 }
 
+const FAILURE_EXCERPT_MAX_CHARS: usize = 8_192;
+const FAILURE_EXCERPT_MAX_LINES: usize = 40;
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CheckFailureAnnotation {
+    pub path: String,
+    pub start_line: Option<u32>,
+    pub level: Option<String>,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CheckFailureExcerpt {
+    pub check_run_id: u64,
+    pub name: String,
+    pub html_url: String,
+    pub title: Option<String>,
+    pub summary: Option<String>,
+    pub text_excerpt: Option<String>,
+    pub truncated: bool,
+    pub annotations: Vec<CheckFailureAnnotation>,
+    pub note: Option<String>,
+}
+
+fn truncate_excerpt(raw: &str) -> (String, bool) {
+    let mut truncated = false;
+    let mut lines: Vec<&str> = raw.lines().collect();
+    if lines.len() > FAILURE_EXCERPT_MAX_LINES {
+        lines.truncate(FAILURE_EXCERPT_MAX_LINES);
+        truncated = true;
+    }
+    let mut text = lines.join("\n");
+    if text.len() > FAILURE_EXCERPT_MAX_CHARS {
+        text = text.chars().take(FAILURE_EXCERPT_MAX_CHARS).collect();
+        truncated = true;
+    }
+    (text, truncated)
+}
+
+#[tauri::command]
+pub async fn cmd_get_check_failure_excerpt(
+    owner: String,
+    repo: String,
+    check_run_id: u64,
+) -> Result<CheckFailureExcerpt, String> {
+    let client = crate::github::client::client_for_active_account()?;
+    let run = crate::github::rest::get_check_run(&client, &owner, &repo, check_run_id)
+        .await
+        .map_err(|e| e.to_string())?;
+    let annotations = crate::github::rest::list_check_run_annotations(
+        &client, &owner, &repo, check_run_id,
+    )
+    .await
+    .unwrap_or_default();
+
+    let output = run.output.unwrap_or_default();
+    let mut truncated = false;
+    let text_excerpt = output.text.as_ref().map(|t| {
+        let (excerpt, t) = truncate_excerpt(t);
+        truncated |= t;
+        excerpt
+    });
+    let summary = output.summary.as_ref().map(|s| {
+        let (excerpt, t) = truncate_excerpt(s);
+        truncated |= t;
+        excerpt
+    });
+
+    let note = if annotations.is_empty() && text_excerpt.is_none() && summary.is_none() {
+        Some("No in-app annotations or output text. Open GitHub for full logs.".to_string())
+    } else if truncated {
+        Some(format!(
+            "Excerpt truncated to {FAILURE_EXCERPT_MAX_LINES} lines / {FAILURE_EXCERPT_MAX_CHARS} chars."
+        ))
+    } else {
+        None
+    };
+
+    Ok(CheckFailureExcerpt {
+        check_run_id: run.id,
+        name: run.name,
+        html_url: run.html_url,
+        title: output.title,
+        summary,
+        text_excerpt,
+        truncated,
+        annotations: annotations
+            .into_iter()
+            .take(20)
+            .map(|a| CheckFailureAnnotation {
+                path: a.path,
+                start_line: a.start_line,
+                level: a.annotation_level,
+                message: a.message.unwrap_or_default(),
+            })
+            .collect(),
+        note,
+    })
+}
+
 fn format_mutation_api_error(err: crate::github::client::ClientError) -> String {
     match err {
         crate::github::client::ClientError::Api { status: 403, .. } => {
@@ -1204,6 +1306,7 @@ mod tests {
                 id: 1,
                 name: "Actions".into(),
             },
+            output: None,
         }
     }
 
