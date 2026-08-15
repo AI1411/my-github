@@ -19,6 +19,7 @@ import {
   DEFAULT_LOCAL_LLM,
   type LocalLlmSettings,
 } from "../lib/localLlm";
+import { normalizeRepoPathMap } from "../lib/openInEditor";
 
 export type { RecentPullRef };
 export type { GithubHost };
@@ -192,6 +193,12 @@ export interface SettingsState {
   activeWorkModeId: string | null;
   localLlm: LocalLlmSettings;
   setLocalLlm: (patch: Partial<LocalLlmSettings>) => void;
+  /** owner/repo → absolute local clone path */
+  repoLocalPaths: Record<string, string>;
+  setRepoLocalPath: (repo: string, path: string) => void;
+  removeRepoLocalPath: (repo: string) => void;
+  preferWorktree: boolean;
+  setPreferWorktree: (enabled: boolean) => void;
   releaseNotificationsEnabled: boolean;
   setReleaseNotificationsEnabled: (enabled: boolean) => void;
   digestAutoShowEnabled: boolean;
@@ -294,6 +301,23 @@ export const useSettingsStore = create<SettingsState>()(
         set((state) => ({
           localLlm: { ...state.localLlm, ...patch },
         })),
+      repoLocalPaths: {},
+      setRepoLocalPath: (repo, path) =>
+        set((state) => {
+          const key = repo.trim();
+          const value = path.trim();
+          if (!key || !value) return state;
+          return {
+            repoLocalPaths: { ...state.repoLocalPaths, [key]: value },
+          };
+        }),
+      removeRepoLocalPath: (repo) =>
+        set((state) => {
+          const { [repo]: _removed, ...rest } = state.repoLocalPaths;
+          return { repoLocalPaths: rest };
+        }),
+      preferWorktree: true,
+      setPreferWorktree: (enabled) => set({ preferWorktree: enabled }),
       releaseNotificationsEnabled: true,
       setReleaseNotificationsEnabled: (enabled) => set({ releaseNotificationsEnabled: enabled }),
       digestAutoShowEnabled: true,
@@ -576,6 +600,13 @@ export const useSettingsStore = create<SettingsState>()(
               ? (raw.localLlm as Partial<LocalLlmSettings>)
               : {}),
           },
+          repoLocalPaths: normalizeRepoPathMap(
+            raw.repoLocalPaths ?? current.repoLocalPaths,
+          ),
+          preferWorktree:
+            typeof raw.preferWorktree === "boolean"
+              ? raw.preferWorktree
+              : current.preferWorktree,
         };
       },
       partialize: (state) => ({
@@ -600,6 +631,8 @@ export const useSettingsStore = create<SettingsState>()(
         workModes: state.workModes,
         activeWorkModeId: state.activeWorkModeId,
         localLlm: state.localLlm,
+        repoLocalPaths: state.repoLocalPaths,
+        preferWorktree: state.preferWorktree,
         releaseNotificationsEnabled: state.releaseNotificationsEnabled,
         digestAutoShowEnabled: state.digestAutoShowEnabled,
         shortcutChipsEnabled: state.shortcutChipsEnabled,

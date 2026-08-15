@@ -79,6 +79,7 @@ pub fn run() {
             commands::search::cmd_search_code,
             commands::system::cmd_log_frontend_error,
             commands::system::cmd_ping,
+            commands::editor::cmd_open_pr_in_editor,
             tray::cmd_update_tray_summary,
         ])
         .run(tauri::generate_context!())
