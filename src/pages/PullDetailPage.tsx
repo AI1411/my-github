@@ -8,6 +8,7 @@ import { EmptyState } from "../components/common/EmptyState";
 import { useAuthStore } from "../stores/authStore";
 import { useDataStore } from "../stores/dataStore";
 import { useSettingsStore } from "../stores/settingsStore";
+import { useCloseDetailShortcut } from "../hooks/useCloseDetailShortcut";
 import { CiBanner } from "../components/pulls/CiBanner";
 import { CommentDraftPanel } from "../components/pulls/CommentDraftPanel";
 import { ReviewCommentsPanel } from "../components/pulls/ReviewCommentsPanel";
@@ -49,6 +50,7 @@ function fileAnchorId(filename: string): string {
 }
 
 export default function PullDetailPage() {
+  useCloseDetailShortcut();
   const { owner, repo, number } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const num = number ? Number.parseInt(number, 10) : undefined;
@@ -181,9 +183,7 @@ export default function PullDetailPage() {
     const editor = readStoredEditor();
     const localPath = repoFull ? repoLocalPaths[repoFull] : undefined;
     if (!localPath) {
-      setEditorError(
-        `Map a local path for ${repoFull || "this repo"} in Settings → Repositories.`,
-      );
+      setEditorError(`Map a local path for ${repoFull || "this repo"} in Settings → Repositories.`);
       return;
     }
     setEditorError(null);
