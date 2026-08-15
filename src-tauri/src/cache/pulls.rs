@@ -79,6 +79,24 @@ pub fn update_pull_review_state(
     Ok(())
 }
 
+/// Update pull `state` (and optionally mark merged via raw_json leave-as-is).
+pub fn update_pull_state(
+    pool: &SqlitePool,
+    repo_full_name: &str,
+    number: i64,
+    state: &str,
+) -> Result<(), CacheError> {
+    let conn = pool.get()?;
+    conn.execute(
+        "UPDATE pulls
+         SET state = ?1
+         WHERE number = ?2
+           AND repo_id = (SELECT id FROM repos WHERE full_name = ?3 LIMIT 1)",
+        params![state, number, repo_full_name],
+    )?;
+    Ok(())
+}
+
 pub fn get_pull(
     pool: &SqlitePool,
     repo_id: i64,

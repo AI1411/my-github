@@ -80,6 +80,24 @@ impl GithubClient {
             .header("User-Agent", USER_AGENT)
             .header("Accept", "application/vnd.github+json")
     }
+
+    pub fn put(&self, path: &str) -> reqwest::RequestBuilder {
+        let url = format!("{}{}", GITHUB_API_BASE, path);
+        self.inner
+            .put(url)
+            .header("Authorization", format!("Bearer {}", self.token))
+            .header("User-Agent", USER_AGENT)
+            .header("Accept", "application/vnd.github+json")
+    }
+
+    pub fn patch(&self, path: &str) -> reqwest::RequestBuilder {
+        let url = format!("{}{}", GITHUB_API_BASE, path);
+        self.inner
+            .patch(url)
+            .header("Authorization", format!("Bearer {}", self.token))
+            .header("User-Agent", USER_AGENT)
+            .header("Accept", "application/vnd.github+json")
+    }
 }
 
 #[cfg(test)]

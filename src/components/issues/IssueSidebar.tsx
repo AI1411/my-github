@@ -29,25 +29,34 @@ export interface IssueSidebarProps {
   linkedPrs: IssueSidebarLinkedPr[];
   participants: IssueSidebarParticipant[];
   subscribed: boolean;
+  onAddLabel?: () => void;
+  onRemoveLabel?: (name: string) => void;
+  onAddAssignee?: () => void;
+  onRemoveAssignee?: (login: string) => void;
 }
 
 function Section({
   title,
   children,
   empty,
+  action,
 }: {
   title: string;
   children: ReactNode;
   empty?: boolean;
+  action?: ReactNode;
 }) {
   return (
     <section className="px-3 py-3 border-b" style={{ borderColor: "var(--border-subtle)" }}>
-      <h3
-        className="text-[11px] uppercase tracking-wide mb-2"
-        style={{ color: "var(--text-muted)" }}
-      >
-        {title}
-      </h3>
+      <div className="flex items-center justify-between mb-2">
+        <h3
+          className="text-[11px] uppercase tracking-wide"
+          style={{ color: "var(--text-muted)" }}
+        >
+          {title}
+        </h3>
+        {action}
+      </div>
       {empty ? (
         <p className="text-xs" style={{ color: "var(--text-muted)" }}>
           None
@@ -59,15 +68,32 @@ function Section({
   );
 }
 
-function PeopleList({ people }: { people: IssueAssigneeInfo[] }) {
+function PeopleList({
+  people,
+  onRemove,
+}: {
+  people: IssueAssigneeInfo[];
+  onRemove?: (login: string) => void;
+}) {
   return (
     <ul className="flex flex-col gap-1.5">
       {people.map((p) => (
-        <li key={p.login} className="flex items-center gap-2">
+        <li key={p.login} className="flex items-center gap-2 group">
           <Avatar login={p.login} src={p.avatarUrl} size="sm" />
-          <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
+          <span className="text-xs flex-1" style={{ color: "var(--text-secondary)" }}>
             {p.login}
           </span>
+          {onRemove && (
+            <button
+              type="button"
+              aria-label={`Remove assignee ${p.login}`}
+              className="text-xs opacity-0 group-hover:opacity-100"
+              style={{ color: "var(--text-muted)" }}
+              onClick={() => onRemove(p.login)}
+            >
+              ×
+            </button>
+          )}
         </li>
       ))}
     </ul>
@@ -115,6 +141,10 @@ export function IssueSidebar({
   linkedPrs,
   participants,
   subscribed,
+  onAddLabel,
+  onRemoveLabel,
+  onAddAssignee,
+  onRemoveAssignee,
 }: IssueSidebarProps) {
   return (
     <aside
@@ -125,13 +155,56 @@ export function IssueSidebar({
         width: 280,
       }}
     >
-      <Section title="Assignees" empty={assignees.length === 0}>
-        <PeopleList people={assignees} />
+      <Section
+        title="Assignees"
+        empty={assignees.length === 0}
+        action={
+          onAddAssignee ? (
+            <button
+              type="button"
+              className="text-[11px]"
+              style={{ color: "var(--accent-blue)" }}
+              onClick={onAddAssignee}
+            >
+              Add
+            </button>
+          ) : null
+        }
+      >
+        <PeopleList people={assignees} onRemove={onRemoveAssignee} />
       </Section>
-      <Section title="Labels" empty={labels.length === 0}>
+      <Section
+        title="Labels"
+        empty={labels.length === 0}
+        action={
+          onAddLabel ? (
+            <button
+              type="button"
+              className="text-[11px]"
+              style={{ color: "var(--accent-blue)" }}
+              onClick={onAddLabel}
+            >
+              Add
+            </button>
+          ) : null
+        }
+      >
         <div className="flex flex-wrap gap-1.5">
           {labels.map((l) => (
-            <LabelPill key={l.name} name={l.name} color={l.color} />
+            <span key={l.name} className="inline-flex items-center gap-1">
+              <LabelPill name={l.name} color={l.color} />
+              {onRemoveLabel && (
+                <button
+                  type="button"
+                  aria-label={`Remove label ${l.name}`}
+                  className="text-[10px]"
+                  style={{ color: "var(--text-muted)" }}
+                  onClick={() => onRemoveLabel(l.name)}
+                >
+                  ×
+                </button>
+              )}
+            </span>
           ))}
         </div>
       </Section>

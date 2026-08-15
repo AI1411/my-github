@@ -313,6 +313,96 @@ pub async fn cmd_list_issue_comments(
     Ok(comments.iter().map(comment_to_summary).collect())
 }
 
+fn format_issue_mutation_error(err: crate::github::client::ClientError) -> String {
+    match err {
+        crate::github::client::ClientError::Api { status: 403, .. } => {
+            "Permission denied (403). You may lack write access.".to_string()
+        }
+        crate::github::client::ClientError::Api { status: 422, message } => {
+            format!("Rejected (422): {message}")
+        }
+        other => other.to_string(),
+    }
+}
+
+/// Update issue/PR metadata via issues API: state, labels, and/or assignees.
+#[tauri::command]
+pub async fn cmd_update_issue<R: Runtime>(
+    app: AppHandle<R>,
+    owner: String,
+    repo: String,
+    number: u32,
+    state: Option<String>,
+    labels: Option<Vec<String>>,
+    assignees: Option<Vec<String>>,
+) -> Result<IssueSummary, String> {
+    if state.is_none() && labels.is_none() && assignees.is_none() {
+        return Err("at least one of state, labels, assignees is required".to_string());
+    }
+    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
+    let token = load_token(&account_id).ok_or_else(|| "no token for account".to_string())?;
+    let client = GithubClient::new(token);
+    let state_owned = state.map(|s| s.to_lowercase());
+    if let Some(ref s) = state_owned {
+        if !matches!(s.as_str(), "open" | "closed") {
+            return Err("state must be open or closed".to_string());
+        }
+    }
+    let updated = crate::github::rest::update_issue(
+        &client,
+        &owner,
+        &repo,
+        number,
+        state_owned.as_deref(),
+        labels.as_deref(),
+        assignees.as_deref(),
+    )
+    .await
+    .map_err(format_issue_mutation_error)?;
+
+    let full_name = format!("{owner}/{repo}");
+    let labels_json = serde_json::to_string(
+        &updated
+            .labels
+            .iter()
+            .map(|l| l.name.as_str())
+            .collect::<Vec<_>>(),
+    )
+    .ok();
+    let assignees_json = serde_json::to_string(
+        &updated
+            .assignees
+            .iter()
+            .map(|u| u.login.as_str())
+            .collect::<Vec<_>>(),
+    )
+    .ok();
+    if let Some(pool) = app.try_state::<SqlitePool>() {
+        let _ = crate::cache::issues::update_issue_fields(
+            pool.inner(),
+            &full_name,
+            number as i64,
+            state_owned.as_deref(),
+            labels_json.as_deref(),
+            assignees_json.as_deref(),
+        );
+        let conn = pool.inner().get().map_err(|e| e.to_string())?;
+        let mut stmt = conn
+            .prepare("SELECT id FROM repos WHERE full_name = ?1")
+            .map_err(|e| e.to_string())?;
+        let repo_id: Option<i64> = stmt
+            .query_row(rusqlite::params![full_name], |row| row.get(0))
+            .ok();
+        drop(stmt);
+        drop(conn);
+        if let Some(rid) = repo_id {
+            let _ = upsert_issue(pool.inner(), rid, &updated, &now_iso());
+        }
+    }
+    let _ = app.emit("issues-updated", ());
+    Ok(issue_to_summary(&updated, &full_name))
+}
+
 async fn refresh_issues<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
     let report = run_sync_for_scopes(app, &[SyncScope::Repositories, SyncScope::Issues]).await?;
     if let Some(err) = failed_step_error(&report, SyncScope::Issues) {

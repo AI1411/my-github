@@ -335,6 +335,76 @@ pub fn review_state_for_event(event: &str) -> Option<&'static str> {
     }
 }
 
+/// Merge a pull request (`PUT .../pulls/{number}/merge`).
+pub async fn merge_pull_request(
+    client: &GithubClient,
+    owner: &str,
+    repo: &str,
+    number: u32,
+    merge_method: &str,
+) -> Result<(), ClientError> {
+    #[derive(Serialize)]
+    struct Body<'a> {
+        merge_method: &'a str,
+    }
+    let resp = client
+        .put(&format!(
+            "/repos/{}/{}/pulls/{}/merge",
+            owner, repo, number
+        ))
+        .json(&Body { merge_method })
+        .send()
+        .await?;
+    let status = resp.status();
+    if !status.is_success() {
+        let message = resp.text().await.unwrap_or_default();
+        return Err(ClientError::Api {
+            status: status.as_u16(),
+            message,
+        });
+    }
+    Ok(())
+}
+
+/// Patch an issue or pull via the issues endpoint (state / labels / assignees).
+pub async fn update_issue(
+    client: &GithubClient,
+    owner: &str,
+    repo: &str,
+    number: u32,
+    state: Option<&str>,
+    labels: Option<&[String]>,
+    assignees: Option<&[String]>,
+) -> Result<Issue, ClientError> {
+    #[derive(Serialize)]
+    struct Body<'a> {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        state: Option<&'a str>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        labels: Option<&'a [String]>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        assignees: Option<&'a [String]>,
+    }
+    let resp = client
+        .patch(&format!("/repos/{}/{}/issues/{}", owner, repo, number))
+        .json(&Body {
+            state,
+            labels,
+            assignees,
+        })
+        .send()
+        .await?;
+    let status = resp.status();
+    if !status.is_success() {
+        let message = resp.text().await.unwrap_or_default();
+        return Err(ClientError::Api {
+            status: status.as_u16(),
+            message,
+        });
+    }
+    Ok(resp.json().await?)
+}
+
 pub async fn get_check_runs(
     client: &GithubClient,
     owner: &str,
@@ -766,5 +836,17 @@ mod tests {
     fn create_review_builds_path() {
         let path = format!("/repos/{}/{}/pulls/{}/reviews", "o", "r", 7);
         assert_eq!(path, "/repos/o/r/pulls/7/reviews");
+    }
+
+    #[test]
+    fn merge_and_issue_patch_paths() {
+        assert_eq!(
+            format!("/repos/{}/{}/pulls/{}/merge", "o", "r", 7),
+            "/repos/o/r/pulls/7/merge"
+        );
+        assert_eq!(
+            format!("/repos/{}/{}/issues/{}", "o", "r", 7),
+            "/repos/o/r/issues/7"
+        );
     }
 }

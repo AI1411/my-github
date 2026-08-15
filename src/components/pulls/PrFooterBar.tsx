@@ -11,11 +11,15 @@ export interface PrFooterBarProps {
   number: number;
   canMerge: boolean;
   canApprove: boolean;
+  canClose?: boolean;
+  canReopen?: boolean;
   approveDisabledReason?: string | null;
   htmlUrl: string;
   onOpenInEditor?: () => void;
   checkout?: { number: number; headRef: string };
   onReviewSubmitted?: (event: ReviewEvent, reviewState: string | null) => void;
+  onMerged?: () => void;
+  onStateChanged?: (state: "open" | "closed") => void;
 }
 
 async function openBrowser(url: string) {
@@ -35,14 +39,18 @@ export function PrFooterBar({
   number,
   canMerge,
   canApprove,
+  canClose = false,
+  canReopen = false,
   approveDisabledReason,
   htmlUrl,
   onOpenInEditor,
   checkout,
   onReviewSubmitted,
+  onMerged,
+  onStateChanged,
 }: PrFooterBarProps) {
   const [copied, setCopied] = useState(false);
-  const [busy, setBusy] = useState<ReviewEvent | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastFailed, setLastFailed] = useState<{ event: ReviewEvent; body?: string } | null>(
     null,
@@ -74,6 +82,32 @@ export function PrFooterBar({
       const message = e instanceof Error ? e.message : String(e);
       setError(message);
       setLastFailed({ event, body });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const mergePull = async () => {
+    setBusy("merge");
+    setError(null);
+    try {
+      await invoke("cmd_merge_pull", { owner, repo, number, mergeMethod: "merge" });
+      onMerged?.();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const setPullState = async (state: "open" | "closed") => {
+    setBusy(state);
+    setError(null);
+    try {
+      await invoke("cmd_set_pull_state", { owner, repo, number, state });
+      onStateChanged?.(state);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(null);
     }
@@ -151,13 +185,33 @@ export function PrFooterBar({
         >
           {busy === "APPROVE" ? "Submitting…" : "Approve"}
         </Button>
+        {canClose && (
+          <Button
+            variant="ghost"
+            disabled={busy !== null}
+            onClick={() => void setPullState("closed")}
+            title="Close pull request"
+          >
+            {busy === "closed" ? "Closing…" : "Close"}
+          </Button>
+        )}
+        {canReopen && (
+          <Button
+            variant="ghost"
+            disabled={busy !== null}
+            onClick={() => void setPullState("open")}
+            title="Reopen pull request"
+          >
+            {busy === "open" ? "Reopening…" : "Reopen"}
+          </Button>
+        )}
         <Button
           variant="primary"
-          disabled={!canMerge}
-          onClick={() => openBrowser(htmlUrl)}
-          title="Open on github.com to merge"
+          disabled={!canMerge || busy !== null}
+          onClick={() => void mergePull()}
+          title="Merge pull request"
         >
-          Merge
+          {busy === "merge" ? "Merging…" : "Merge"}
         </Button>
       </div>
     </footer>
