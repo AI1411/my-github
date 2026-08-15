@@ -24,11 +24,13 @@ export interface ShortcutSetting {
   keys: string;
 }
 
+export type NotificationDelivery = "immediate" | "digest" | "off";
+
 export interface NotificationSettings {
   enabled: boolean;
-  ciFailures: boolean;
-  reviewRequests: boolean;
-  mentions: boolean;
+  ciFailures: NotificationDelivery;
+  reviewRequests: NotificationDelivery;
+  mentions: NotificationDelivery;
 }
 
 /** リポジトリ単位の通知種類設定。未設定のリポジトリはグローバル設定に従う。 */
@@ -63,10 +65,27 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutSetting> = {
 
 const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
   enabled: true,
-  ciFailures: true,
-  reviewRequests: true,
-  mentions: true,
+  ciFailures: "immediate",
+  reviewRequests: "immediate",
+  mentions: "digest",
 };
+
+function coerceDelivery(value: unknown, fallback: NotificationDelivery): NotificationDelivery {
+  if (value === "immediate" || value === "digest" || value === "off") return value;
+  if (value === true) return "immediate";
+  if (value === false) return "off";
+  return fallback;
+}
+
+export function normalizeNotificationSettings(raw: unknown): NotificationSettings {
+  const source = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  return {
+    enabled: typeof source.enabled === "boolean" ? source.enabled : true,
+    ciFailures: coerceDelivery(source.ciFailures, "immediate"),
+    reviewRequests: coerceDelivery(source.reviewRequests, "immediate"),
+    mentions: coerceDelivery(source.mentions, "digest"),
+  };
+}
 
 function normalizeRepo(repo: string): string {
   return repo.trim();
@@ -97,7 +116,10 @@ export interface SettingsState {
   addSavedFilter: (filter: Omit<SavedFilter, "id">) => void;
   removeSavedFilter: (id: string) => void;
   removeWatchedRepository: (repo: string) => void;
-  setNotificationSetting: (key: keyof NotificationSettings, enabled: boolean) => void;
+  setNotificationSetting: (
+    key: keyof NotificationSettings,
+    value: boolean | NotificationDelivery,
+  ) => void;
   setStaleThreshold: (key: keyof StaleThresholds, days: number) => void;
   setPollingInterval: (interval: PollingInterval) => void;
   setDockBadgeEnabled: (enabled: boolean) => void;
@@ -175,11 +197,11 @@ export const useSettingsStore = create<SettingsState>()(
             (item) => item !== normalizeRepo(repo),
           ),
         })),
-      setNotificationSetting: (key, enabled) =>
+      setNotificationSetting: (key, value) =>
         set((state) => ({
           notificationSettings: {
             ...state.notificationSettings,
-            [key]: enabled,
+            [key]: key === "enabled" ? Boolean(value) : coerceDelivery(value, "off"),
           },
         })),
       setStaleThreshold: (key, days) =>
@@ -210,6 +232,16 @@ export const useSettingsStore = create<SettingsState>()(
     {
       name: "pulse-settings",
       storage: createJSONStorage(() => localStorage),
+      merge: (persisted, current) => {
+        const raw = (persisted ?? {}) as Partial<SettingsState>;
+        return {
+          ...current,
+          ...raw,
+          notificationSettings: normalizeNotificationSettings(
+            raw.notificationSettings ?? current.notificationSettings,
+          ),
+        };
+      },
       partialize: (state) => ({
         watchedRepositories: state.watchedRepositories,
         notificationSettings: state.notificationSettings,

@@ -56,9 +56,9 @@ describe("useNotificationPolling", () => {
       watchedRepositories: [],
       notificationSettings: {
         enabled: true,
-        ciFailures: true,
-        reviewRequests: true,
-        mentions: true,
+        ciFailures: "immediate",
+        reviewRequests: "immediate",
+        mentions: "immediate",
       },
       pollingInterval: "30s",
       dockBadgeEnabled: true,

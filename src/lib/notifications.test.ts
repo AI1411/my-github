@@ -19,9 +19,9 @@ vi.mock("@tauri-apps/plugin-notification", () => notificationPlugin);
 
 const settings = {
   enabled: true,
-  ciFailures: true,
-  reviewRequests: true,
-  mentions: true,
+  ciFailures: "immediate",
+  reviewRequests: "immediate",
+  mentions: "immediate",
 };
 
 const reviewNotification = {
@@ -62,7 +62,7 @@ describe("enabledForKind", () => {
   it("falls back to global settings when no repo rule exists", () => {
     expect(enabledForKind("ciFailure", settings, "octocat/hello", {})).toBe(true);
     expect(
-      enabledForKind("ciFailure", { ...settings, ciFailures: false }, "octocat/hello", {}),
+      enabledForKind("ciFailure", { ...settings, ciFailures: "off" }, "octocat/hello", {}),
     ).toBe(false);
   });
 
@@ -89,6 +89,12 @@ describe("enabledForKind", () => {
       "octocat/other": { ciFailures: false, reviewRequests: false, mentions: false },
     };
     expect(enabledForKind("mention", settings, "octocat/hello", rules)).toBe(true);
+  });
+
+  it("treats digest delivery as non-immediate", () => {
+    expect(
+      enabledForKind("mention", { ...settings, mentions: "digest" }, "octocat/hello", {}),
+    ).toBe(false);
   });
 });
 
@@ -146,7 +152,7 @@ describe("sendAppNotification", () => {
   it("skips disabled notification types", async () => {
     await sendAppNotification(reviewNotification, {
       ...settings,
-      reviewRequests: false,
+      reviewRequests: "off",
     });
 
     expect(notificationPlugin.sendNotification).not.toHaveBeenCalled();
