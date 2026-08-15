@@ -1,9 +1,16 @@
 import { useEffect, useRef, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { copyToClipboard } from "../../lib/checkout";
 import { formatReviewComment, REVIEW_PREFIXES, type ReviewPrefixId } from "../../lib/reviewPrefix";
 
 interface CommentDraftPanelProps {
+  owner: string;
+  repo: string;
+  number: number;
   htmlUrl: string | null;
+  canComment?: boolean;
+  disabledReason?: string | null;
+  onSubmitted?: () => void;
 }
 
 async function openBrowser(url: string) {
@@ -17,22 +24,58 @@ async function openBrowser(url: string) {
 
 /**
  * prefix付きレビューコメントの下書きパネル。
- * v0.1は書き込みAPIを持たないため、コピーしてブラウザ側で貼り付ける動線。
+ * Submit comment で COMMENT レビューを投稿する。
  */
-export function CommentDraftPanel({ htmlUrl }: CommentDraftPanelProps) {
+export function CommentDraftPanel({
+  owner,
+  repo,
+  number,
+  htmlUrl,
+  canComment = true,
+  disabledReason,
+  onSubmitted,
+}: CommentDraftPanelProps) {
   const [prefix, setPrefix] = useState<ReviewPrefixId>("imo");
   const [body, setBody] = useState("");
   const [copied, setCopied] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => () => clearTimeout(copiedTimer.current), []);
 
+  const formatted = formatReviewComment(prefix, body);
+
   const handleCopy = async () => {
-    const ok = await copyToClipboard(formatReviewComment(prefix, body));
+    const ok = await copyToClipboard(formatted);
     if (!ok) return;
     setCopied(true);
     clearTimeout(copiedTimer.current);
     copiedTimer.current = setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleSubmit = async () => {
+    if (!body.trim()) {
+      setError("Comment body is required");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await invoke("cmd_submit_pull_review", {
+        owner,
+        repo,
+        number,
+        event: "COMMENT",
+        body: formatted,
+      });
+      setBody("");
+      onSubmitted?.();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -79,6 +122,14 @@ export function CommentDraftPanel({ htmlUrl }: CommentDraftPanelProps) {
             color: "var(--text-primary)",
           }}
         />
+        {error && (
+          <div className="flex items-center justify-between gap-2 text-xs" role="alert">
+            <span style={{ color: "var(--accent-red)" }}>{error}</span>
+            <button type="button" className="underline" onClick={() => void handleSubmit()}>
+              Retry
+            </button>
+          </div>
+        )}
         <div className="flex items-center justify-end gap-2">
           <button
             type="button"
@@ -92,15 +143,30 @@ export function CommentDraftPanel({ htmlUrl }: CommentDraftPanelProps) {
           >
             {copied ? "Copied!" : "Copy draft"}
           </button>
+          <button
+            type="button"
+            disabled={!canComment || busy || !body.trim()}
+            title={disabledReason ?? "Submit comment review"}
+            onClick={() => void handleSubmit()}
+            className="rounded-md px-2.5 py-1.5 text-xs font-medium"
+            style={{
+              backgroundColor: canComment ? "var(--accent-blue)" : "var(--bg-tertiary)",
+              border: "1px solid var(--border-default)",
+              color: canComment ? "#fff" : "var(--text-muted)",
+              opacity: !canComment || busy || !body.trim() ? 0.6 : 1,
+            }}
+          >
+            {busy ? "Submitting…" : "Submit comment"}
+          </button>
           {htmlUrl && (
             <button
               type="button"
               onClick={() => void openBrowser(htmlUrl)}
               className="rounded-md px-2.5 py-1.5 text-xs font-medium"
               style={{
-                backgroundColor: "var(--accent-blue)",
-                border: "1px solid var(--accent-blue)",
-                color: "#fff",
+                backgroundColor: "var(--bg-tertiary)",
+                border: "1px solid var(--border-default)",
+                color: "var(--text-secondary)",
               }}
             >
               Open in browser

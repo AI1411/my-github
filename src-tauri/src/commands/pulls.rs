@@ -6,7 +6,8 @@ use crate::commands::sync::run_sync_for_scopes;
 use crate::db::SqlitePool;
 use crate::github::client::GithubClient;
 use crate::github::rest::{
-    get_check_runs, get_pull_request, get_pull_request_files, list_pull_request_reviews,
+    create_pull_request_review, get_check_runs, get_pull_request, get_pull_request_files,
+    list_pull_request_reviews, review_state_for_event,
 };
 use crate::github::types::{CheckRun, PullRequest, PullRequestFile, Review};
 use crate::sync::types::{SyncReport, SyncScope, SyncStepStatus};
@@ -387,6 +388,81 @@ pub async fn cmd_get_pull_files(
         .await
         .map_err(|e| e.to_string())?;
     Ok(files.into_iter().map(FileDiff::from).collect())
+}
+
+fn format_review_api_error(err: crate::github::client::ClientError) -> String {
+    match err {
+        crate::github::client::ClientError::Api { status: 403, .. } => {
+            "Permission denied (403). You may not be able to review this pull request.".to_string()
+        }
+        crate::github::client::ClientError::Api { status: 422, message } => {
+            format!("Review rejected (422): {message}")
+        }
+        other => other.to_string(),
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SubmitReviewResult {
+    pub event: String,
+    pub review_state: Option<String>,
+    pub html_url: Option<String>,
+}
+
+/// Submit an in-app PR review (`APPROVE` | `REQUEST_CHANGES` | `COMMENT`).
+#[tauri::command]
+pub async fn cmd_submit_pull_review<R: Runtime>(
+    app: AppHandle<R>,
+    owner: String,
+    repo: String,
+    number: u32,
+    event: String,
+    body: Option<String>,
+) -> Result<SubmitReviewResult, String> {
+    let event = event.trim().to_uppercase();
+    if !matches!(event.as_str(), "APPROVE" | "REQUEST_CHANGES" | "COMMENT") {
+        return Err("event must be APPROVE, REQUEST_CHANGES, or COMMENT".to_string());
+    }
+    if matches!(event.as_str(), "REQUEST_CHANGES" | "COMMENT")
+        && body.as_ref().map(|b| b.trim().is_empty()).unwrap_or(true)
+    {
+        return Err("a review body is required for Request changes and Comment".to_string());
+    }
+
+    let account_id = load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
+    let token = load_token(&account_id).ok_or_else(|| "no token for account".to_string())?;
+    let client = GithubClient::new(token);
+    let review = create_pull_request_review(
+        &client,
+        &owner,
+        &repo,
+        number,
+        &event,
+        body.as_deref().map(str::trim).filter(|s| !s.is_empty()),
+    )
+    .await
+    .map_err(format_review_api_error)?;
+
+    let review_state = review_state_for_event(&event).map(str::to_string);
+    if let Some(state) = review_state.as_deref() {
+        if let Some(pool) = app.try_state::<SqlitePool>() {
+            let full_name = format!("{owner}/{repo}");
+            let _ = crate::cache::pulls::update_pull_review_state(
+                pool.inner(),
+                &full_name,
+                number as i64,
+                state,
+            );
+        }
+        let _ = app.emit("pulls-updated", ());
+    }
+
+    Ok(SubmitReviewResult {
+        event,
+        review_state,
+        html_url: Some(review.html_url),
+    })
 }
 
 #[cfg(test)]

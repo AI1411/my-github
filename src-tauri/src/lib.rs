@@ -43,6 +43,7 @@ pub fn run() {
             commands::pulls::cmd_list_pulls,
             commands::pulls::cmd_get_pull_files,
             commands::pulls::cmd_get_merge_readiness,
+            commands::pulls::cmd_submit_pull_review,
             commands::issues::cmd_list_issues,
             commands::issues::cmd_get_issue,
             commands::issues::cmd_list_issue_comments,

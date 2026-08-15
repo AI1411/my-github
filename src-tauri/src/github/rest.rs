@@ -4,6 +4,7 @@ use crate::github::types::{
     RepoSearchItem, RepoSearchResponse, Repository, Review, SearchIssueItem, SearchIssuesResponse,
     WorkflowRun, WorkflowRunsResponse,
 };
+use serde::Serialize;
 
 fn has_next_page(headers: &reqwest::header::HeaderMap) -> bool {
     headers
@@ -287,6 +288,51 @@ pub async fn list_pull_request_reviews(
         page += 1;
     }
     Ok(reviews)
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct CreateReviewBody<'a> {
+    event: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    body: Option<&'a str>,
+}
+
+/// Submit a pull request review.
+/// `event` must be one of: `APPROVE`, `REQUEST_CHANGES`, `COMMENT`.
+pub async fn create_pull_request_review(
+    client: &GithubClient,
+    owner: &str,
+    repo: &str,
+    number: u32,
+    event: &str,
+    body: Option<&str>,
+) -> Result<Review, ClientError> {
+    let resp = client
+        .post(&format!(
+            "/repos/{}/{}/pulls/{}/reviews",
+            owner, repo, number
+        ))
+        .json(&CreateReviewBody { event, body })
+        .send()
+        .await?;
+    let status = resp.status();
+    if !status.is_success() {
+        let message = resp.text().await.unwrap_or_default();
+        return Err(ClientError::Api {
+            status: status.as_u16(),
+            message,
+        });
+    }
+    Ok(resp.json().await?)
+}
+
+/// Maps a GitHub review event to the local `pulls.review_state` value.
+pub fn review_state_for_event(event: &str) -> Option<&'static str> {
+    match event {
+        "APPROVE" => Some("approved"),
+        "REQUEST_CHANGES" => Some("changes_requested"),
+        _ => None,
+    }
 }
 
 pub async fn get_check_runs(
@@ -704,5 +750,21 @@ mod tests {
         let encoded = query.replace(' ', "+");
         let path = format!("/search/issues?q={}&per_page=10", encoded);
         assert_eq!(path, "/search/issues?q=is:open+label:bug&per_page=10");
+    }
+
+    #[test]
+    fn review_state_for_event_maps_approve_and_changes() {
+        assert_eq!(review_state_for_event("APPROVE"), Some("approved"));
+        assert_eq!(
+            review_state_for_event("REQUEST_CHANGES"),
+            Some("changes_requested")
+        );
+        assert_eq!(review_state_for_event("COMMENT"), None);
+    }
+
+    #[test]
+    fn create_review_builds_path() {
+        let path = format!("/repos/{}/{}/pulls/{}/reviews", "o", "r", 7);
+        assert_eq!(path, "/repos/o/r/pulls/7/reviews");
     }
 }
