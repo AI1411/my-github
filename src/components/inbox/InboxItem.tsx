@@ -8,6 +8,7 @@ export interface InboxItemRowProps {
   onSelect?: () => void;
   onTogglePin?: (item: InboxItem) => void;
   onSnooze?: (item: InboxItem, option: SnoozeOption) => void;
+  rowRef?: (el: HTMLElement | null) => void;
 }
 
 export function InboxItemRow({
@@ -16,9 +17,11 @@ export function InboxItemRow({
   onSelect,
   onTogglePin,
   onSnooze,
+  rowRef,
 }: InboxItemRowProps) {
   return (
     <div
+      ref={rowRef}
       role="row"
       tabIndex={0}
       onClick={onSelect}

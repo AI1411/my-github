@@ -10,6 +10,7 @@ interface InboxListProps {
   onSelect: (item: InboxItem) => void;
   onTogglePin?: (item: InboxItem) => void;
   onSnooze?: (item: InboxItem, option: SnoozeOption) => void;
+  registerItemRef?: (id: string) => (el: HTMLElement | null) => void;
 }
 
 function Section({
@@ -19,6 +20,7 @@ function Section({
   onSelect,
   onTogglePin,
   onSnooze,
+  registerItemRef,
   tone = "default",
 }: {
   title: string;
@@ -27,6 +29,7 @@ function Section({
   onSelect: (item: InboxItem) => void;
   onTogglePin?: (item: InboxItem) => void;
   onSnooze?: (item: InboxItem, option: SnoozeOption) => void;
+  registerItemRef?: (id: string) => (el: HTMLElement | null) => void;
   tone?: "default" | "warning";
 }) {
   if (items.length === 0) return null;
@@ -49,6 +52,7 @@ function Section({
           onSelect={() => onSelect(item)}
           onTogglePin={onTogglePin}
           onSnooze={onSnooze}
+          rowRef={registerItemRef?.(item.id)}
         />
       ))}
     </div>
@@ -62,6 +66,7 @@ export function InboxList({
   onSelect,
   onTogglePin,
   onSnooze,
+  registerItemRef,
 }: InboxListProps) {
   if (!data) return null;
 
@@ -88,6 +93,7 @@ export function InboxList({
         items={staleItems}
         selectedId={selectedId}
         onSelect={onSelect}
+        registerItemRef={registerItemRef}
       />
       <Section
         title="Review Requests"
@@ -96,6 +102,7 @@ export function InboxList({
         onSelect={onSelect}
         onTogglePin={onTogglePin}
         onSnooze={onSnooze}
+        registerItemRef={registerItemRef}
       />
       <Section
         title="CI Failures"
@@ -104,6 +111,7 @@ export function InboxList({
         onSelect={onSelect}
         onTogglePin={onTogglePin}
         onSnooze={onSnooze}
+        registerItemRef={registerItemRef}
       />
       <Section
         title="Mentions"
@@ -112,6 +120,7 @@ export function InboxList({
         onSelect={onSelect}
         onTogglePin={onTogglePin}
         onSnooze={onSnooze}
+        registerItemRef={registerItemRef}
       />
     </div>
   );
