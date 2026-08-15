@@ -78,7 +78,29 @@ describe("AppShell offline banner", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText("Offline")).toBeInTheDocument();
+    expect(screen.getByText("Offline · showing cache")).toBeInTheDocument();
+  });
+
+  it("retries ping and sync from the offline banner", async () => {
+    const { invoke } = await import("@tauri-apps/api/core");
+    (invoke as ReturnType<typeof vi.fn>).mockImplementation(async (cmd: string) => {
+      if (cmd === "cmd_ping") return true;
+      if (cmd === "cmd_sync_now") return null;
+      return { lastRateLimit: null };
+    });
+    useUiStore.setState({ offline: true });
+
+    render(
+      <MemoryRouter>
+        <AppShell sidebar={<div />} main={<div>Main</div>} />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("cmd_ping");
+      expect(invoke).toHaveBeenCalledWith("cmd_sync_now");
+    });
   });
 
   it("shows a pending writes banner with Retry when the queue is non-empty", () => {

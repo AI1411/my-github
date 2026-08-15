@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { listen } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
 import { Link, useNavigate } from "react-router-dom";
 import { NotificationPollingContext } from "../../features/activity/NotificationPollingContext";
 import { useNotificationPolling } from "../../features/activity/useNotificationPolling";
@@ -9,6 +10,7 @@ import { useWriteQueue } from "../../hooks/useWriteQueue";
 import { loadDigestLastSeen, shouldShowDigest } from "../../lib/digest";
 import { registerAppNotificationClickHandler } from "../../lib/notifications";
 import { useSettingsStore } from "../../stores/settingsStore";
+import { useDataStore } from "../../stores/dataStore";
 import { useUiStore } from "../../stores/uiStore";
 import { CommandPalette } from "../command/CommandPalette";
 import { ShortcutChips } from "../common/ShortcutChips";
@@ -36,6 +38,25 @@ export function AppShell({ sidebar, main, secondary }: AppShellProps) {
   const setRateLimitHit = useUiStore((s) => s.setRateLimitHit);
   const pushSyncEnabled = useSettingsStore((s) => s.pushSyncEnabled);
   const [digestBanner, setDigestBanner] = useState(false);
+  const setOffline = useUiStore((s) => s.setOffline);
+  const markLastSynced = useDataStore((s) => s.markLastSynced);
+
+  async function retryConnection() {
+    if (!window.navigator.onLine) {
+      setOffline(true);
+      return;
+    }
+    try {
+      const reachable = await invoke<boolean>("cmd_ping");
+      setOffline(!reachable);
+      if (reachable) {
+        await invoke("cmd_sync_now");
+        markLastSynced();
+      }
+    } catch {
+      setOffline(true);
+    }
+  }
 
   // トレイメニューの "Open Inbox" でInboxへ遷移する
   useEffect(() => {
@@ -170,14 +191,22 @@ export function AppShell({ sidebar, main, secondary }: AppShellProps) {
           )}
           {offline && (
             <div
-              className="border-b px-4 py-2 text-xs font-semibold"
+              className="border-b px-4 py-2 text-xs font-semibold flex items-center gap-3"
               style={{
                 backgroundColor: "rgba(248, 81, 73, 0.12)",
                 borderColor: "var(--border-default)",
                 color: "var(--accent-red)",
               }}
             >
-              Offline
+              <span>Offline · showing cache</span>
+              <button
+                type="button"
+                className="underline"
+                style={{ color: "var(--accent-blue, #58a6ff)" }}
+                onClick={() => void retryConnection()}
+              >
+                Retry
+              </button>
             </div>
           )}
           {pendingCount > 0 && (
