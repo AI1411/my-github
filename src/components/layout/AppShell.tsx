@@ -1,6 +1,6 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { NotificationPollingContext } from "../../features/activity/NotificationPollingContext";
 import { useNotificationPolling } from "../../features/activity/useNotificationPolling";
 import { useOnlineStatus } from "../../hooks/useOnlineStatus";
@@ -34,6 +34,7 @@ export function AppShell({ sidebar, main, secondary }: AppShellProps) {
   const rateLimitHit = useUiStore((s) => s.rateLimitHit);
   const setRateLimitHit = useUiStore((s) => s.setRateLimitHit);
   const pushSyncEnabled = useSettingsStore((s) => s.pushSyncEnabled);
+  const [digestBanner, setDigestBanner] = useState(false);
 
   // トレイメニューの "Open Inbox" でInboxへ遷移する
   useEffect(() => {
@@ -67,15 +68,13 @@ export function AppShell({ sidebar, main, secondary }: AppShellProps) {
     return () => clearTimeout(timer);
   }, [rateLimitHit, setRateLimitHit]);
 
-  // 起動時、前回のダイジェスト表示から間が空いていればDigestを開く
+  // 起動時、前回のダイジェスト表示から間が空いていればバナーを出す（Inbox からは離れない）
   useEffect(() => {
     const { digestAutoShowEnabled } = useSettingsStore.getState();
     if (!digestAutoShowEnabled) return;
     if (shouldShowDigest(loadDigestLastSeen(), new Date())) {
-      navigate("/digest");
+      setDigestBanner(true);
     }
-    // 起動時に一度だけ判定する
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -138,6 +137,36 @@ export function AppShell({ sidebar, main, secondary }: AppShellProps) {
           {sidebar}
         </aside>
         <main className="h-full overflow-y-auto">
+          {digestBanner && (
+            <div
+              role="status"
+              data-testid="digest-ready-banner"
+              className="border-b px-4 py-2 text-xs font-semibold flex items-center gap-3"
+              style={{
+                backgroundColor: "rgba(56, 139, 253, 0.12)",
+                borderColor: "var(--border-default)",
+                color: "var(--text-secondary)",
+              }}
+            >
+              <span>Digest is ready</span>
+              <Link
+                to="/digest"
+                className="underline"
+                style={{ color: "var(--accent-blue, #58a6ff)" }}
+                onClick={() => setDigestBanner(false)}
+              >
+                Open Digest
+              </Link>
+              <button
+                type="button"
+                className="underline"
+                style={{ color: "var(--text-muted)" }}
+                onClick={() => setDigestBanner(false)}
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
           {offline && (
             <div
               className="border-b px-4 py-2 text-xs font-semibold"
