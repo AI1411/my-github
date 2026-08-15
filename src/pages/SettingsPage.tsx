@@ -175,6 +175,8 @@ export default function SettingsPage() {
   const watchedRepositories = useSettingsStore((state) => state.watchedRepositories);
   const notificationSettings = useSettingsStore((state) => state.notificationSettings);
   const pollingInterval = useSettingsStore((state) => state.pollingInterval);
+  const pushSyncEnabled = useSettingsStore((state) => state.pushSyncEnabled);
+  const setPushSyncEnabled = useSettingsStore((state) => state.setPushSyncEnabled);
   const dockBadgeEnabled = useSettingsStore((state) => state.dockBadgeEnabled);
   const density = useSettingsStore((state) => state.density);
   const shortcuts = useSettingsStore((state) => state.shortcuts);
@@ -482,6 +484,20 @@ export default function SettingsPage() {
                     {option.label}
                   </InlineButton>
                 ))}
+              </div>
+            </Row>
+            <Row label="Push-assisted sync">
+              <div className="flex flex-col gap-2">
+                <Toggle
+                  checked={pushSyncEnabled}
+                  label="Enable push-assisted sync"
+                  onChange={setPushSyncEnabled}
+                />
+                <p className="text-xs leading-relaxed" style={{ color: "var(--text-muted)" }}>
+                  Desktop apps cannot host a durable public GitHub webhook. When enabled, this
+                  mode relies on sync-on-focus/resume (<code>cmd_sync_now</code>) plus a shorter
+                  poll (30s) while the window is focused — not inbound webhooks.
+                </p>
               </div>
             </Row>
             <Row label="OS notifications">

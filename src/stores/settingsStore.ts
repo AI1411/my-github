@@ -104,6 +104,12 @@ export interface SettingsState {
   watchedRepositories: string[];
   notificationSettings: NotificationSettings;
   pollingInterval: PollingInterval;
+  /**
+   * Push-assisted sync (desktop MVP): not real GitHub webhooks.
+   * When enabled, freshness relies on focus/resume revalidation
+   * (`cmd_sync_now`) plus an optional shorter poll while focused.
+   */
+  pushSyncEnabled: boolean;
   dockBadgeEnabled: boolean;
   density: AppearanceDensity;
   shortcuts: Record<ShortcutId, ShortcutSetting>;
@@ -144,6 +150,7 @@ export interface SettingsState {
   ) => void;
   setStaleThreshold: (key: keyof StaleThresholds, days: number) => void;
   setPollingInterval: (interval: PollingInterval) => void;
+  setPushSyncEnabled: (enabled: boolean) => void;
   setDockBadgeEnabled: (enabled: boolean) => void;
   setDensity: (density: AppearanceDensity) => void;
   setShortcut: (id: ShortcutId, keys: string) => void;
@@ -156,6 +163,7 @@ export const useSettingsStore = create<SettingsState>()(
       watchedRepositories: [],
       notificationSettings: DEFAULT_NOTIFICATION_SETTINGS,
       pollingInterval: "60s",
+      pushSyncEnabled: false,
       dockBadgeEnabled: true,
       density: "comfortable",
       shortcuts: DEFAULT_SHORTCUTS,
@@ -300,6 +308,7 @@ export const useSettingsStore = create<SettingsState>()(
           };
         }),
       setPollingInterval: (interval) => set({ pollingInterval: interval }),
+      setPushSyncEnabled: (enabled) => set({ pushSyncEnabled: enabled }),
       setDockBadgeEnabled: (enabled) => set({ dockBadgeEnabled: enabled }),
       setDensity: (density) => set({ density }),
       setShortcut: (id, keys) =>
@@ -331,6 +340,7 @@ export const useSettingsStore = create<SettingsState>()(
         watchedRepositories: state.watchedRepositories,
         notificationSettings: state.notificationSettings,
         pollingInterval: state.pollingInterval,
+        pushSyncEnabled: state.pushSyncEnabled,
         dockBadgeEnabled: state.dockBadgeEnabled,
         density: state.density,
         shortcuts: state.shortcuts,

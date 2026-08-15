@@ -61,6 +61,7 @@ describe("useNotificationPolling", () => {
         mentions: "immediate",
       },
       pollingInterval: "30s",
+      pushSyncEnabled: false,
       dockBadgeEnabled: true,
       density: "comfortable",
       shortcuts: DEFAULT_SHORTCUTS,
@@ -133,6 +134,24 @@ describe("useNotificationPolling", () => {
 
     await act(() => vi.advanceTimersByTimeAsync(30_000));
     await vi.waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(3));
+  });
+
+  it("uses a 30s poll when push-assisted sync is on and focused", async () => {
+    vi.useFakeTimers();
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => "visible",
+    });
+    useSettingsStore.setState({ pollingInterval: "60s", pushSyncEnabled: true });
+    invokeMock.mockResolvedValue([]);
+
+    await act(async () => {
+      renderHook(() => useNotificationPolling());
+    });
+    await vi.waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(1));
+
+    await act(() => vi.advanceTimersByTimeAsync(30_000));
+    await vi.waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(2));
   });
 
   it("clears deduplication when the account changes", async () => {

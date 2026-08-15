@@ -30,6 +30,7 @@ export function AppShell({ sidebar, main, secondary }: AppShellProps) {
   const offline = useUiStore((s) => s.offline);
   const rateLimitHit = useUiStore((s) => s.rateLimitHit);
   const setRateLimitHit = useUiStore((s) => s.setRateLimitHit);
+  const pushSyncEnabled = useSettingsStore((s) => s.pushSyncEnabled);
 
   // トレイメニューの "Open Inbox" でInboxへ遷移する
   useEffect(() => {
@@ -162,6 +163,21 @@ export function AppShell({ sidebar, main, secondary }: AppShellProps) {
                 minute: "2-digit",
               })}
               .
+            </div>
+          )}
+          {pushSyncEnabled && !rateLimitHit && (
+            <div
+              role="status"
+              data-testid="push-assisted-banner"
+              className="border-b px-4 py-2 text-xs"
+              style={{
+                backgroundColor: "rgba(56, 139, 253, 0.1)",
+                borderColor: "var(--border-default)",
+                color: "var(--text-secondary)",
+              }}
+            >
+              Push-assisted sync is on: no GitHub webhooks — freshness comes from sync-on-focus
+              and a shorter poll while focused.
             </div>
           )}
           {main}
