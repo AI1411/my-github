@@ -52,6 +52,38 @@ export const DEFAULT_REPO_NOTIFICATION_RULE: RepoNotificationRule = {
   mentions: true,
 };
 
+/** repo × kind × priority の自動ルール（Issue #239）。 */
+export type NotificationRuleKind = "ciFailures" | "reviewRequests" | "mentions";
+
+export interface NotificationRule {
+  id: string;
+  repo: string;
+  kind: NotificationRuleKind;
+  priority: NotificationDelivery;
+}
+
+export function normalizeNotificationRules(raw: unknown): NotificationRule[] {
+  if (!Array.isArray(raw)) return [];
+  const rules: NotificationRule[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const source = item as Record<string, unknown>;
+    const repo = typeof source.repo === "string" ? source.repo.trim() : "";
+    const kind = source.kind;
+    const priority = source.priority;
+    if (!repo) continue;
+    if (kind !== "ciFailures" && kind !== "reviewRequests" && kind !== "mentions") continue;
+    if (priority !== "immediate" && priority !== "digest" && priority !== "off") continue;
+    rules.push({
+      id: typeof source.id === "string" && source.id ? source.id : crypto.randomUUID(),
+      repo,
+      kind,
+      priority,
+    });
+  }
+  return rules;
+}
+
 export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutSetting> = {
   commandPalette: { label: "Command palette", keys: "Cmd+K" },
   workspaceSwitcher: { label: "Workspace switcher", keys: "Cmd+T" },
@@ -119,6 +151,7 @@ export interface SettingsState {
   pinnedPullsByAccount: Record<string, PinnedPullRef[]>;
   recentPullsByAccount: Record<string, RecentPullRef[]>;
   repoNotificationRules: RepoNotificationRules;
+  notificationRules: NotificationRule[];
   releaseNotificationsEnabled: boolean;
   setReleaseNotificationsEnabled: (enabled: boolean) => void;
   digestAutoShowEnabled: boolean;
@@ -137,6 +170,14 @@ export interface SettingsState {
   ) => void;
   addRepoNotificationRule: (repo: string) => void;
   removeRepoNotificationRule: (repo: string) => void;
+  addNotificationRule: (
+    rule: Omit<NotificationRule, "id"> & { id?: string },
+  ) => void;
+  updateNotificationRule: (
+    id: string,
+    patch: Partial<Pick<NotificationRule, "repo" | "kind" | "priority">>,
+  ) => void;
+  removeNotificationRule: (id: string) => void;
   addWatchedRepository: (repo: string) => void;
   addSavedFilter: (filter: Omit<SavedFilter, "id">) => void;
   removeSavedFilter: (id: string) => void;
@@ -173,6 +214,7 @@ export const useSettingsStore = create<SettingsState>()(
       pinnedPullsByAccount: {},
       recentPullsByAccount: {},
       repoNotificationRules: {},
+      notificationRules: [],
       releaseNotificationsEnabled: true,
       setReleaseNotificationsEnabled: (enabled) => set({ releaseNotificationsEnabled: enabled }),
       digestAutoShowEnabled: true,
@@ -205,6 +247,54 @@ export const useSettingsStore = create<SettingsState>()(
           const { [repo]: _removed, ...rest } = state.repoNotificationRules;
           return { repoNotificationRules: rest };
         }),
+      addNotificationRule: (rule) =>
+        set((state) => {
+          const repo = normalizeRepo(rule.repo);
+          if (!repo) return state;
+          if (
+            state.notificationRules.some(
+              (existing) => existing.repo === repo && existing.kind === rule.kind,
+            )
+          ) {
+            return {
+              notificationRules: state.notificationRules.map((existing) =>
+                existing.repo === repo && existing.kind === rule.kind
+                  ? { ...existing, priority: rule.priority }
+                  : existing,
+              ),
+            };
+          }
+          return {
+            notificationRules: [
+              ...state.notificationRules,
+              {
+                id: rule.id ?? crypto.randomUUID(),
+                repo,
+                kind: rule.kind,
+                priority: rule.priority,
+              },
+            ],
+          };
+        }),
+      updateNotificationRule: (id, patch) =>
+        set((state) => ({
+          notificationRules: state.notificationRules.map((rule) => {
+            if (rule.id !== id) return rule;
+            const nextRepo =
+              patch.repo !== undefined ? normalizeRepo(patch.repo) : rule.repo;
+            if (!nextRepo) return rule;
+            return {
+              ...rule,
+              repo: nextRepo,
+              kind: patch.kind ?? rule.kind,
+              priority: patch.priority ?? rule.priority,
+            };
+          }),
+        })),
+      removeNotificationRule: (id) =>
+        set((state) => ({
+          notificationRules: state.notificationRules.filter((rule) => rule.id !== id),
+        })),
       addSavedFilter: (filter) =>
         set((state) => {
           const name = filter.name.trim();
@@ -334,6 +424,9 @@ export const useSettingsStore = create<SettingsState>()(
           notificationSettings: normalizeNotificationSettings(
             raw.notificationSettings ?? current.notificationSettings,
           ),
+          notificationRules: normalizeNotificationRules(
+            raw.notificationRules ?? current.notificationRules,
+          ),
         };
       },
       partialize: (state) => ({
@@ -350,6 +443,7 @@ export const useSettingsStore = create<SettingsState>()(
         pinnedPullsByAccount: state.pinnedPullsByAccount,
         recentPullsByAccount: state.recentPullsByAccount,
         repoNotificationRules: state.repoNotificationRules,
+        notificationRules: state.notificationRules,
         releaseNotificationsEnabled: state.releaseNotificationsEnabled,
         digestAutoShowEnabled: state.digestAutoShowEnabled,
         shortcutChipsEnabled: state.shortcutChipsEnabled,

@@ -7,7 +7,13 @@ import {
   type Options,
 } from "@tauri-apps/plugin-notification";
 import type { NotificationSummary } from "../stores/dataStore";
-import type { NotificationSettings, RepoNotificationRules } from "../stores/settingsStore";
+import type {
+  NotificationDelivery,
+  NotificationRule,
+  NotificationRuleKind,
+  NotificationSettings,
+  RepoNotificationRules,
+} from "../stores/settingsStore";
 import {
   notificationKind,
   notificationRoute,
@@ -33,34 +39,67 @@ function titleForKind(kind: Exclude<DesktopNotificationKind, null>): string {
   }
 }
 
+function settingsKeyForKind(
+  kind: Exclude<DesktopNotificationKind, null>,
+): NotificationRuleKind {
+  switch (kind) {
+    case "ciFailure":
+      return "ciFailures";
+    case "reviewRequest":
+      return "reviewRequests";
+    case "mention":
+      return "mentions";
+  }
+}
+
+export interface PriorityForKindOptions {
+  repo?: string;
+  /** repo × kind × priority ルール（優先）。 */
+  notificationRules?: NotificationRule[];
+  /** 旧 boolean リポジトリルール（後方互換）。 */
+  repoRules?: RepoNotificationRules;
+}
+
 /**
  * リポジトリ別ルールがあればそれを優先し、なければグローバル設定に従う。
  * `settings.enabled` はマスタースイッチとして常に効く。
- * OS通知は `immediate` のときのみ送る（`digest` / `off` は送らない）。
+ * 解決順: notificationRules → repoNotificationRules → global。
  */
+export function priorityForKind(
+  kind: Exclude<DesktopNotificationKind, null>,
+  settings: NotificationSettings,
+  options: PriorityForKindOptions = {},
+): NotificationDelivery {
+  if (!settings.enabled) return "off";
+
+  const key = settingsKeyForKind(kind);
+  const global = settings[key];
+  const { repo, notificationRules, repoRules } = options;
+
+  if (repo && notificationRules?.length) {
+    const match = notificationRules.find(
+      (rule) => rule.repo === repo && rule.kind === key,
+    );
+    if (match) return match.priority;
+  }
+
+  if (repo && repoRules?.[repo]) {
+    const allowed = repoRules[repo][key];
+    if (!allowed) return "off";
+  }
+
+  return global;
+}
+
+/** @deprecated Use {@link priorityForKind}. Kept for call-site compatibility. */
 export function deliveryForKind(
   kind: Exclude<DesktopNotificationKind, null>,
   settings: NotificationSettings,
   repo?: string,
   repoRules?: RepoNotificationRules,
-): "immediate" | "digest" | "off" {
-  if (!settings.enabled) return "off";
-  const global =
-    kind === "ciFailure"
-      ? settings.ciFailures
-      : kind === "reviewRequest"
-        ? settings.reviewRequests
-        : settings.mentions;
-  if (repo && repoRules?.[repo]) {
-    const allowed =
-      kind === "ciFailure"
-        ? repoRules[repo].ciFailures
-        : kind === "reviewRequest"
-          ? repoRules[repo].reviewRequests
-          : repoRules[repo].mentions;
-    if (!allowed) return "off";
-  }
-  return global;
+  notificationRules?: NotificationRule[],
+): NotificationDelivery {
+  return priorityForKind(kind, settings, { repo, repoRules, notificationRules });
 }
 
 export function enabledForKind(
@@ -68,8 +107,11 @@ export function enabledForKind(
   settings: NotificationSettings,
   repo?: string,
   repoRules?: RepoNotificationRules,
+  notificationRules?: NotificationRule[],
 ): boolean {
-  return deliveryForKind(kind, settings, repo, repoRules) === "immediate";
+  return (
+    priorityForKind(kind, settings, { repo, repoRules, notificationRules }) === "immediate"
+  );
 }
 
 export async function ensureNotificationPermission(): Promise<boolean> {
@@ -81,9 +123,15 @@ export async function sendAppNotification(
   notification: NotificationSummary,
   settings: NotificationSettings,
   repoRules?: RepoNotificationRules,
+  notificationRules?: NotificationRule[],
 ): Promise<boolean> {
   const kind = notificationKind(notification);
-  if (!kind || !enabledForKind(kind, settings, notification.repo, repoRules)) return false;
+  if (
+    !kind ||
+    !enabledForKind(kind, settings, notification.repo, repoRules, notificationRules)
+  ) {
+    return false;
+  }
   if (!(await ensureNotificationPermission())) return false;
 
   const route = notificationRoute(notification.htmlUrl);

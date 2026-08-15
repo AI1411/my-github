@@ -9,6 +9,8 @@ import { useDataStore } from "../stores/dataStore";
 import {
   DEFAULT_SHORTCUTS,
   useSettingsStore,
+  type NotificationDelivery,
+  type NotificationRuleKind,
   type PollingInterval,
   type ShortcutId,
 } from "../stores/settingsStore";
@@ -185,11 +187,14 @@ export default function SettingsPage() {
   const setNotificationSetting = useSettingsStore((state) => state.setNotificationSetting);
   const staleThresholds = useSettingsStore((state) => state.staleThresholds);
   const setStaleThreshold = useSettingsStore((state) => state.setStaleThreshold);
-  const repoNotificationRules = useSettingsStore((state) => state.repoNotificationRules);
-  const setRepoNotificationRule = useSettingsStore((state) => state.setRepoNotificationRule);
-  const addRepoNotificationRule = useSettingsStore((state) => state.addRepoNotificationRule);
-  const removeRepoNotificationRule = useSettingsStore((state) => state.removeRepoNotificationRule);
+  const notificationRules = useSettingsStore((state) => state.notificationRules);
+  const addNotificationRule = useSettingsStore((state) => state.addNotificationRule);
+  const updateNotificationRule = useSettingsStore((state) => state.updateNotificationRule);
+  const removeNotificationRule = useSettingsStore((state) => state.removeNotificationRule);
   const [ruleRepoInput, setRuleRepoInput] = useState("");
+  const [ruleKindInput, setRuleKindInput] = useState<NotificationRuleKind>("ciFailures");
+  const [rulePriorityInput, setRulePriorityInput] =
+    useState<NotificationDelivery>("immediate");
   const releaseNotificationsEnabled = useSettingsStore(
     (state) => state.releaseNotificationsEnabled,
   );
@@ -561,13 +566,17 @@ export default function SettingsPage() {
                 onChange={setDigestAutoShowEnabled}
               />
             </Row>
-            <Row label="Per-repository rules">
+            <Row label="Notification rules">
               <div className="flex flex-col gap-2">
                 <form
-                  className="flex max-w-xl gap-2"
+                  className="flex max-w-2xl flex-wrap items-center gap-2"
                   onSubmit={(event) => {
                     event.preventDefault();
-                    addRepoNotificationRule(ruleRepoInput);
+                    addNotificationRule({
+                      repo: ruleRepoInput,
+                      kind: ruleKindInput,
+                      priority: rulePriorityInput,
+                    });
                     setRuleRepoInput("");
                   }}
                 >
@@ -589,43 +598,102 @@ export default function SettingsPage() {
                       <option key={repo} value={repo} />
                     ))}
                   </datalist>
+                  <select
+                    aria-label="Notification kind"
+                    value={ruleKindInput}
+                    onChange={(event) =>
+                      setRuleKindInput(event.currentTarget.value as NotificationRuleKind)
+                    }
+                    className="rounded-md px-2 py-1.5 text-sm outline-none"
+                    style={{
+                      backgroundColor: "var(--bg-secondary)",
+                      border: "1px solid var(--border-default)",
+                      color: "var(--text-primary)",
+                    }}
+                  >
+                    <option value="ciFailures">CI failures</option>
+                    <option value="reviewRequests">Review requests</option>
+                    <option value="mentions">Mentions</option>
+                  </select>
+                  <select
+                    aria-label="Notification priority"
+                    value={rulePriorityInput}
+                    onChange={(event) =>
+                      setRulePriorityInput(event.currentTarget.value as NotificationDelivery)
+                    }
+                    className="rounded-md px-2 py-1.5 text-sm outline-none"
+                    style={{
+                      backgroundColor: "var(--bg-secondary)",
+                      border: "1px solid var(--border-default)",
+                      color: "var(--text-primary)",
+                    }}
+                  >
+                    <option value="immediate">Immediate</option>
+                    <option value="digest">Digest</option>
+                    <option value="off">Off</option>
+                  </select>
                   <InlineButton
                     onClick={() => {
-                      addRepoNotificationRule(ruleRepoInput);
+                      addNotificationRule({
+                        repo: ruleRepoInput,
+                        kind: ruleKindInput,
+                        priority: rulePriorityInput,
+                      });
                       setRuleRepoInput("");
                     }}
                   >
                     Add rule
                   </InlineButton>
                 </form>
-                {Object.keys(repoNotificationRules).length === 0 ? (
+                {notificationRules.length === 0 ? (
                   <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-                    No per-repository rules — all repositories follow the global settings
+                    No rules — all repositories follow the global Immediate / Digest / Off settings
                   </p>
                 ) : (
-                  Object.entries(repoNotificationRules).map(([repo, rule]) => (
-                    <div key={repo} className="flex flex-wrap items-center gap-4">
-                      <span className="min-w-48 truncate text-sm">{repo}</span>
-                      <Toggle
-                        checked={rule.ciFailures}
-                        label="CI failures"
-                        onChange={(checked) => setRepoNotificationRule(repo, "ciFailures", checked)}
-                      />
-                      <Toggle
-                        checked={rule.reviewRequests}
-                        label="Review requests"
-                        onChange={(checked) =>
-                          setRepoNotificationRule(repo, "reviewRequests", checked)
+                  notificationRules.map((rule) => (
+                    <div key={rule.id} className="flex flex-wrap items-center gap-2">
+                      <span className="min-w-40 truncate text-sm">{rule.repo}</span>
+                      <select
+                        aria-label={`Kind for ${rule.repo}`}
+                        value={rule.kind}
+                        onChange={(event) =>
+                          updateNotificationRule(rule.id, {
+                            kind: event.currentTarget.value as NotificationRuleKind,
+                          })
                         }
-                      />
-                      <Toggle
-                        checked={rule.mentions}
-                        label="Mentions"
-                        onChange={(checked) => setRepoNotificationRule(repo, "mentions", checked)}
-                      />
+                        className="rounded-md px-2 py-1 text-sm outline-none"
+                        style={{
+                          backgroundColor: "var(--bg-secondary)",
+                          border: "1px solid var(--border-default)",
+                          color: "var(--text-primary)",
+                        }}
+                      >
+                        <option value="ciFailures">CI failures</option>
+                        <option value="reviewRequests">Review requests</option>
+                        <option value="mentions">Mentions</option>
+                      </select>
+                      <select
+                        aria-label={`Priority for ${rule.repo} ${rule.kind}`}
+                        value={rule.priority}
+                        onChange={(event) =>
+                          updateNotificationRule(rule.id, {
+                            priority: event.currentTarget.value as NotificationDelivery,
+                          })
+                        }
+                        className="rounded-md px-2 py-1 text-sm outline-none"
+                        style={{
+                          backgroundColor: "var(--bg-secondary)",
+                          border: "1px solid var(--border-default)",
+                          color: "var(--text-primary)",
+                        }}
+                      >
+                        <option value="immediate">Immediate</option>
+                        <option value="digest">Digest</option>
+                        <option value="off">Off</option>
+                      </select>
                       <InlineButton
-                        ariaLabel={`Remove rule for ${repo}`}
-                        onClick={() => removeRepoNotificationRule(repo)}
+                        ariaLabel={`Remove rule for ${rule.repo} ${rule.kind}`}
+                        onClick={() => removeNotificationRule(rule.id)}
                       >
                         Remove
                       </InlineButton>
