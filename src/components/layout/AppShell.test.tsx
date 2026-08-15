@@ -40,7 +40,7 @@ describe("AppShell offline banner", () => {
     notificationLifecycle.registerAppNotificationClickHandler.mockResolvedValue(
       notificationLifecycle.disposeClickHandler,
     );
-    useUiStore.setState({ offline: false, sidebarCollapsed: false });
+    useUiStore.setState({ offline: false, sidebarCollapsed: false, rateLimitHit: null });
   });
 
   it("shows an offline banner when uiStore is offline", () => {
@@ -53,6 +53,20 @@ describe("AppShell offline banner", () => {
     );
 
     expect(screen.getByText("Offline")).toBeInTheDocument();
+  });
+
+  it("shows a rate limit banner when uiStore has rateLimitHit", () => {
+    useUiStore.setState({
+      rateLimitHit: { remaining: 12, reset: Math.floor(Date.now() / 1000) + 3600 },
+    });
+
+    render(
+      <MemoryRouter>
+        <AppShell sidebar={<div />} main={<div>Main</div>} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent(/rate limit low \(12 remaining\)/i);
   });
 
   it("starts notification polling and click handling without mounting Activity", () => {
@@ -132,7 +146,7 @@ describe("AppShell startup digest", () => {
     notificationLifecycle.registerAppNotificationClickHandler.mockResolvedValue(
       notificationLifecycle.disposeClickHandler,
     );
-    useUiStore.setState({ offline: false, sidebarCollapsed: false });
+    useUiStore.setState({ offline: false, sidebarCollapsed: false, rateLimitHit: null });
     useSettingsStore.setState({ digestAutoShowEnabled: true });
   });
 

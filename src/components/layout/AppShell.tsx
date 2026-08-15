@@ -25,6 +25,8 @@ export function AppShell({ sidebar, main, secondary }: AppShellProps) {
   const navigate = useNavigate();
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
   const offline = useUiStore((s) => s.offline);
+  const rateLimitHit = useUiStore((s) => s.rateLimitHit);
+  const setRateLimitHit = useUiStore((s) => s.setRateLimitHit);
 
   // トレイメニューの "Open Inbox" でInboxへ遷移する
   useEffect(() => {
@@ -33,6 +35,30 @@ export function AppShell({ sidebar, main, secondary }: AppShellProps) {
       void unlisten.then((dispose) => dispose());
     };
   }, [navigate]);
+
+  // レート制限ヒットをバナー表示し、reset 時刻後に消す
+  useEffect(() => {
+    const unlisten = listen<{ remaining: number; reset: number }>("rate-limit-hit", (event) => {
+      setRateLimitHit({
+        remaining: event.payload.remaining,
+        reset: event.payload.reset,
+      });
+    });
+    return () => {
+      void unlisten.then((dispose) => dispose());
+    };
+  }, [setRateLimitHit]);
+
+  useEffect(() => {
+    if (!rateLimitHit) return;
+    const ms = rateLimitHit.reset * 1000 - Date.now();
+    if (ms <= 0) {
+      setRateLimitHit(null);
+      return;
+    }
+    const timer = setTimeout(() => setRateLimitHit(null), ms);
+    return () => clearTimeout(timer);
+  }, [rateLimitHit, setRateLimitHit]);
 
   // 起動時、前回のダイジェスト表示から間が空いていればDigestを開く
   useEffect(() => {
@@ -115,6 +141,24 @@ export function AppShell({ sidebar, main, secondary }: AppShellProps) {
               }}
             >
               Offline
+            </div>
+          )}
+          {rateLimitHit && (
+            <div
+              role="status"
+              className="border-b px-4 py-2 text-xs font-semibold"
+              style={{
+                backgroundColor: "rgba(251, 191, 36, 0.12)",
+                borderColor: "var(--border-default)",
+                color: "var(--accent-amber, #fbbf24)",
+              }}
+            >
+              GitHub API rate limit low ({rateLimitHit.remaining} remaining). Sync paused until{" "}
+              {new Date(rateLimitHit.reset * 1000).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+              .
             </div>
           )}
           {main}
