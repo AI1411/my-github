@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import InboxPage from "./InboxPage";
 import { saveLastSnoozeOption } from "../lib/snooze";
@@ -7,6 +8,18 @@ import { useAuthStore } from "../stores/authStore";
 import { useDataStore } from "../stores/dataStore";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+
+function renderInbox() {
+  return render(
+    <MemoryRouter initialEntries={["/inbox"]}>
+      <Routes>
+        <Route path="/inbox" element={<InboxPage />} />
+        <Route path="/pulls/:owner/:repo/:number" element={<div>pull-detail</div>} />
+        <Route path="/issues/:owner/:repo/:number" element={<div>issue-detail</div>} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
 
 const reviewItem = {
   id: "pr-1",
@@ -51,7 +64,7 @@ describe("InboxPage snooze shortcuts", () => {
   });
 
   it("opens snooze picker with H and snoozes with number key", async () => {
-    render(<InboxPage />);
+    renderInbox();
     await waitFor(() => expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0));
     fireEvent.click(screen.getAllByText("Needs review")[0]);
 
@@ -71,7 +84,7 @@ describe("InboxPage snooze shortcuts", () => {
 
   it("applies last snooze option with Shift+H", async () => {
     saveLastSnoozeOption("1h");
-    render(<InboxPage />);
+    renderInbox();
     await waitFor(() => expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0));
     fireEvent.click(screen.getAllByText("Needs review")[0]);
 
@@ -85,7 +98,7 @@ describe("InboxPage snooze shortcuts", () => {
   });
 
   it("navigates across sections with J before snoozing", async () => {
-    render(<InboxPage />);
+    renderInbox();
     await waitFor(() =>
       expect(screen.getAllByText("You were mentioned").length).toBeGreaterThan(0),
     );
@@ -106,18 +119,16 @@ describe("InboxPage snooze shortcuts", () => {
   });
 
   it("moves J/K across Review and Mentions without stopping at empty CI", async () => {
-    render(<InboxPage />);
+    renderInbox();
     await waitFor(() => expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0));
 
     // first item is review; one J should land on mention (empty CI is skipped)
     fireEvent.keyDown(window, { key: "j" });
-    fireEvent.keyDown(window, { key: "Enter" });
     await waitFor(() => {
       expect(screen.getAllByText("You were mentioned").length).toBeGreaterThan(1);
     });
 
     fireEvent.keyDown(window, { key: "k" });
-    fireEvent.keyDown(window, { key: "Enter" });
     await waitFor(() => {
       expect(screen.getAllByText("Needs review").length).toBeGreaterThan(1);
     });
@@ -143,7 +154,7 @@ describe("InboxPage snooze shortcuts", () => {
       return null;
     });
 
-    render(<InboxPage />);
+    renderInbox();
     await waitFor(() => expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0));
     fireEvent.click(screen.getAllByText("Needs review")[0]);
 
@@ -173,7 +184,7 @@ describe("InboxPage snooze shortcuts", () => {
       return null;
     });
 
-    render(<InboxPage />);
+    renderInbox();
     await waitFor(() => expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0));
     fireEvent.keyDown(window, { key: "x", shiftKey: true });
     await waitFor(() => {
@@ -188,7 +199,7 @@ describe("InboxPage snooze shortcuts", () => {
   });
 
   it("toggles pin on the selected item with P", async () => {
-    render(<InboxPage />);
+    renderInbox();
     await waitFor(() => expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0));
     fireEvent.click(screen.getAllByText("Needs review")[0]);
     fireEvent.keyDown(window, { key: "p" });
@@ -201,7 +212,7 @@ describe("InboxPage snooze shortcuts", () => {
   });
 
   it("does not pin when P is the second key of G then P", async () => {
-    render(<InboxPage />);
+    renderInbox();
     await waitFor(() => expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0));
     fireEvent.click(screen.getAllByText("Needs review")[0]);
     fireEvent.keyDown(window, { key: "g" });
@@ -213,14 +224,14 @@ describe("InboxPage snooze shortcuts", () => {
   });
 
   it("keeps the preview collapsed until an item is selected", async () => {
-    render(<InboxPage />);
+    renderInbox();
     await waitFor(() => expect(screen.getAllByText("Needs review").length).toBe(1));
     expect(screen.queryByRole("button", { name: "Open in Browser" })).not.toBeInTheDocument();
     expect(screen.queryByText("Select an item to preview")).not.toBeInTheDocument();
   });
 
   it("opens the preview on click and collapses it with Escape", async () => {
-    render(<InboxPage />);
+    renderInbox();
     await waitFor(() => expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0));
     fireEvent.click(screen.getAllByText("Needs review")[0]);
     expect(await screen.findByRole("button", { name: "Open in Browser" })).toBeInTheDocument();
@@ -228,5 +239,13 @@ describe("InboxPage snooze shortcuts", () => {
     await waitFor(() => {
       expect(screen.queryByRole("button", { name: "Open in Browser" })).not.toBeInTheDocument();
     });
+  });
+
+  it("opens the in-app detail from Inbox with Enter", async () => {
+    renderInbox();
+    await waitFor(() => expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0));
+    fireEvent.click(screen.getAllByText("Needs review")[0]);
+    fireEvent.keyDown(window, { key: "Enter" });
+    expect(await screen.findByText("pull-detail")).toBeInTheDocument();
   });
 });

@@ -16,9 +16,11 @@ import { useIssueTimelineQuery } from "../features/issues/useIssueTimelineQuery"
 import { enqueueWrite } from "../lib/writeQueue";
 import { useDataStore, type IssueSummary } from "../stores/dataStore";
 import { useCloseDetailShortcut } from "../hooks/useCloseDetailShortcut";
+import { useInboxQueueAdvance } from "../hooks/useInboxQueueAdvance";
 
 export default function IssueDetailPage() {
   useCloseDetailShortcut();
+  useInboxQueueAdvance();
   const { owner, repo, number } = useParams();
   const num = number ? Number.parseInt(number, 10) : undefined;
   const { issue: fetched, loading, error } = useIssueQuery(owner, repo, num);
