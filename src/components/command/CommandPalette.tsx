@@ -9,7 +9,7 @@ interface CommandItem {
   id: string;
   label: string;
   subtitle?: string;
-  kind: "nav" | "pr" | "issue" | "search";
+  kind: "nav" | "pr" | "issue" | "search" | "next";
   href?: string;
   action?: () => void;
 }
@@ -28,6 +28,7 @@ const KIND_LABEL: Record<CommandItem["kind"], string> = {
   pr: "PR",
   issue: "ISS",
   search: "GH",
+  next: "!",
 };
 
 function fuzzyMatch(query: string, target: string): boolean {
@@ -63,7 +64,35 @@ export function CommandPalette() {
   }, [isOpen]);
 
   const localItems = useMemo((): CommandItem[] => {
-    if (!query) return NAV_COMMANDS;
+    const nextActions: CommandItem[] = [];
+    if (!query) {
+      for (const pull of pulls) {
+        if (pull.state !== "open" || pull.isDraft) continue;
+        if (pull.ciState === "failure") {
+          nextActions.push({
+            id: `next-ci-${pull.id}`,
+            label: pull.title,
+            subtitle: `CI failing · ${pull.repo} #${pull.number}`,
+            kind: "next",
+            href: `/pulls/${pull.repo}/${pull.number}`,
+          });
+        } else if (
+          pull.reviewState === "pending" ||
+          pull.reviewState === "changes_requested" ||
+          pull.hasMention
+        ) {
+          nextActions.push({
+            id: `next-review-${pull.id}`,
+            label: pull.title,
+            subtitle: `Needs attention · ${pull.repo} #${pull.number}`,
+            kind: "next",
+            href: `/pulls/${pull.repo}/${pull.number}`,
+          });
+        }
+        if (nextActions.length >= 5) break;
+      }
+      return [...nextActions, ...NAV_COMMANDS];
+    }
     const navMatches = NAV_COMMANDS.filter((c) => fuzzyMatch(query, c.label));
     const prMatches = pulls
       .filter((p) => fuzzyMatch(query, p.title) || fuzzyMatch(query, p.repo))
