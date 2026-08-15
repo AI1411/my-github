@@ -49,11 +49,14 @@ export default function PullDetailPage() {
     return pins.some((p) => p.repo === repoFull && p.number === num);
   });
   const togglePinnedPull = useSettingsStore((s) => s.togglePinnedPull);
+  const currentUser = useAuthStore((s) => s.user?.login ?? null);
+  const patchPullReviewState = useDataStore((s) => s.patchPullReviewState);
 
   const [tab, setTab] = useState<DetailTab>("conversation");
   const [viewMode, setViewMode] = useState<DiffViewMode>("unified");
   const [fileQuery, setFileQuery] = useState("");
   const [viewedSet, setViewedSet] = useState<Set<string>>(() => getViewedSet(pullKey));
+  const [readinessKey, setReadinessKey] = useState(0);
 
   useEffect(() => {
     setViewedSet(getViewedSet(pullKey));
@@ -82,6 +85,16 @@ export default function PullDetailPage() {
       : pull?.state === "closed"
         ? "closed"
         : "open";
+
+  const isOwnPull = !!currentUser && pull?.author === currentUser;
+  const canReview = statusLabel === "open" && !isOwnPull;
+  const reviewDisabledReason = !pull
+    ? null
+    : statusLabel !== "open"
+      ? "Only open pull requests can be reviewed"
+      : isOwnPull
+        ? "You cannot review your own pull request"
+        : null;
 
   if (!pull) {
     return (
@@ -146,7 +159,7 @@ export default function PullDetailPage() {
       >
         <StatusPill status={statusLabel} />
         {statusLabel === "open" && owner && repo && num !== undefined && (
-          <MergeReadinessBadge owner={owner} repo={repo} number={num} />
+          <MergeReadinessBadge owner={owner} repo={repo} number={num} refreshKey={readinessKey} />
         )}
         <h1
           className="text-base font-semibold flex-1 min-w-0 truncate"
@@ -201,7 +214,15 @@ export default function PullDetailPage() {
                   commits: null,
                 }}
               />
-              <CommentDraftPanel htmlUrl={pull.htmlUrl} />
+              <CommentDraftPanel
+                owner={owner ?? ""}
+                repo={repo ?? ""}
+                number={num ?? 0}
+                htmlUrl={pull.htmlUrl}
+                canComment={canReview}
+                disabledReason={reviewDisabledReason}
+                onSubmitted={() => setReadinessKey((k) => k + 1)}
+              />
             </>
           )}
           {tab === "commits" && (
@@ -306,11 +327,19 @@ export default function PullDetailPage() {
         />
       </div>
       <PrFooterBar
+        owner={owner ?? ""}
+        repo={repo ?? ""}
+        number={pull.number}
         canMerge={statusLabel === "open"}
-        canApprove={statusLabel === "open"}
+        canApprove={canReview}
+        approveDisabledReason={reviewDisabledReason}
         htmlUrl={pull.htmlUrl ?? ""}
         onOpenInEditor={handleOpenInEditor}
         checkout={{ number: pull.number, headRef: pull.headRef }}
+        onReviewSubmitted={(_event, reviewState) => {
+          if (reviewState) patchPullReviewState(pull.repo, pull.number, reviewState);
+          setReadinessKey((k) => k + 1);
+        }}
       />
     </div>
   );

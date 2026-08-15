@@ -16,9 +16,10 @@ interface MergeReadinessBadgeProps {
   owner: string;
   repo: string;
   number: number;
+  refreshKey?: number;
 }
 
-export function MergeReadinessBadge({ owner, repo, number }: MergeReadinessBadgeProps) {
+export function MergeReadinessBadge({ owner, repo, number, refreshKey = 0 }: MergeReadinessBadgeProps) {
   const [readiness, setReadiness] = useState<MergeReadiness | null>(null);
 
   useEffect(() => {
@@ -34,7 +35,7 @@ export function MergeReadinessBadge({ owner, repo, number }: MergeReadinessBadge
     return () => {
       cancelled = true;
     };
-  }, [owner, repo, number]);
+  }, [owner, repo, number, refreshKey]);
 
   if (!readiness) return null;
 

@@ -115,6 +115,7 @@ export interface DataState {
   setIssues: (issues: IssueSummary[]) => void;
   setNotifications: (notifications: NotificationSummary[]) => void;
   setReleases: (releases: ReleaseSummary[]) => void;
+  patchPullReviewState: (repo: string, number: number, reviewState: string) => void;
   markLastSynced: () => void;
   reset: () => void;
 }
@@ -129,6 +130,12 @@ export const useDataStore = create<DataState>((set) => ({
   setIssues: (issues) => set({ issues }),
   setNotifications: (notifications) => set({ notifications }),
   setReleases: (releases) => set({ releases }),
+  patchPullReviewState: (repo, number, reviewState) =>
+    set((state) => ({
+      pulls: state.pulls.map((p) =>
+        p.repo === repo && p.number === number ? { ...p, reviewState } : p,
+      ),
+    })),
   markLastSynced: () => set({ lastSyncedAt: new Date().toISOString() }),
   reset: () => set({ pulls: [], issues: [], notifications: [], releases: [], lastSyncedAt: null }),
 }));
