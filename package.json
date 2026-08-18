@@ -12,7 +12,7 @@
     "lint:fix": "oxlint --fix src/",
     "format": "oxfmt --write src/",
     "format:check": "oxfmt --check src/",
-    "typecheck": "tsgo --noEmit",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
   },
