@@ -78,6 +78,7 @@ export function CommandPalette() {
   const [searching, setSearching] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchSeqRef = useRef(0);
 
   const advanced = searchMode || isAdvancedSearchQuery(query);
 
@@ -320,11 +321,14 @@ export function CommandPalette() {
   useEffect(() => {
     if (!shouldRunGithubSearch(query, searchMode)) {
       setRemoteResults([]);
+      setSearching(false);
       return;
     }
+    const seq = ++searchSeqRef.current;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       setSearching(true);
+      const trimmed = query.trim();
       invoke<
         {
           id: number;
@@ -335,8 +339,9 @@ export function CommandPalette() {
           repo: string;
           kind: string;
         }[]
-      >("cmd_search_github", { query: query.trim() })
+      >("cmd_search_github", { query: trimmed })
         .then((results) => {
+          if (searchSeqRef.current !== seq) return;
           const limit = advanced ? 10 : 5;
           setRemoteResults(
             results.slice(0, limit).map((r) => ({
@@ -351,8 +356,14 @@ export function CommandPalette() {
             })),
           );
         })
-        .catch(() => setRemoteResults([]))
-        .finally(() => setSearching(false));
+        .catch(() => {
+          if (searchSeqRef.current !== seq) return;
+          setRemoteResults([]);
+        })
+        .finally(() => {
+          if (searchSeqRef.current !== seq) return;
+          setSearching(false);
+        });
     }, 300);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);

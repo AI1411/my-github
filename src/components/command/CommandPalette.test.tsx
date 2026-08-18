@@ -178,6 +178,55 @@ describe("CommandPalette", () => {
     expect(screen.getByText("Save this search")).toBeInTheDocument();
   });
 
+  it("ignores stale GitHub search responses when the query changes", async () => {
+    let resolveFirst!: (value: unknown[]) => void;
+    mockedInvoke.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveFirst = resolve;
+        }),
+    );
+    mockedInvoke.mockResolvedValueOnce([
+      {
+        id: 99,
+        number: 9,
+        title: "Latest result",
+        state: "open",
+        htmlUrl: "https://github.com/octocat/hello/pull/9",
+        repo: "octocat/hello",
+        kind: "pull",
+      },
+    ]);
+
+    renderPalette();
+    const input = screen.getByPlaceholderText(/Search or jump to/);
+    fireEvent.change(input, { target: { value: "is:pr author:octocat" } });
+    await new Promise((r) => setTimeout(r, 350));
+
+    fireEvent.change(input, { target: { value: "is:issue is:open" } });
+    await new Promise((r) => setTimeout(r, 350));
+
+    await waitFor(() => {
+      expect(screen.getByText("Latest result")).toBeInTheDocument();
+    });
+
+    resolveFirst([
+      {
+        id: 1,
+        number: 1,
+        title: "Stale result",
+        state: "open",
+        htmlUrl: "https://github.com/octocat/hello/pull/1",
+        repo: "octocat/hello",
+        kind: "pull",
+      },
+    ]);
+
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByText("Stale result")).not.toBeInTheDocument();
+    expect(screen.getByText("Latest result")).toBeInTheDocument();
+  });
+
   it("applies a saved search without closing the palette", async () => {
     mockedInvoke.mockResolvedValue([]);
     useSettingsStore.setState({
