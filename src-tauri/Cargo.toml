@@ -26,7 +26,6 @@ tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "time", 
 reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
 thiserror = "2"
 anyhow = "1"
-octocrab = "0.41"
 graphql_client = { version = "0.14", features = ["reqwest"] }
 rusqlite = { version = "0.31", features = ["bundled"] }
 r2d2 = "0.8"
