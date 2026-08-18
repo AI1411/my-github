@@ -15,10 +15,21 @@ pub enum ClientError {
 pub struct RateLimitInfo {
     pub remaining: u32,
     pub reset: u64,
+    #[serde(default = "default_rate_limit")]
+    pub limit: u32,
+}
+
+fn default_rate_limit() -> u32 {
+    5000
 }
 
 impl RateLimitInfo {
     pub fn from_headers(headers: &reqwest::header::HeaderMap) -> Self {
+        let limit = headers
+            .get("x-ratelimit-limit")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|s| s.parse::<u32>().ok())
+            .unwrap_or_else(default_rate_limit);
         let remaining = headers
             .get("x-ratelimit-remaining")
             .and_then(|v| v.to_str().ok())
@@ -29,7 +40,11 @@ impl RateLimitInfo {
             .and_then(|v| v.to_str().ok())
             .and_then(|s| s.parse::<u64>().ok())
             .unwrap_or(0);
-        Self { remaining, reset }
+        Self {
+            remaining,
+            reset,
+            limit,
+        }
     }
 
     pub fn is_exhausted(&self) -> bool {
@@ -37,7 +52,10 @@ impl RateLimitInfo {
     }
 
     pub fn is_low(&self) -> bool {
-        self.remaining < 100
+        if self.limit == 0 {
+            return false;
+        }
+        self.remaining < self.limit / 4
     }
 }
 
@@ -220,14 +238,20 @@ mod tests {
         let info = RateLimitInfo {
             remaining: 42,
             reset: 1700000000,
+            limit: 5000,
         };
         assert_eq!(info.remaining, 42);
         assert_eq!(info.reset, 1700000000);
+        assert_eq!(info.limit, 5000);
     }
 
     #[test]
     fn parse_rate_limit_parses_valid_headers() {
         let mut headers = reqwest::header::HeaderMap::new();
+        headers.insert(
+            "x-ratelimit-limit",
+            reqwest::header::HeaderValue::from_str("5000").unwrap(),
+        );
         headers.insert(
             "x-ratelimit-remaining",
             reqwest::header::HeaderValue::from_str("58").unwrap(),
@@ -237,6 +261,7 @@ mod tests {
             reqwest::header::HeaderValue::from_str("1700000000").unwrap(),
         );
         let info = RateLimitInfo::from_headers(&headers);
+        assert_eq!(info.limit, 5000);
         assert_eq!(info.remaining, 58);
         assert_eq!(info.reset, 1700000000);
     }
@@ -245,6 +270,7 @@ mod tests {
     fn parse_rate_limit_defaults_when_headers_missing() {
         let headers = reqwest::header::HeaderMap::new();
         let info = RateLimitInfo::from_headers(&headers);
+        assert_eq!(info.limit, 5000);
         assert_eq!(info.remaining, u32::MAX);
         assert_eq!(info.reset, 0);
     }
@@ -254,24 +280,27 @@ mod tests {
         let info = RateLimitInfo {
             remaining: 0,
             reset: 0,
+            limit: 5000,
         };
         assert!(info.is_exhausted());
     }
 
     #[test]
-    fn is_low_returns_true_when_remaining_below_100() {
+    fn is_low_returns_true_when_remaining_below_25_percent() {
         let info = RateLimitInfo {
-            remaining: 99,
+            remaining: 1249,
             reset: 0,
+            limit: 5000,
         };
         assert!(info.is_low());
     }
 
     #[test]
-    fn is_low_returns_false_when_remaining_is_100() {
+    fn is_low_returns_false_when_remaining_is_at_25_percent() {
         let info = RateLimitInfo {
-            remaining: 100,
+            remaining: 1250,
             reset: 0,
+            limit: 5000,
         };
         assert!(!info.is_low());
     }
