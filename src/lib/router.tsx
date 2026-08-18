@@ -1,3 +1,4 @@
+import { useRef, useState } from "react";
 import { createBrowserRouter, Navigate, Outlet, RouterProvider } from "react-router-dom";
 import { AppShell } from "../components/layout/AppShell";
 import { Sidebar } from "../components/layout/Sidebar";
@@ -78,6 +79,10 @@ export interface AppRouterProps {
 }
 
 export function AppRouter({ onSignOut }: AppRouterProps) {
-  const router = createAppRouter(onSignOut);
+  // Keep a stable router instance across re-renders. Recreating createBrowserRouter
+  // remounts the whole route tree and drops page state / duplicate listeners.
+  const onSignOutRef = useRef(onSignOut);
+  onSignOutRef.current = onSignOut;
+  const [router] = useState(() => createAppRouter(() => onSignOutRef.current()));
   return <RouterProvider router={router} />;
 }
