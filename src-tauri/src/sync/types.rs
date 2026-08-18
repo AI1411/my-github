@@ -104,6 +104,22 @@ pub struct SyncReport {
     pub steps: Vec<SyncStepReport>,
 }
 
+/// Returns true when any sync step recorded a GitHub 401 / expired PAT error.
+pub fn is_auth_expired_message(message: &str) -> bool {
+    message.contains("HTTP 401")
+        || message.contains("invalid or expired PAT")
+        || message.to_ascii_lowercase().contains("bad credentials")
+}
+
+impl SyncReport {
+    pub fn has_auth_expired_error(&self) -> bool {
+        self.steps
+            .iter()
+            .flat_map(|step| step.errors.iter())
+            .any(|error| is_auth_expired_message(&error.message))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SyncStatus {

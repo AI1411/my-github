@@ -10,6 +10,7 @@ import { useWriteQueue } from "../../hooks/useWriteQueue";
 import { loadDigestLastSeen, shouldShowDigest } from "../../lib/digest";
 import { registerAppNotificationClickHandler } from "../../lib/notifications";
 import { useSettingsStore } from "../../stores/settingsStore";
+import { useAuthStore } from "../../stores/authStore";
 import { useDataStore } from "../../stores/dataStore";
 import { useUiStore } from "../../stores/uiStore";
 import { CommandPalette } from "../command/CommandPalette";
@@ -66,6 +67,16 @@ export function AppShell({ sidebar, main, secondary }: AppShellProps) {
       void unlisten.then((dispose) => dispose());
     };
   }, [navigate]);
+
+  // Sync 401 / expired PAT → auth expired screen
+  useEffect(() => {
+    const unlisten = listen("auth-expired", () => {
+      useAuthStore.getState().setExpired();
+    });
+    return () => {
+      void unlisten.then((dispose) => dispose());
+    };
+  }, []);
 
   // レート制限ヒットをバナー表示し、reset 時刻後に消す
   useEffect(() => {

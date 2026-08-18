@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { saveDigestLastSeen } from "../../lib/digest";
+import { useAuthStore } from "../../stores/authStore";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useUiStore } from "../../stores/uiStore";
 import { AppShell } from "./AppShell";
@@ -105,6 +106,26 @@ describe("AppShell offline banner", () => {
       expect(invoke).toHaveBeenCalledWith("cmd_ping");
       expect(invoke).toHaveBeenCalledWith("cmd_sync_now");
     });
+  });
+
+  it("marks auth expired when sync emits auth-expired", async () => {
+    const { listen } = await import("@tauri-apps/api/event");
+    let authExpiredHandler: (() => void) | undefined;
+    (listen as ReturnType<typeof vi.fn>).mockImplementation((event: string, handler: () => void) => {
+      if (event === "auth-expired") authExpiredHandler = handler;
+      return Promise.resolve(() => undefined);
+    });
+    useAuthStore.setState({ status: "authenticated", user: { login: "octo", avatar_url: "" }, token: "t" });
+
+    render(
+      <MemoryRouter>
+        <AppShell sidebar={<div />} main={<div>Main</div>} />
+      </MemoryRouter>,
+    );
+
+    expect(authExpiredHandler).toBeDefined();
+    act(() => authExpiredHandler?.());
+    expect(useAuthStore.getState().status).toBe("expired");
   });
 
   it("shows a pending writes banner with Retry when the queue is non-empty", () => {
