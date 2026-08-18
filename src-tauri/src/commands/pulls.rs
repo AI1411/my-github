@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 
 use crate::commands::sync::run_sync_for_scopes;
+use crate::cache::pulls::upsert_pull;
 use crate::db::SqlitePool;
 use crate::github::rest::{
     convert_pull_to_draft, create_pull_request_review, get_check_runs, get_pull_request,
@@ -11,6 +12,7 @@ use crate::github::rest::{
 };
 use crate::github::types::{CheckRun, PullRequest, PullRequestFile, Review};
 use crate::sync::types::{SyncReport, SyncScope, SyncStepStatus};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -192,6 +194,78 @@ pub async fn cmd_list_pulls<R: Runtime>(
     });
 
     Ok(cached)
+}
+
+fn now_iso() -> String {
+    let secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    format!("@{}", secs)
+}
+
+fn pr_to_summary(pr: &PullRequest, full_name: &str) -> PullSummary {
+    PullSummary {
+        id: pr.number as i64,
+        number: pr.number as i64,
+        title: pr.title.clone(),
+        repo: full_name.to_string(),
+        author: Some(pr.user.login.clone()),
+        state: pr.state.clone(),
+        is_draft: pr.draft,
+        head_ref: pr.head.ref_name.clone(),
+        base_ref: pr.base.ref_name.clone(),
+        updated_at: pr.updated_at.clone(),
+        html_url: Some(pr.html_url.clone()),
+        ci_state: None,
+        review_state: None,
+        has_mention: false,
+        requested_reviewers: pr
+            .requested_reviewers
+            .iter()
+            .map(|u| ReviewerInfo {
+                login: u.login.clone(),
+                avatar_url: u.avatar_url.clone(),
+            })
+            .collect(),
+        merged_at: pr.merged_at.clone(),
+        additions: None,
+        deletions: None,
+        changed_files: None,
+        labels: pr.labels.iter().map(|label| label.name.clone()).collect(),
+    }
+}
+
+/// Fetch a single pull request from GitHub. Updates cache opportunistically.
+#[tauri::command]
+pub async fn cmd_get_pull<R: Runtime>(
+    app: AppHandle<R>,
+    owner: String,
+    repo: String,
+    number: u32,
+) -> Result<PullSummary, String> {
+    let client = crate::github::client::client_for_active_account()?;
+    let pr = get_pull_request(&client, &owner, &repo, number)
+        .await
+        .map_err(|e| e.to_string())?;
+    let full_name = format!("{}/{}", owner, repo);
+
+    if let Some(pool) = app.try_state::<SqlitePool>() {
+        let conn = pool.inner().get().map_err(|e| e.to_string())?;
+        let mut stmt = conn
+            .prepare("SELECT id FROM repos WHERE full_name = ?1")
+            .map_err(|e| e.to_string())?;
+        let repo_id: Option<i64> = stmt
+            .query_row(rusqlite::params![full_name], |row| row.get(0))
+            .ok();
+        drop(stmt);
+        drop(conn);
+        if let Some(rid) = repo_id {
+            let _ = upsert_pull(pool.inner(), rid, &pr, &now_iso());
+        }
+    }
+
+    Ok(pr_to_summary(&pr, &full_name))
 }
 
 async fn refresh_pulls<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {

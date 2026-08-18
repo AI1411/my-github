@@ -28,6 +28,7 @@ import { ChecksTab } from "../components/pulls/ChecksTab";
 import { UnresolvedCommentsList } from "../components/pulls/UnresolvedCommentsList";
 import type { ReviewCommentSummary } from "../components/pulls/ReviewCommentsPanel";
 import { usePullFilesQuery } from "../features/pulls/usePullFilesQuery";
+import { usePullQuery } from "../features/pulls/usePullQuery";
 import { filterFilesByQuery } from "../lib/fileTree";
 import { getViewedSet, setViewed } from "../components/pulls/diff/DiffViewedStore";
 import { openPrInEditor, readStoredEditor } from "../lib/openInEditor";
@@ -60,9 +61,16 @@ export default function PullDetailPage() {
   const num = number ? Number.parseInt(number, 10) : undefined;
   const pullKey = `${owner}/${repo}#${number ?? ""}`;
 
-  const pull = useDataStore((s) =>
+  const cachedPull = useDataStore((s) =>
     s.pulls.find((p) => p.repo === `${owner}/${repo}` && p.number === num),
   );
+  const shouldFetchPull = !cachedPull && !!owner && !!repo && num !== undefined && Number.isFinite(num);
+  const {
+    pull: fetchedPull,
+    loading: pullLoading,
+    error: pullError,
+  } = usePullQuery(owner, repo, num, shouldFetchPull);
+  const pull = cachedPull ?? fetchedPull;
   useOpenInBrowserShortcut(pull?.htmlUrl ?? null);
   const accountId = useAuthStore((s) => s.user?.login ?? "");
   const repoFull = owner && repo ? `${owner}/${repo}` : "";
@@ -169,10 +177,18 @@ export default function PullDetailPage() {
             {owner}/{repo} #{number}
           </span>
         </header>
-        <EmptyState
-          title="Not in cache"
-          subtitle="Sync or open the list to load this pull request."
-        />
+        {pullLoading ? (
+          <div className="flex flex-1 items-center justify-center">
+            <Spinner />
+          </div>
+        ) : (
+          <EmptyState
+            title={pullError ? "Failed to load pull request" : "Not in cache"}
+            subtitle={
+              pullError ?? "Sync or open the list to load this pull request."
+            }
+          />
+        )}
       </div>
     );
   }
