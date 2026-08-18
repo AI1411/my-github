@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { sendAppNotification } from "../../lib/notifications";
-import { effectivePollingSeconds } from "../../lib/syncMode";
+import { effectivePollingSeconds, isWindowFocused } from "../../lib/syncMode";
 import { reportAuthFailure, useAuthStore } from "../../stores/authStore";
 import { useDataStore, type NotificationSummary } from "../../stores/dataStore";
 import { useSettingsStore } from "../../stores/settingsStore";
@@ -12,12 +12,10 @@ export interface NotificationPollingState {
   refetch: () => void;
 }
 
-function useDocumentFocused(): boolean {
-  const [focused, setFocused] = useState(
-    () => typeof document !== "undefined" && document.visibilityState === "visible",
-  );
+function useWindowFocused(): boolean {
+  const [focused, setFocused] = useState(isWindowFocused);
   useEffect(() => {
-    const update = () => setFocused(document.visibilityState === "visible");
+    const update = () => setFocused(isWindowFocused());
     document.addEventListener("visibilitychange", update);
     window.addEventListener("focus", update);
     window.addEventListener("blur", update);
@@ -34,7 +32,7 @@ export function useNotificationPolling(): NotificationPollingState {
   const accountId = useAuthStore((state) => state.user?.login ?? null);
   const pollingInterval = useSettingsStore((state) => state.pollingInterval);
   const pushSyncEnabled = useSettingsStore((state) => state.pushSyncEnabled);
-  const focused = useDocumentFocused();
+  const focused = useWindowFocused();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const deliveredIds = useRef(new Set<string>());

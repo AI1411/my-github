@@ -46,6 +46,14 @@ describe("useNotificationPolling", () => {
   beforeEach(() => {
     vi.useRealTimers();
     vi.clearAllMocks();
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => "visible",
+    });
+    Object.defineProperty(document, "hasFocus", {
+      configurable: true,
+      value: () => true,
+    });
     useAuthStore.setState({
       user: { login: "octocat", avatar_url: "" },
       token: "token",
@@ -146,6 +154,10 @@ describe("useNotificationPolling", () => {
       configurable: true,
       get: () => "visible",
     });
+    Object.defineProperty(document, "hasFocus", {
+      configurable: true,
+      value: () => true,
+    });
     useSettingsStore.setState({ pollingInterval: "60s", pushSyncEnabled: true });
     invokeMock.mockResolvedValue([]);
 
@@ -156,6 +168,38 @@ describe("useNotificationPolling", () => {
 
     await act(() => vi.advanceTimersByTimeAsync(30_000));
     await vi.waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(2));
+  });
+
+  it("uses a 5m poll when the window is blurred", async () => {
+    vi.useFakeTimers();
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => "visible",
+    });
+    let focused = true;
+    Object.defineProperty(document, "hasFocus", {
+      configurable: true,
+      value: () => focused,
+    });
+    useSettingsStore.setState({ pollingInterval: "30s", pushSyncEnabled: false });
+    invokeMock.mockResolvedValue([]);
+
+    await act(async () => {
+      renderHook(() => useNotificationPolling());
+    });
+    await vi.waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(1));
+
+    focused = false;
+    await act(async () => {
+      window.dispatchEvent(new Event("blur"));
+    });
+    await vi.waitFor(() => expect(invokeMock.mock.calls.length).toBeGreaterThanOrEqual(2));
+
+    await act(() => vi.advanceTimersByTimeAsync(30_000));
+    expect(invokeMock).toHaveBeenCalledTimes(2);
+
+    await act(() => vi.advanceTimersByTimeAsync(300_000));
+    await vi.waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(3));
   });
 
   it("clears deduplication when the account changes", async () => {
