@@ -1,4 +1,5 @@
 import { PATTab } from "./components/PATTab";
+import { useSettingsStore } from "../stores/settingsStore";
 
 interface AuthUser {
   login: string;
@@ -11,6 +12,8 @@ interface LoginPageProps {
 }
 
 export default function LoginPage({ onSuccess, expired = false }: LoginPageProps) {
+  const setAccountHost = useSettingsStore((state) => state.setAccountHost);
+
   return (
     <div
       className="min-h-screen flex items-center justify-center"
@@ -35,7 +38,12 @@ export default function LoginPage({ onSuccess, expired = false }: LoginPageProps
         </div>
 
         <div className="mt-6" data-testid="pat-tab">
-          <PATTab onSuccess={(user) => onSuccess?.(user)} />
+          <PATTab
+            onSuccess={(user, hostWebBase) => {
+              setAccountHost(user.login, hostWebBase);
+              onSuccess?.(user);
+            }}
+          />
         </div>
       </div>
     </div>
