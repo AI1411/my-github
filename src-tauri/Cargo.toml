@@ -2,7 +2,7 @@
 name = "my-github"
 version = "0.1.0"
 description = "GitHub cross-repository dashboard"
-authors = ["you"]
+authors = ["AI1411"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
