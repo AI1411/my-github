@@ -30,8 +30,17 @@
 
 完了を主張する前に必ず以下を実行し、**証拠を提示**する：
 
-- `zig build` → ビルド成功確認
-- `zig build test` → 全テストパス確認
+```bash
+pnpm test
+pnpm exec tsc --noEmit
+pnpm lint
+cargo test --manifest-path src-tauri/Cargo.toml
+cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
+```
+
+- フロントエンド変更 → `pnpm test` + `pnpm exec tsc --noEmit` + `pnpm lint`
+- Rust / Tauri 変更 → `cargo test` + `cargo clippy`
+- 統合確認 → `pnpm tauri dev`（デスクトップ webview; ブラウザのみでは `invoke` が動かない）
 
 「should work」「probably fine」は完了ではない。
 
@@ -44,7 +53,7 @@
 | 変更が小さい       | 小さな変更ほどバグが見逃される |
 | テストは後で       | TDD原則違反                    |
 | 自分でレビュー済み | 第三者レビューは別物           |
-| シンプルなCRUD     | RLS・RBAC バグの温床           |
+| シンプルなCRUD     | IPC・キャッシュ競合の温床      |
 | 仕様が明確         | validator は省略不可           |
 | explorer 不要      | コンテキスト汚染防止           |
 
