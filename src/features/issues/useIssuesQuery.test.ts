@@ -59,4 +59,62 @@ describe("useIssuesQuery", () => {
       expect(result.current.error).toBe("boom");
     });
   });
+
+  it("ignores stale responses when the filter changes", async () => {
+    let resolveFirst!: (value: { id: number; title: string }[]) => void;
+    (invoke as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveFirst = resolve;
+        }),
+    );
+    (invoke as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      {
+        id: 2,
+        number: 2,
+        title: "Latest issue",
+        repo: "o/r",
+        author: "alice",
+        state: "open",
+        labels: [],
+        assignees: [],
+        milestone: null,
+        comments: 0,
+        updatedAt: "2026-04-21T00:00:00Z",
+        htmlUrl: "https://x",
+        body: null,
+      },
+    ]);
+
+    const { rerender } = renderHook(({ filter }) => useIssuesQuery(filter), {
+      initialProps: { filter: { labels: [], state: "open" as const } },
+    });
+
+    rerender({ filter: { labels: [], state: "closed" as const } });
+
+    await waitFor(() => {
+      expect(useDataStore.getState().issues[0]?.title).toBe("Latest issue");
+    });
+
+    resolveFirst([
+      {
+        id: 1,
+        number: 1,
+        title: "Stale issue",
+        repo: "o/r",
+        author: "alice",
+        state: "open",
+        labels: [],
+        assignees: [],
+        milestone: null,
+        comments: 0,
+        updatedAt: "2026-04-21T00:00:00Z",
+        htmlUrl: "https://x",
+        body: null,
+      },
+    ]);
+
+    await new Promise((r) => setTimeout(r, 20));
+    expect(useDataStore.getState().issues[0]?.title).toBe("Latest issue");
+  });
 });

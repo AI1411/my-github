@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { PullSummary } from "../../stores/dataStore";
@@ -34,9 +34,11 @@ export function usePullsQuery(filter: PullFilter): UsePullsQueryResult {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
 
   const runQuery = useCallback(
     async (isInitial: boolean) => {
+      const requestId = ++requestIdRef.current;
       if (isInitial) {
         setLoading(true);
       } else {
@@ -47,11 +49,14 @@ export function usePullsQuery(filter: PullFilter): UsePullsQueryResult {
         const result = await invoke<PullSummary[]>("cmd_list_pulls", {
           filter,
         });
+        if (requestId !== requestIdRef.current) return;
         setPulls(result);
       } catch (e) {
         reportAuthFailure(e);
+        if (requestId !== requestIdRef.current) return;
         setError(typeof e === "string" ? e : String(e));
       } finally {
+        if (requestId !== requestIdRef.current) return;
         setLoading(false);
         setRefreshing(false);
       }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { IssueSummary } from "../../stores/dataStore";
@@ -20,9 +20,11 @@ export function useIssuesQuery(filter: IssueFilter): UseIssuesQueryResult {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
 
   const runQuery = useCallback(
     async (isInitial: boolean) => {
+      const requestId = ++requestIdRef.current;
       if (isInitial) setLoading(true);
       else setRefreshing(true);
       setError(null);
@@ -30,11 +32,14 @@ export function useIssuesQuery(filter: IssueFilter): UseIssuesQueryResult {
         const result = await invoke<IssueSummary[]>("cmd_list_issues", {
           filter,
         });
+        if (requestId !== requestIdRef.current) return;
         setIssues(result);
       } catch (e) {
         reportAuthFailure(e);
+        if (requestId !== requestIdRef.current) return;
         setError(typeof e === "string" ? e : String(e));
       } finally {
+        if (requestId !== requestIdRef.current) return;
         setLoading(false);
         setRefreshing(false);
       }
