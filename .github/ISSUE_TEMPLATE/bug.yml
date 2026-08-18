@@ -1,105 +1,105 @@
-name: 🐛 バグ報告
-description: システムの不具合や予期しない動作を報告
+name: 🐛 Bug report
+description: Report unexpected behavior in my-github
 title: "[Bug] "
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        バグ報告ありがとうございます。以下の情報を提供してください。
+        Thanks for reporting a bug. Please include enough detail to reproduce the issue in the Tauri desktop app.
 
   - type: textarea
     id: description
     attributes:
-      label: 現象
-      description: どのような問題が発生していますか？
-      placeholder: 例）査定申請フォームで金額を入力すると、エラーメッセージが表示される
+      label: What happened?
+      description: Describe the problem in plain language.
+      placeholder: e.g. Opening a PR detail page shows a blank diff panel after switching accounts.
     validations:
       required: true
 
   - type: textarea
     id: steps
     attributes:
-      label: 再現手順
-      description: 問題を再現するための手順を記載してください
+      label: Steps to reproduce
+      description: Numbered steps that consistently trigger the issue.
       placeholder: |
-        1. 査定申請ページにアクセス
-        2. 被害額フィールドに「1000000」と入力
-        3. 送信ボタンをクリック
-        4. エラーが表示される
+        1. Sign in with a PAT that has repo + notifications scopes
+        2. Open Pulls → select a PR with failing CI
+        3. Switch to the Checks tab
+        4. Observe …
     validations:
       required: true
 
   - type: textarea
     id: expected
     attributes:
-      label: 期待される動作
-      description: 本来どのように動作すべきですか？
-      placeholder: 例）正常に査定申請が作成され、一覧ページに遷移する
+      label: Expected behavior
+      placeholder: e.g. Check runs should list with status icons and links to logs.
     validations:
       required: true
 
   - type: textarea
     id: actual
     attributes:
-      label: 実際の動作
-      description: 実際にはどのように動作しましたか？
-      placeholder: 例）「金額の形式が不正です」というエラーメッセージが表示され、申請が作成されない
+      label: Actual behavior
+      placeholder: e.g. The tab stays on a spinner indefinitely.
     validations:
       required: true
 
   - type: dropdown
-    id: component
+    id: area
     attributes:
-      label: 影響範囲
-      description: どのコンポーネントに関連していますか？
+      label: Area
+      description: Which part of the app is affected?
       options:
-        - フロントエンド
-        - バックエンド
-        - データベース
-        - インフラ
-        - 不明
+        - Inbox / Activity
+        - Pull requests
+        - Issues
+        - CI / workflow runs
+        - Search / command palette
+        - Settings / accounts
+        - Sync / notifications
+        - Rust backend (Tauri commands)
+        - Frontend (React)
+        - Other / unsure
     validations:
       required: true
 
   - type: dropdown
     id: severity
     attributes:
-      label: 重要度
-      description: この問題の重要度を選択してください
+      label: Severity
       options:
-        - Critical（システムが使用不可）
-        - High（主要機能が動作しない）
-        - Medium（一部機能に影響）
-        - Low（軽微な問題）
+        - Critical (app unusable or data loss)
+        - High (major feature broken)
+        - Medium (workaround exists)
+        - Low (cosmetic / minor)
     validations:
       required: true
 
   - type: textarea
     id: environment
     attributes:
-      label: 環境情報
-      description: 問題が発生した環境を記載してください
+      label: Environment
       placeholder: |
-        - ブラウザ: Chrome 120
-        - OS: macOS 14.0
-        - 環境: 開発環境/ステージング/本番
+        - my-github version: 0.1.0 (or commit SHA)
+        - OS: macOS 15 / Windows 11 / Linux
+        - GitHub host: github.com or GHES URL
+        - PAT type: classic / fine-grained
     validations:
       required: false
 
   - type: textarea
     id: logs
     attributes:
-      label: エラーログ・スクリーンショット
-      description: 関連するログやスクリーンショットがあれば添付してください
-      placeholder: コンソールログ、エラーメッセージ、スクリーンショットなど
+      label: Logs / screenshots
+      description: Tauri devtools console output, `RUST_LOG` lines, or screenshots help a lot.
     validations:
       required: false
 
   - type: textarea
     id: additional
     attributes:
-      label: 追加情報
-      description: その他、問題解決に役立つ情報があれば記載してください
+      label: Additional context
     validations:
       required: false

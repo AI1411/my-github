@@ -42,16 +42,15 @@ close #{issue番号を記載}
 
 ## 動作確認手順
 
-1. 環境構築
+1. 依存関係のインストール
 
    ```bash
-   task setup
+   pnpm install
    ```
 
 2. 確認手順
-   - [ ] `task build` でビルドが通ることを確認
-   - [ ] `task dev` + `task fe:dev` で期待どおりの動作を確認
-   - [ ] `task test` でテストが通ることを確認
+   - [ ] `pnpm tauri dev` でデスクトップアプリが起動し、該当画面で期待どおり動作すること
+   - [ ] UI 変更のみの場合は `pnpm dev` でも確認可（`invoke` は Tauri 必須）
 
 ## テスト
 
@@ -61,13 +60,15 @@ close #{issue番号を記載}
 ### テスト実行結果
 
 ```bash
-task test              # バックエンドテスト
-cd frontend && npm test  # フロントエンドテスト
+pnpm test
+pnpm exec tsc --noEmit
+cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
 ## 品質チェック
 
-- [ ] `task lint` でlintチェックを実行
+- [ ] `pnpm lint` で lint チェックを実行
+- [ ] `cargo fmt --check` / `cargo clippy -- -D warnings`（Rust 変更時）
 - [ ] 不要なコメントやデバッグコードを削除
 
 ## スクリーンショット（UI変更がある場合）
