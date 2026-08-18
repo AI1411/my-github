@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { InboxData } from "../../stores/dataStore";
 import { reportAuthFailure } from "../../stores/authStore";
@@ -14,14 +14,15 @@ export function useInboxQuery(): UseInboxQueryResult {
   const [data, setData] = useState<InboxData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
 
-  function fetch() {
-    let cancelled = false;
+  const fetchInbox = useCallback(() => {
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     setError(null);
     invoke<InboxData>("cmd_get_inbox")
       .then((d) => {
-        if (cancelled) return;
+        if (requestId !== requestIdRef.current) return;
         setData(d);
         // トレイのミニInboxサマリを更新（失敗しても致命的ではない）
         invoke("cmd_update_tray_summary", {
@@ -32,17 +33,18 @@ export function useInboxQuery(): UseInboxQueryResult {
       })
       .catch((e: unknown) => {
         reportAuthFailure(e);
-        if (!cancelled) setError(String(e));
+        if (requestId !== requestIdRef.current) return;
+        setError(String(e));
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (requestId !== requestIdRef.current) return;
+        setLoading(false);
       });
-    return () => {
-      cancelled = true;
-    };
-  }
+  }, []);
 
-  useEffect(() => fetch(), []);
+  useEffect(() => {
+    fetchInbox();
+  }, [fetchInbox]);
 
-  return { data, loading, error, refetch: fetch };
+  return { data, loading, error, refetch: fetchInbox };
 }
