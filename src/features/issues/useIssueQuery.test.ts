@@ -39,4 +39,60 @@ describe("useIssueQuery", () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(invoke).not.toHaveBeenCalled();
   });
+
+  it("clears issue when params change before the new response arrives", async () => {
+    let resolveFirst!: (value: unknown) => void;
+    (invoke as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveFirst = resolve;
+        }),
+    );
+    (invoke as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      id: 2,
+      number: 2,
+      title: "New issue",
+      repo: "o/r",
+      author: "a",
+      state: "open",
+      labels: [],
+      assignees: [],
+      milestone: null,
+      comments: 0,
+      updatedAt: "2026-04-21T00:00:00Z",
+      htmlUrl: "x",
+      body: "hi",
+    });
+
+    const { result, rerender } = renderHook(
+      ({ owner, repo, number }) => useIssueQuery(owner, repo, number),
+      { initialProps: { owner: "o", repo: "r", number: 1 } },
+    );
+
+    rerender({ owner: "o", repo: "r", number: 2 });
+    expect(result.current.issue).toBeNull();
+
+    await waitFor(() => {
+      expect(result.current.issue?.title).toBe("New issue");
+    });
+
+    resolveFirst({
+      id: 1,
+      number: 1,
+      title: "Stale issue",
+      repo: "o/r",
+      author: "a",
+      state: "open",
+      labels: [],
+      assignees: [],
+      milestone: null,
+      comments: 0,
+      updatedAt: "2026-04-21T00:00:00Z",
+      htmlUrl: "x",
+      body: "hi",
+    });
+
+    await new Promise((r) => setTimeout(r, 20));
+    expect(result.current.issue?.title).toBe("New issue");
+  });
 });

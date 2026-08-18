@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 
 export interface TimelineEventSummary {
@@ -30,10 +30,15 @@ export function useIssueTimelineQuery(
   const [events, setEvents] = useState<TimelineEventSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
-    if (!owner || !repo || !number) return;
-    let cancelled = false;
+    if (!owner || !repo || !number) {
+      setEvents([]);
+      return;
+    }
+    const requestId = ++requestIdRef.current;
+    setEvents([]);
     setLoading(true);
     setError(null);
     invoke<TimelineEventSummary[]>("cmd_list_issue_timeline", {
@@ -42,17 +47,17 @@ export function useIssueTimelineQuery(
       number,
     })
       .then((e) => {
-        if (!cancelled) setEvents(e);
+        if (requestId !== requestIdRef.current) return;
+        setEvents(e);
       })
       .catch((e) => {
-        if (!cancelled) setError(typeof e === "string" ? e : String(e));
+        if (requestId !== requestIdRef.current) return;
+        setError(typeof e === "string" ? e : String(e));
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (requestId !== requestIdRef.current) return;
+        setLoading(false);
       });
-    return () => {
-      cancelled = true;
-    };
   }, [owner, repo, number]);
 
   return { events, loading, error };

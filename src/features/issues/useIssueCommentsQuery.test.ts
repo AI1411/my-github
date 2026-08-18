@@ -43,4 +43,51 @@ describe("useIssueCommentsQuery", () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(invoke).not.toHaveBeenCalled();
   });
+
+  it("ignores stale responses when params change", async () => {
+    let resolveFirst!: (value: unknown[]) => void;
+    (invoke as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveFirst = resolve;
+        }),
+    );
+    (invoke as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      {
+        id: 2,
+        author: { login: "b", avatarUrl: "" },
+        body: "new",
+        createdAt: "2026-04-21T00:00:00Z",
+        updatedAt: "2026-04-21T00:00:00Z",
+        htmlUrl: "x",
+        authorAssociation: "MEMBER",
+      },
+    ]);
+
+    const { result, rerender } = renderHook(
+      ({ owner, repo, number }) => useIssueCommentsQuery(owner, repo, number),
+      { initialProps: { owner: "o", repo: "r", number: 1 } },
+    );
+
+    rerender({ owner: "o", repo: "r", number: 2 });
+
+    await waitFor(() => {
+      expect(result.current.comments[0]?.body).toBe("new");
+    });
+
+    resolveFirst([
+      {
+        id: 1,
+        author: { login: "a", avatarUrl: "" },
+        body: "stale",
+        createdAt: "2026-04-21T00:00:00Z",
+        updatedAt: "2026-04-21T00:00:00Z",
+        htmlUrl: "x",
+        authorAssociation: "MEMBER",
+      },
+    ]);
+
+    await new Promise((r) => setTimeout(r, 20));
+    expect(result.current.comments[0]?.body).toBe("new");
+  });
 });

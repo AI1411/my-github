@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { FileDiffData } from "../../components/pulls/FileDiff";
 
@@ -10,9 +10,12 @@ export function usePullFilesQuery(
   const [files, setFiles] = useState<FileDiffData[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
 
   const run = useCallback(async () => {
     if (!owner || !repo || number === undefined) return;
+    const requestId = ++requestIdRef.current;
+    setFiles([]);
     setLoading(true);
     setError(null);
     try {
@@ -21,10 +24,13 @@ export function usePullFilesQuery(
         repo,
         number,
       });
+      if (requestId !== requestIdRef.current) return;
       setFiles(res);
     } catch (e) {
+      if (requestId !== requestIdRef.current) return;
       setError(typeof e === "string" ? e : String(e));
     } finally {
+      if (requestId !== requestIdRef.current) return;
       setLoading(false);
     }
   }, [owner, repo, number]);
