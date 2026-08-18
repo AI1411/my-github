@@ -203,6 +203,8 @@ export function AppShell({ sidebar, main, secondary }: AppShellProps) {
           )}
           {offline && (
             <div
+              role="status"
+              data-testid="offline-banner"
               className="border-b px-4 py-2 text-xs font-semibold flex items-center gap-3"
               style={{
                 backgroundColor: "rgba(248, 81, 73, 0.12)",
