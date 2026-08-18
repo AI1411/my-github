@@ -73,4 +73,61 @@ describe("useInboxQuery", () => {
     await waitFor(() => expect(result.current.error).toBe("network error"));
     expect(useAuthStore.getState().status).toBe("authenticated");
   });
+
+  it("ignores stale responses when a newer refetch wins", async () => {
+    let resolveFirst!: (value: typeof emptyInbox) => void;
+    const first = new Promise<typeof emptyInbox>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const second = {
+      reviewRequests: [
+        {
+          id: "2",
+          kind: "review_requested",
+          repo: "o/r",
+          number: null,
+          title: "Latest",
+          htmlUrl: null,
+          updatedAt: "2026-04-21T00:00:00Z",
+          unread: true,
+          pinned: false,
+        },
+      ],
+      ciFailures: [],
+      mentions: [],
+    };
+
+    (invoke as ReturnType<typeof vi.fn>)
+      .mockImplementationOnce(() => first)
+      .mockResolvedValueOnce(second)
+      .mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useInboxQuery());
+    result.current.refetch();
+
+    await waitFor(() => {
+      expect(result.current.data?.reviewRequests[0]?.title).toBe("Latest");
+    });
+
+    resolveFirst({
+      reviewRequests: [
+        {
+          id: "1",
+          kind: "review_requested",
+          repo: "o/r",
+          number: null,
+          title: "Stale",
+          htmlUrl: null,
+          updatedAt: "2026-04-21T00:00:00Z",
+          unread: true,
+          pinned: false,
+        },
+      ],
+      ciFailures: [],
+      mentions: [],
+    });
+
+    await new Promise((r) => setTimeout(r, 20));
+    expect(result.current.data?.reviewRequests[0]?.title).toBe("Latest");
+  });
 });
