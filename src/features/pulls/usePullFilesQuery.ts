@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { FileDiffData } from "../../components/pulls/FileDiff";
+import { getPrefetchPromise } from "../../lib/detailPrefetch";
 
 export function usePullFilesQuery(
   owner: string | undefined,
@@ -19,11 +20,12 @@ export function usePullFilesQuery(
     setLoading(true);
     setError(null);
     try {
-      const res = await invoke<FileDiffData[]>("cmd_get_pull_files", {
-        owner,
-        repo,
-        number,
-      });
+      const res = await (getPrefetchPromise<FileDiffData[]>("pull", owner, repo, number) ??
+        invoke<FileDiffData[]>("cmd_get_pull_files", {
+          owner,
+          repo,
+          number,
+        }));
       if (requestId !== requestIdRef.current) return;
       setFiles(res);
     } catch (e) {

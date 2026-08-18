@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import {
   clearPrefetchCache,
+  getPrefetchPromise,
   hasPrefetch,
   prefetchIssueDetail,
   prefetchPullDetail,
@@ -35,5 +36,14 @@ describe("detailPrefetch", () => {
       repo: "r",
       number: 2,
     });
+  });
+
+  it("returns cached prefetch promises", async () => {
+    const issue = { id: 1, number: 2, title: "x", repo: "o/r" };
+    (invoke as ReturnType<typeof vi.fn>).mockResolvedValue(issue);
+    prefetchIssueDetail("o", "r", 2);
+    const cached = getPrefetchPromise("issue", "o", "r", 2);
+    await expect(cached).resolves.toEqual(issue);
+    expect(invoke).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { getPrefetchPromise } from "../../lib/detailPrefetch";
 import type { IssueSummary } from "../../stores/dataStore";
 
 export interface UseIssueQueryResult {
@@ -27,7 +28,10 @@ export function useIssueQuery(
     setIssue(null);
     setLoading(true);
     setError(null);
-    invoke<IssueSummary>("cmd_get_issue", { owner, repo, number })
+    const request =
+      getPrefetchPromise<IssueSummary>("issue", owner, repo, number) ??
+      invoke<IssueSummary>("cmd_get_issue", { owner, repo, number });
+    void request
       .then((i) => {
         if (requestId !== requestIdRef.current) return;
         setIssue(i);

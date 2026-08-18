@@ -1,12 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
+import { clearPrefetchCache, prefetchIssueDetail } from "../../lib/detailPrefetch";
 import { useIssueQuery } from "./useIssueQuery";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
 describe("useIssueQuery", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    clearPrefetchCache();
+  });
 
   it("invokes cmd_get_issue with parsed args", async () => {
     (invoke as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -94,5 +98,30 @@ describe("useIssueQuery", () => {
 
     await new Promise((r) => setTimeout(r, 20));
     expect(result.current.issue?.title).toBe("New issue");
+  });
+
+  it("reuses prefetched issue data without a second invoke", async () => {
+    const issue = {
+      id: 1,
+      number: 1,
+      title: "x",
+      repo: "o/r",
+      author: "a",
+      state: "open",
+      labels: [],
+      assignees: [],
+      milestone: null,
+      comments: 0,
+      updatedAt: "2026-04-21T00:00:00Z",
+      htmlUrl: "x",
+      body: "hi",
+    };
+    (invoke as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(issue);
+    prefetchIssueDetail("o", "r", 1);
+
+    const { result } = renderHook(() => useIssueQuery("o", "r", 1));
+    await waitFor(() => expect(result.current.issue).toEqual(issue));
+
+    expect(invoke).toHaveBeenCalledTimes(1);
   });
 });
