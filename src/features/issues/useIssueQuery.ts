@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { IssueSummary } from "../../stores/dataStore";
 
@@ -16,25 +16,30 @@ export function useIssueQuery(
   const [issue, setIssue] = useState<IssueSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
-    if (!owner || !repo || !number) return;
-    let cancelled = false;
+    if (!owner || !repo || !number) {
+      setIssue(null);
+      return;
+    }
+    const requestId = ++requestIdRef.current;
+    setIssue(null);
     setLoading(true);
     setError(null);
     invoke<IssueSummary>("cmd_get_issue", { owner, repo, number })
       .then((i) => {
-        if (!cancelled) setIssue(i);
+        if (requestId !== requestIdRef.current) return;
+        setIssue(i);
       })
       .catch((e) => {
-        if (!cancelled) setError(typeof e === "string" ? e : String(e));
+        if (requestId !== requestIdRef.current) return;
+        setError(typeof e === "string" ? e : String(e));
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (requestId !== requestIdRef.current) return;
+        setLoading(false);
       });
-    return () => {
-      cancelled = true;
-    };
   }, [owner, repo, number]);
 
   return { issue, loading, error };

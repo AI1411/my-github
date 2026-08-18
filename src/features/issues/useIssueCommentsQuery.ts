@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 
 export interface IssueCommentSummary {
@@ -25,10 +25,15 @@ export function useIssueCommentsQuery(
   const [comments, setComments] = useState<IssueCommentSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
-    if (!owner || !repo || !number) return;
-    let cancelled = false;
+    if (!owner || !repo || !number) {
+      setComments([]);
+      return;
+    }
+    const requestId = ++requestIdRef.current;
+    setComments([]);
     setLoading(true);
     setError(null);
     invoke<IssueCommentSummary[]>("cmd_list_issue_comments", {
@@ -37,17 +42,17 @@ export function useIssueCommentsQuery(
       number,
     })
       .then((c) => {
-        if (!cancelled) setComments(c);
+        if (requestId !== requestIdRef.current) return;
+        setComments(c);
       })
       .catch((e) => {
-        if (!cancelled) setError(typeof e === "string" ? e : String(e));
+        if (requestId !== requestIdRef.current) return;
+        setError(typeof e === "string" ? e : String(e));
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (requestId !== requestIdRef.current) return;
+        setLoading(false);
       });
-    return () => {
-      cancelled = true;
-    };
   }, [owner, repo, number]);
 
   return { comments, loading, error };
