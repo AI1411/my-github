@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { WorkflowRunSummary } from "../../stores/dataStore";
 
@@ -17,28 +17,36 @@ export function useWorkflowRunsQuery(
   const [runs, setRuns] = useState<WorkflowRunSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
 
-  function fetch() {
-    if (!owner || !repo) return () => {};
-    let cancelled = false;
+  const fetchRuns = useCallback(() => {
+    if (!owner || !repo) {
+      setRuns([]);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     setError(null);
     invoke<WorkflowRunSummary[]>("cmd_get_workflow_runs", { owner, repo, branch })
       .then((r) => {
-        if (!cancelled) setRuns(r);
+        if (requestId !== requestIdRef.current) return;
+        setRuns(r);
       })
       .catch((e: unknown) => {
-        if (!cancelled) setError(String(e));
+        if (requestId !== requestIdRef.current) return;
+        setError(String(e));
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (requestId !== requestIdRef.current) return;
+        setLoading(false);
       });
-    return () => {
-      cancelled = true;
-    };
-  }
+  }, [owner, repo, branch]);
 
-  useEffect(() => fetch(), [owner, repo, branch]);
+  useEffect(() => {
+    fetchRuns();
+  }, [fetchRuns]);
 
-  return { runs, loading, error, refetch: fetch };
+  return { runs, loading, error, refetch: fetchRuns };
 }

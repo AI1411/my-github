@@ -43,4 +43,54 @@ describe("useWorkflowRunsQuery", () => {
     const { result } = renderHook(() => useWorkflowRunsQuery("o", "r", null));
     await waitFor(() => expect(result.current.runs).toHaveLength(1));
   });
+
+  it("ignores stale responses when owner/repo changes", async () => {
+    let resolveFirst!: (value: unknown[]) => void;
+    const first = new Promise<unknown[]>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const latest = [
+      {
+        id: 2,
+        name: "Latest",
+        status: "completed",
+        conclusion: "success",
+        headBranch: "main",
+        runNumber: 2,
+        runStartedAt: null,
+        updatedAt: "2026-04-21T00:00:00Z",
+        htmlUrl: "https://github.com/o/r2/actions/runs/2",
+        repo: "o/r2",
+      },
+    ];
+
+    (invoke as ReturnType<typeof vi.fn>)
+      .mockImplementationOnce(() => first)
+      .mockResolvedValueOnce(latest);
+
+    const { result, rerender } = renderHook(
+      ({ owner, repo }) => useWorkflowRunsQuery(owner, repo, null),
+      { initialProps: { owner: "o", repo: "r1" } },
+    );
+
+    rerender({ owner: "o", repo: "r2" });
+    await waitFor(() => expect(result.current.runs[0]?.name).toBe("Latest"));
+
+    resolveFirst([
+      {
+        id: 1,
+        name: "Stale",
+        status: "completed",
+        conclusion: "failure",
+        headBranch: "main",
+        runNumber: 1,
+        runStartedAt: null,
+        updatedAt: "2026-04-21T00:00:00Z",
+        htmlUrl: "https://github.com/o/r1/actions/runs/1",
+        repo: "o/r1",
+      },
+    ]);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(result.current.runs[0]?.name).toBe("Latest");
+  });
 });
