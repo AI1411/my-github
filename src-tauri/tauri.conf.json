@@ -20,7 +20,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self' ipc: http://ipc.localhost; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'"
+      "csp": "default-src 'self' ipc: http://ipc.localhost; img-src 'self' data: https://avatars.githubusercontent.com https://*.githubusercontent.com; style-src 'self' 'unsafe-inline'"
     }
   },
   "bundle": {
