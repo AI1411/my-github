@@ -162,6 +162,7 @@ mod tests {
             rate_limit: Some(RateLimitInfo {
                 remaining: 4999,
                 reset: 1700000000,
+                limit: 5000,
             }),
             steps: vec![crate::sync::types::SyncStepReport::success(
                 crate::sync::types::SyncScope::Repositories,

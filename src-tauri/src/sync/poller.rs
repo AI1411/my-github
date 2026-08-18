@@ -164,6 +164,7 @@ mod tests {
                         PollOutcome::RateLimited(RateLimitInfo {
                             remaining: 0,
                             reset: 123,
+                            limit: 5000,
                         })
                     } else {
                         PollOutcome::Ok

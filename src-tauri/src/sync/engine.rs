@@ -126,6 +126,7 @@ mod tests {
             Some(RateLimitInfo {
                 remaining: 4999,
                 reset: 1700000000,
+                limit: 5000,
             }),
             steps,
         );

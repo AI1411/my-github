@@ -1006,6 +1006,7 @@ mod tests {
             rate_limit: Some(RateLimitInfo {
                 remaining: 4999,
                 reset: 3,
+                limit: 5000,
             }),
             steps: vec![SyncStepReport {
                 scope: SyncScope::Issues,
