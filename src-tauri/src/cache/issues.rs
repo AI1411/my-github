@@ -17,8 +17,8 @@ pub struct CachedIssue {
     pub fetched_at: String,
 }
 
-pub fn upsert_issue(
-    pool: &SqlitePool,
+pub fn upsert_issue_conn(
+    conn: &rusqlite::Connection,
     repo_id: i64,
     issue: &Issue,
     fetched_at: &str,
@@ -31,7 +31,6 @@ pub fn upsert_issue(
             .map(|l| l.name.as_str())
             .collect::<Vec<_>>(),
     )?;
-    let conn = pool.get()?;
     conn.execute(
         "INSERT INTO issues (
             repo_id, number, title, state, author_login, labels, assignees,
@@ -58,6 +57,16 @@ pub fn upsert_issue(
         ],
     )?;
     Ok(())
+}
+
+pub fn upsert_issue(
+    pool: &SqlitePool,
+    repo_id: i64,
+    issue: &Issue,
+    fetched_at: &str,
+) -> Result<(), CacheError> {
+    let conn = pool.get()?;
+    upsert_issue_conn(&conn, repo_id, issue, fetched_at)
 }
 
 pub fn update_issue_fields(
@@ -131,12 +140,11 @@ pub fn list_issues_by_repo(
     Ok(out)
 }
 
-pub fn delete_issues_not_in_numbers(
-    pool: &SqlitePool,
+pub fn delete_issues_not_in_numbers_conn(
+    conn: &rusqlite::Connection,
     repo_id: i64,
     numbers: &[i64],
 ) -> Result<usize, CacheError> {
-    let conn = pool.get()?;
     if numbers.is_empty() {
         return Ok(conn.execute(
             "DELETE FROM issues WHERE repo_id = ?1 AND state = 'open'",
@@ -155,6 +163,52 @@ pub fn delete_issues_not_in_numbers(
     values.push(repo_id);
     values.extend_from_slice(numbers);
     Ok(conn.execute(&sql, params_from_iter(values))?)
+}
+
+pub fn delete_issues_not_in_numbers(
+    pool: &SqlitePool,
+    repo_id: i64,
+    numbers: &[i64],
+) -> Result<usize, CacheError> {
+    let conn = pool.get()?;
+    delete_issues_not_in_numbers_conn(&conn, repo_id, numbers)
+}
+
+/// Upsert open issues and delete stale rows atomically for one repository.
+pub fn persist_repo_issues(
+    pool: &SqlitePool,
+    repo_id: i64,
+    issues: Vec<Issue>,
+    now: &str,
+) -> Result<usize, (Vec<String>, Option<String>)> {
+    let numbers = issues
+        .iter()
+        .map(|issue| issue.number as i64)
+        .collect::<Vec<_>>();
+    let mut conn = pool.get().map_err(|err| (vec![err.to_string()], None))?;
+    let tx = conn
+        .transaction()
+        .map_err(|err| (vec![err.to_string()], None))?;
+    let mut written = 0usize;
+    let mut upsert_failures = Vec::new();
+    for issue in issues {
+        match upsert_issue_conn(&tx, repo_id, &issue, now) {
+            Ok(()) => written += 1,
+            Err(err) => upsert_failures.push(err.to_string()),
+        }
+    }
+    if !upsert_failures.is_empty() {
+        return Err((upsert_failures, None));
+    }
+    let delete_error = delete_issues_not_in_numbers_conn(&tx, repo_id, &numbers)
+        .err()
+        .map(|err| err.to_string());
+    if let Some(delete_error) = delete_error {
+        return Err((Vec::new(), Some(delete_error)));
+    }
+    tx.commit()
+        .map_err(|err| (vec![err.to_string()], None))?;
+    Ok(written)
 }
 
 #[cfg(test)]
