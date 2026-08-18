@@ -160,8 +160,13 @@ export const useDataStore = create<DataState>((set) => ({
         p.repo === repo && p.number === number
           ? {
               ...p,
-              state: nextState,
-              mergedAt: nextState === "closed" && p.mergedAt ? p.mergedAt : p.mergedAt,
+              state: nextState === "merged" ? "closed" : nextState,
+              mergedAt:
+                nextState === "merged"
+                  ? (p.mergedAt ?? new Date().toISOString())
+                  : nextState === "open" || nextState === "closed"
+                    ? null
+                    : p.mergedAt,
             }
           : p,
       ),

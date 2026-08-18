@@ -503,7 +503,7 @@ export default function PullDetailPage() {
           setReadinessKey((k) => k + 1);
         }}
         onMerged={() => {
-          patchPullState(pull.repo, pull.number, "closed");
+          patchPullState(pull.repo, pull.number, "merged");
           setReadinessKey((k) => k + 1);
         }}
         onStateChanged={(state) => {
