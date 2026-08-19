@@ -60,4 +60,28 @@ describe("WorkflowRunRow", () => {
     render(<WorkflowRunRow run={run} />);
     expect(screen.queryByText("Logs")).not.toBeInTheDocument();
   });
+
+  it("renders Re-run failed button on failure when onRerunFailed provided", () => {
+    const handler = vi.fn();
+    render(<WorkflowRunRow run={run} onRerunFailed={handler} />);
+    expect(screen.getByText("Re-run failed")).toBeInTheDocument();
+  });
+
+  it("calls onRerunFailed when Re-run failed button is clicked", () => {
+    const handler = vi.fn();
+    render(<WorkflowRunRow run={run} onRerunFailed={handler} />);
+    fireEvent.click(screen.getByText("Re-run failed"));
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not render Re-run failed button without onRerunFailed", () => {
+    render(<WorkflowRunRow run={run} />);
+    expect(screen.queryByText("Re-run failed")).not.toBeInTheDocument();
+  });
+
+  it("shows Re-running label when rerunning", () => {
+    render(<WorkflowRunRow run={run} onRerunFailed={vi.fn()} rerunning />);
+    expect(screen.getByText("Re-running…")).toBeInTheDocument();
+    expect(screen.queryByText("Re-run failed")).not.toBeInTheDocument();
+  });
 });

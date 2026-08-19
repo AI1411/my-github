@@ -1217,6 +1217,34 @@ pub async fn get_workflow_run_logs_url(
     Ok(resp.url().to_string())
 }
 
+pub fn workflow_run_rerun_failed_jobs_path(owner: &str, repo: &str, run_id: u64) -> String {
+    format!(
+        "/repos/{}/{}/actions/runs/{}/rerun-failed-jobs",
+        owner, repo, run_id
+    )
+}
+
+pub async fn rerun_workflow_failed_jobs(
+    client: &GithubClient,
+    owner: &str,
+    repo: &str,
+    run_id: u64,
+) -> Result<(), ClientError> {
+    let resp = client
+        .post(&workflow_run_rerun_failed_jobs_path(owner, repo, run_id))
+        .send()
+        .await?;
+    let status = resp.status();
+    if !status.is_success() {
+        let message = resp.text().await.unwrap_or_default();
+        return Err(ClientError::Api {
+            status: status.as_u16(),
+            message,
+        });
+    }
+    Ok(())
+}
+
 pub async fn search_issues(
     client: &GithubClient,
     query: &str,
@@ -1483,6 +1511,14 @@ mod tests {
         assert_eq!(
             workflow_run_logs_path("octocat", "hello", 100),
             "/repos/octocat/hello/actions/runs/100/logs"
+        );
+    }
+
+    #[test]
+    fn workflow_run_rerun_failed_jobs_path_is_correct() {
+        assert_eq!(
+            workflow_run_rerun_failed_jobs_path("octocat", "hello", 100),
+            "/repos/octocat/hello/actions/runs/100/rerun-failed-jobs"
         );
     }
 
