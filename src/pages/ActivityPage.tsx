@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { invoke } from "@tauri-apps/api/core";
 import { useNavigate } from "react-router-dom";
 import { Toolbar } from "../components/common/Toolbar";
@@ -16,6 +17,8 @@ import { releaseToNotification } from "../lib/releases";
 import { getTimeGroup } from "../lib/timeGroup";
 import { useAuthStore } from "../stores/authStore";
 import { useDataStore, type NotificationSummary } from "../stores/dataStore";
+import { useSettingsStore } from "../stores/settingsStore";
+import { listRowHeight } from "../lib/appearance";
 
 type TabKey = "all" | "unread" | "participating" | "mentions" | "review";
 type TypeFilter = "all" | "pulls" | "issues" | "comments" | "ci" | "releases";
@@ -52,6 +55,11 @@ const TYPE_SUBJECT: Partial<Record<TypeFilter, string[]>> = {
 };
 
 const GROUP_ORDER = ["Today", "Yesterday", "This Week", "Older"] as const;
+const GROUP_HEADER_HEIGHT = 32;
+
+type VirtualActivityRow =
+  | { kind: "header"; id: string; title: string }
+  | { kind: "item"; id: string; notification: NotificationSummary };
 
 async function openBrowser(url: string) {
   try {
@@ -66,6 +74,9 @@ export default function ActivityPage() {
   const notifications = useDataStore((state) => state.notifications);
   const { loading, error, refetch } = useNotificationPollingContext();
   const { releases } = useReleasesQuery();
+  const density = useSettingsStore((s) => s.density);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const rowHeight = listRowHeight(density);
   const [activeTab, setActiveTab] = useState<TabKey>("all");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const navigate = useNavigate();
@@ -122,6 +133,27 @@ export default function ActivityPage() {
     }
     return map;
   }, [filtered]);
+
+  const virtualRows = useMemo(() => {
+    const rows: VirtualActivityRow[] = [];
+    for (const group of GROUP_ORDER) {
+      const items = groups.get(group);
+      if (!items?.length) continue;
+      rows.push({ kind: "header", id: `header-${group}`, title: group });
+      for (const notification of items) {
+        rows.push({ kind: "item", id: notification.id, notification });
+      }
+    }
+    return rows;
+  }, [groups]);
+
+  const rowVirtualizer = useVirtualizer({
+    count: virtualRows.length,
+    getScrollElement: () => containerRef.current,
+    estimateSize: (index) =>
+      virtualRows[index]?.kind === "header" ? GROUP_HEADER_HEIGHT : rowHeight,
+    overscan: 10,
+  });
 
   return (
     <div className="h-full flex flex-col">
@@ -191,31 +223,63 @@ export default function ActivityPage() {
         ) : (
           <EmptyState title="Failed to load activity" subtitle={error} />
         ))}
-      <div className="flex-1 overflow-y-auto">
+      <div ref={containerRef} className="flex-1 overflow-y-auto" role="grid">
         {!loading && !error && filtered.length === 0 && (
           <EmptyState title="No activity" subtitle="Nothing matches the current filters" />
         )}
-        {GROUP_ORDER.filter((g) => groups.has(g)).map((group) => (
-          <div key={group}>
-            <div
-              className="px-4 py-1.5 text-xs font-semibold"
-              style={{
-                backgroundColor: "var(--bg-secondary)",
-                color: "var(--text-muted)",
-                borderBottom: "1px solid var(--border-subtle)",
-              }}
-            >
-              {group}
-            </div>
-            {groups.get(group)!.map((n) => (
-              <ActivityRow
-                key={n.id}
-                notification={n}
-                onSelect={() => void handleSelectNotification(n)}
-              />
-            ))}
+        {virtualRows.length > 0 && (
+          <div
+            style={{
+              height: rowVirtualizer.getTotalSize(),
+              width: "100%",
+              position: "relative",
+            }}
+          >
+            {rowVirtualizer.getVirtualItems().map((v) => {
+              const row = virtualRows[v.index];
+              if (!row) return null;
+              if (row.kind === "header") {
+                return (
+                  <div
+                    key={row.id}
+                    className="px-4 py-1.5 text-xs font-semibold"
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      height: v.size,
+                      transform: `translateY(${v.start}px)`,
+                      backgroundColor: "var(--bg-secondary)",
+                      color: "var(--text-muted)",
+                      borderBottom: "1px solid var(--border-subtle)",
+                    }}
+                  >
+                    {row.title}
+                  </div>
+                );
+              }
+              return (
+                <div
+                  key={row.id}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: v.size,
+                    transform: `translateY(${v.start}px)`,
+                  }}
+                >
+                  <ActivityRow
+                    notification={row.notification}
+                    onSelect={() => void handleSelectNotification(row.notification)}
+                  />
+                </div>
+              );
+            })}
           </div>
-        ))}
+        )}
       </div>
     </div>
   );
