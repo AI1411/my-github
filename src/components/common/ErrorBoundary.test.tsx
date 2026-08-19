@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ErrorBoundary } from "./ErrorBoundary";
@@ -40,6 +40,26 @@ describe("ErrorBoundary", () => {
           stack: expect.any(String),
           url: expect.any(String),
         }),
+      );
+    });
+  });
+
+  it("remounts children on retry so persistent render errors can recover", async () => {
+    render(
+      <ErrorBoundary>
+        <ThrowingChild />
+      </ErrorBoundary>,
+    );
+
+    const retry = screen.getByRole("button", { name: "Retry" });
+    expect(retry).toHaveAttribute("data-remount-key", "0");
+
+    fireEvent.click(retry);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Retry" })).toHaveAttribute(
+        "data-remount-key",
+        "1",
       );
     });
   });

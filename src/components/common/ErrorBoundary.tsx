@@ -7,12 +7,13 @@ interface ErrorBoundaryProps {
 
 interface ErrorBoundaryState {
   error: Error | null;
+  remountKey: number;
 }
 
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  state: ErrorBoundaryState = { error: null };
+  state: ErrorBoundaryState = { error: null, remountKey: 0 };
 
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+  static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
     return { error };
   }
 
@@ -26,7 +27,9 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   render() {
-    if (!this.state.error) return this.props.children;
+    if (!this.state.error) {
+      return <div key={this.state.remountKey}>{this.props.children}</div>;
+    }
     return (
       <div
         className="flex h-full min-h-[360px] flex-col items-center justify-center gap-3 px-6 text-center"
@@ -40,7 +43,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         </p>
         <button
           type="button"
-          onClick={() => this.setState({ error: null })}
+          data-remount-key={this.state.remountKey}
+          onClick={() =>
+            this.setState((state) => ({ error: null, remountKey: state.remountKey + 1 }))
+          }
           className="rounded-md px-3 py-1.5 text-sm font-medium"
           style={{
             backgroundColor: "var(--bg-tertiary)",
