@@ -158,7 +158,7 @@ fn read_cached_issues(
         sql.push_str(" AND r.full_name = ?");
         args.push(Box::new(repo.clone()));
     }
-    sql.push_str(" ORDER BY i.updated_at DESC");
+    sql.push_str(" ORDER BY i.updated_at DESC LIMIT 200");
 
     let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
     let params = rusqlite::params_from_iter(args.iter().map(|b| b.as_ref()));
