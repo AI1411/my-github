@@ -49,6 +49,14 @@ describe("CommandPalette", () => {
     });
   });
 
+  it("does not list unimplemented Projects or Discussions in empty-query nav", () => {
+    renderPalette();
+    expect(screen.queryByText("Go to Projects")).not.toBeInTheDocument();
+    expect(screen.queryByText("Go to Discussions")).not.toBeInTheDocument();
+    expect(screen.getByText("Go to Inbox")).toBeInTheDocument();
+    expect(screen.getByText("Go to Pull Requests")).toBeInTheDocument();
+  });
+
   it("opens the workspace switcher from Switch account", () => {
     renderPalette();
     fireEvent.click(screen.getByText("Switch account"));
