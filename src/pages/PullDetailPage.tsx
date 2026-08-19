@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
+import { PullDetailBreadcrumb } from "../components/pulls/PullDetailBreadcrumb";
 import { invoke } from "@tauri-apps/api/core";
 import { Tabs, type TabItem } from "../components/common/Tabs";
 import { StatusPill } from "../components/common/StatusPill";
@@ -165,18 +166,7 @@ export default function PullDetailPage() {
   if (!pull) {
     return (
       <div className="flex flex-col h-full">
-        <header
-          className="px-4 py-3 border-b flex items-center gap-2 text-xs"
-          style={{ borderColor: "var(--border-subtle)" }}
-        >
-          <Link to="/pulls" style={{ color: "var(--text-muted)" }}>
-            Pull Requests
-          </Link>
-          <span style={{ color: "var(--text-muted)" }}>/</span>
-          <span>
-            {owner}/{repo} #{number}
-          </span>
-        </header>
+        <PullDetailBreadcrumb owner={owner} repo={repo} number={number} linkRepo={false} />
         {pullLoading ? (
           <div className="flex flex-1 items-center justify-center">
             <Spinner />
@@ -228,20 +218,7 @@ export default function PullDetailPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <header
-        className="px-4 py-3 border-b flex items-center gap-2 text-xs"
-        style={{ borderColor: "var(--border-subtle)" }}
-      >
-        <Link to="/pulls" style={{ color: "var(--text-muted)" }}>
-          Pull Requests
-        </Link>
-        <span style={{ color: "var(--text-muted)" }}>/</span>
-        <Link to={`/pulls?repo=${owner}/${repo}`} style={{ color: "var(--text-muted)" }}>
-          {owner}/{repo}
-        </Link>
-        <span style={{ color: "var(--text-muted)" }}>/</span>
-        <span>#{number}</span>
-      </header>
+      <PullDetailBreadcrumb owner={owner} repo={repo} number={number} />
       <div
         className="px-4 py-3 border-b flex items-center gap-3"
         style={{ borderColor: "var(--border-subtle)" }}
