@@ -114,8 +114,7 @@ describe("CommandPalette", () => {
 
   it("closes backdrop click", () => {
     renderPalette();
-    const backdrop = screen.getByRole("dialog");
-    fireEvent.click(backdrop);
+    fireEvent.click(screen.getByTestId("command-palette-backdrop"));
     expect(useUiStore.getState().commandPaletteOpen).toBe(false);
   });
 

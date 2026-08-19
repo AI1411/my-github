@@ -56,13 +56,14 @@ export function ReviewContextPanel({ owner, repo, number, reviewState }: ReviewC
   const derived = useMemo(() => {
     if (!data) return null;
     const rules = data.codeownersText ? parseCodeowners(data.codeownersText) : [];
-    const matches = data.changedFiles.map((path) => matchCodeowners(path, rules));
+    const changedFiles = data.changedFiles ?? [];
+    const matches = changedFiles.map((path) => matchCodeowners(path, rules));
     const requiredOwners = uniqueOwners(matches);
     const gaps = computeReviewGaps({
-      requestedReviewers: data.requestedReviewers.map((r) => r.login),
-      requestedTeams: data.requestedTeams.map((t) => t.combinedSlug),
+      requestedReviewers: (data.requestedReviewers ?? []).map((r) => r.login),
+      requestedTeams: (data.requestedTeams ?? []).map((t) => t.combinedSlug),
       requiredOwners,
-      approvedLogins: latestApprovals(data.reviews),
+      approvedLogins: latestApprovals(data.reviews ?? []),
     });
     return { matches, requiredOwners, gaps };
   }, [data]);

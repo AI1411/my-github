@@ -285,7 +285,7 @@ describe("sendAppNotification", () => {
 
     expect(notificationPlugin.sendNotification).toHaveBeenCalledWith(
       expect.objectContaining({
-        actionTypeId: "pulse-open",
+        actionTypeId: "my-github-open",
         body: "AI1411/my-github · Review this PR",
         extra: { route: "/pulls/AI1411/my-github/189" },
         title: "Review requested",
@@ -424,7 +424,7 @@ describe("registerAppNotificationClickHandler", () => {
 
     expect(notificationPlugin.registerActionTypes).toHaveBeenCalledWith([
       {
-        id: "pulse-open",
+        id: "my-github-open",
         actions: [{ id: "open", title: "Open in my-github", foreground: true }],
       },
     ]);

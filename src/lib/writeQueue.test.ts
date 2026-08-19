@@ -143,7 +143,7 @@ describe("flushWriteQueue", () => {
     expect(result.failed).toBe(1);
     const remaining = loadWriteQueue(storage);
     expect(remaining).toHaveLength(1);
-    expect(remaining[0]?.args).toEqual({ number: 1 });
+    expect(remaining[0]?.args).toEqual({ owner: "o", repo: "r", number: 1 });
     expect(remaining[0]?.lastError).toBe("network down");
   });
 

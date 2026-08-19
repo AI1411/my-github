@@ -8,10 +8,29 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn().mockImplementation((name: string) => {
     if (name === "cmd_get_pull_files") return Promise.resolve([]);
     if (name === "cmd_get_merge_readiness") {
-      return Promise.resolve({ mergeable: true, mergeableState: "clean", reason: null });
+      return Promise.resolve({
+        ready: true,
+        mergeable: true,
+        mergeableState: "clean",
+        approvals: 1,
+        changesRequested: 0,
+        ciState: "success",
+        isDraft: false,
+        blockers: [],
+        blockingChecks: [],
+        requiredReviewsRemaining: 0,
+        reason: null,
+      });
     }
     if (name === "cmd_get_review_context") {
-      return Promise.resolve({ reviews: [], reviewComments: [] });
+      return Promise.resolve({
+        reviews: [],
+        reviewComments: [],
+        changedFiles: [],
+        requestedReviewers: [],
+        requestedTeams: [],
+        codeownersText: null,
+      });
     }
     if (name === "cmd_list_pull_review_comments") return Promise.resolve([]);
     return Promise.resolve(null);

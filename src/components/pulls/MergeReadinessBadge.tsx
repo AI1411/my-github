@@ -27,11 +27,13 @@ interface MergeReadinessBadgeProps {
 }
 
 function hasDetail(readiness: MergeReadiness): boolean {
+  const blockers = readiness.blockers ?? [];
+  const checks = readiness.blockingChecks ?? [];
   return (
-    readiness.blockingChecks.length > 0 ||
+    checks.length > 0 ||
     readiness.requiredReviewsRemaining > 0 ||
     readiness.changesRequested > 0 ||
-    readiness.blockers.length > 0
+    blockers.length > 0
   );
 }
 
@@ -77,8 +79,9 @@ export function MergeReadinessBadge({
     );
   }
 
-  const [first, ...rest] = readiness.blockers;
-  const detailOpen = expanded && hasDetail(readiness);
+  const blockers = readiness.blockers ?? [];
+  const [first, ...rest] = blockers;
+  const detailOpen = expanded && hasDetail({ ...readiness, blockers });
 
   return (
     <div className="relative inline-flex flex-col items-start">
@@ -89,7 +92,7 @@ export function MergeReadinessBadge({
           backgroundColor: "rgba(251, 146, 60, 0.15)",
           color: "var(--accent-orange, #fb923c)",
         }}
-        title={readiness.blockers.join(" · ")}
+        title={blockers.join(" · ")}
         aria-expanded={detailOpen}
         aria-controls="merge-readiness-detail"
         onClick={() => setExpanded((v) => !v)}
@@ -109,13 +112,13 @@ export function MergeReadinessBadge({
             color: "var(--text-secondary, #a1a1aa)",
           }}
         >
-          {readiness.blockingChecks.length > 0 && (
+          {(readiness.blockingChecks ?? []).length > 0 && (
             <div className="mb-2 last:mb-0">
               <div className="mb-1 font-medium" style={{ color: "var(--text-primary, #e4e4e7)" }}>
                 Blocking checks
               </div>
               <ul className="space-y-0.5">
-                {readiness.blockingChecks.map((check) => (
+                {(readiness.blockingChecks ?? []).map((check) => (
                   <li key={`${check.name}-${check.conclusion}`}>
                     {check.name}
                     <span className="ml-1 opacity-70">({check.conclusion})</span>
@@ -145,7 +148,7 @@ export function MergeReadinessBadge({
               </ul>
             </div>
           )}
-          {readiness.blockers.some(
+          {blockers.some(
             (b) =>
               b !== "CI failing" &&
               b !== "CI running" &&
@@ -157,7 +160,7 @@ export function MergeReadinessBadge({
                 Other blockers
               </div>
               <ul className="space-y-0.5">
-                {readiness.blockers
+                {blockers
                   .filter(
                     (b) =>
                       b !== "CI failing" &&

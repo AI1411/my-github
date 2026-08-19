@@ -85,7 +85,7 @@ describe("InboxPage snooze shortcuts", () => {
         expect.objectContaining({ itemId: "pr-1", snoozedUntil: expect.any(Number) }),
       );
     });
-    expect(localStorage.getItem("pulse-inbox-last-snooze")).toBe("tomorrow");
+    expect(localStorage.getItem("my-github-inbox-last-snooze")).toBe("tomorrow");
   });
 
   it("applies last snooze option with Shift+H", async () => {
@@ -200,7 +200,7 @@ describe("InboxPage snooze shortcuts", () => {
       );
     });
     await waitFor(() => {
-      expect(screen.getByText("You're all caught up")).toBeInTheDocument();
+      expect(screen.getByText("Inbox zero")).toBeInTheDocument();
     });
   });
 

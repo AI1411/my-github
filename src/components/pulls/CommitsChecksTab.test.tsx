@@ -51,6 +51,6 @@ describe("ChecksTab", () => {
     render(<ChecksTab owner="o" repo="r" number={1} />);
     expect(await screen.findByText("build")).toBeInTheDocument();
     expect(screen.getByText(/failure/)).toBeInTheDocument();
-    expect(screen.getByText("View logs")).toHaveAttribute("href", "https://github.com/o/r/runs/1");
+    expect(screen.getByText("Full logs")).toHaveAttribute("href", "https://github.com/o/r/runs/1");
   });
 });
