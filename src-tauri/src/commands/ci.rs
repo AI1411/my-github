@@ -3,6 +3,7 @@ use tauri::{AppHandle, Runtime};
 
 use crate::github::rest::{
     get_workflow_run_logs_url, list_workflow_runs as rest_list_workflow_runs,
+    rerun_workflow_failed_jobs,
 };
 use crate::github::types::WorkflowRun;
 
@@ -49,6 +50,19 @@ pub async fn cmd_get_workflow_runs<R: Runtime>(
         .await
         .map_err(|e| e.to_string())?;
     Ok(runs.iter().map(|r| run_to_summary(r, &repo_full)).collect())
+}
+
+#[tauri::command]
+pub async fn cmd_rerun_workflow_failed_jobs<R: Runtime>(
+    _app: AppHandle<R>,
+    owner: String,
+    repo: String,
+    run_id: u64,
+) -> Result<(), String> {
+    let client = crate::github::client::client_for_active_account()?;
+    rerun_workflow_failed_jobs(&client, &owner, &repo, run_id)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -126,5 +140,10 @@ mod tests {
     #[test]
     fn cmd_open_run_logs_exists() {
         let _ = cmd_open_run_logs::<tauri::Wry>;
+    }
+
+    #[test]
+    fn cmd_rerun_workflow_failed_jobs_exists() {
+        let _ = cmd_rerun_workflow_failed_jobs::<tauri::Wry>;
     }
 }

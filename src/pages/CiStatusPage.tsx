@@ -34,9 +34,30 @@ export default function CiStatusPage() {
 
   const queryRepos = useMemo(() => (repoFilter ? [repoFilter] : repos), [repoFilter, repos]);
 
-  const { runs, loading, error } = useCrossRepoWorkflowRunsQuery(queryRepos, branch || null);
+  const { runs, loading, error, refetch } = useCrossRepoWorkflowRunsQuery(
+    queryRepos,
+    branch || null,
+  );
+
+  const [rerunningRunId, setRerunningRunId] = useState<number | null>(null);
 
   const failureCount = runs.filter((r) => r.conclusion === "failure").length;
+
+  const handleRerunFailed = async (run: WorkflowRunSummary) => {
+    const [runOwner, runRepo] = run.repo.split("/");
+    if (!runOwner || !runRepo) return;
+    setRerunningRunId(run.id);
+    try {
+      await invoke("cmd_rerun_workflow_failed_jobs", {
+        owner: runOwner,
+        repo: runRepo,
+        runId: run.id,
+      });
+      refetch();
+    } finally {
+      setRerunningRunId(null);
+    }
+  };
 
   const handleOpenLogs = (run: WorkflowRunSummary) => {
     const [runOwner, runRepo] = run.repo.split("/");
@@ -119,6 +140,10 @@ export default function CiStatusPage() {
           <WorkflowRunRow
             key={`${run.repo}-${run.id}`}
             run={run}
+            onRerunFailed={
+              run.conclusion === "failure" ? () => void handleRerunFailed(run) : undefined
+            }
+            rerunning={rerunningRunId === run.id}
             onOpenLogs={run.conclusion === "failure" ? () => handleOpenLogs(run) : undefined}
           />
         ))}

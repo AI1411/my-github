@@ -41,9 +41,11 @@ function formatDuration(startedAt: string | null, updatedAt: string): string {
 interface WorkflowRunRowProps {
   run: WorkflowRunSummary;
   onOpenLogs?: () => void;
+  onRerunFailed?: () => void;
+  rerunning?: boolean;
 }
 
-export function WorkflowRunRow({ run, onOpenLogs }: WorkflowRunRowProps) {
+export function WorkflowRunRow({ run, onOpenLogs, onRerunFailed, rerunning }: WorkflowRunRowProps) {
   return (
     <div
       role="row"
@@ -67,6 +69,22 @@ export function WorkflowRunRow({ run, onOpenLogs }: WorkflowRunRowProps) {
       <span className="text-xs tabular-nums flex-shrink-0" style={{ color: "var(--text-muted)" }}>
         {formatDuration(run.runStartedAt, run.updatedAt)}
       </span>
+      {run.conclusion === "failure" && onRerunFailed && (
+        <button
+          onClick={onRerunFailed}
+          disabled={rerunning}
+          className="text-xs px-2 py-1 rounded"
+          style={{
+            backgroundColor: "var(--bg-tertiary)",
+            color: "var(--text-secondary)",
+            border: "1px solid var(--border-default)",
+            cursor: rerunning ? "not-allowed" : "pointer",
+            opacity: rerunning ? 0.6 : 1,
+          }}
+        >
+          {rerunning ? "Re-running…" : "Re-run failed"}
+        </button>
+      )}
       {run.conclusion === "failure" && onOpenLogs && (
         <button
           onClick={onOpenLogs}

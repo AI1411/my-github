@@ -66,6 +66,7 @@ pub fn run() {
             commands::digest::cmd_get_digest,
             commands::ci::cmd_get_workflow_runs,
             commands::ci::cmd_open_run_logs,
+            commands::ci::cmd_rerun_workflow_failed_jobs,
             commands::search::cmd_search_github,
             commands::search::cmd_search_repositories,
             commands::search::cmd_search_code,
