@@ -214,7 +214,11 @@ pub async fn cmd_list_pulls<R: Runtime>(
     let pool = app
         .try_state::<SqlitePool>()
         .ok_or_else(|| "sqlite pool not initialized".to_string())?;
-    let cached = read_cached_pulls(pool.inner(), &filter)?;
+    let filter_for_read = filter.clone();
+    let pool_for_read = pool.inner().clone();
+    let cached =
+        crate::db::run_blocking(move || read_cached_pulls(&pool_for_read, &filter_for_read))
+            .await?;
 
     let handle = app.clone();
     tauri::async_runtime::spawn(async move {
