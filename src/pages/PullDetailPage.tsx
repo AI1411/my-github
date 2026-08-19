@@ -37,6 +37,7 @@ import { usePullQuery } from "../features/pulls/usePullQuery";
 import { filterFilesByQuery } from "../lib/fileTree";
 import { getViewedSet, setViewed } from "../components/pulls/diff/DiffViewedStore";
 import { openPrInEditor, readStoredEditor } from "../lib/openInEditor";
+import { resolveRepoUnderRoots } from "../lib/resolveRepoPath";
 
 type DetailTab = "conversation" | "commits" | "checks" | "files";
 
@@ -202,13 +203,28 @@ export default function PullDetailPage() {
 
   const preferWorktree = useSettingsStore((s) => s.preferWorktree);
   const repoLocalPaths = useSettingsStore((s) => s.repoLocalPaths);
+  const repoRootDirs = useSettingsStore((s) => s.repoRootDirs);
+  const setRepoLocalPath = useSettingsStore((s) => s.setRepoLocalPath);
   const [editorError, setEditorError] = useState<string | null>(null);
 
   const handleOpenInEditor = async () => {
     const editor = readStoredEditor();
-    const localPath = repoFull ? repoLocalPaths[repoFull] : undefined;
+    if (!repoFull) {
+      setEditorError("Repository name is missing.");
+      return;
+    }
+    let localPath: string | undefined = repoLocalPaths[repoFull];
+    if (!localPath && repoRootDirs.length > 0) {
+      const resolved = await resolveRepoUnderRoots(repoRootDirs, repoFull);
+      if (resolved) {
+        localPath = resolved;
+        setRepoLocalPath(repoFull, resolved);
+      }
+    }
     if (!localPath) {
-      setEditorError(`Map a local path for ${repoFull || "this repo"} in Settings → Repositories.`);
+      setEditorError(
+        `Map a local path for ${repoFull} in Settings → Repositories, or add a clone root directory.`,
+      );
       return;
     }
     setEditorError(null);

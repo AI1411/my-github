@@ -208,6 +208,10 @@ export interface SettingsState {
   activeWorkModeId: string | null;
   localLlm: LocalLlmSettings;
   setLocalLlm: (patch: Partial<LocalLlmSettings>) => void;
+  /** Absolute directories to search for local clones (Open in editor auto-resolve). */
+  repoRootDirs: string[];
+  addRepoRootDir: (dir: string) => void;
+  removeRepoRootDir: (dir: string) => void;
   /** owner/repo → absolute local clone path */
   repoLocalPaths: Record<string, string>;
   setRepoLocalPath: (repo: string, path: string) => void;
@@ -322,6 +326,18 @@ export const useSettingsStore = create<SettingsState>()(
       setLocalLlm: (patch) =>
         set((state) => ({
           localLlm: { ...state.localLlm, ...patch },
+        })),
+      repoRootDirs: [],
+      addRepoRootDir: (dir) =>
+        set((state) => {
+          const value = dir.trim().replace(/[/\\]+$/, "");
+          if (!value) return state;
+          if (state.repoRootDirs.includes(value)) return state;
+          return { repoRootDirs: [...state.repoRootDirs, value].sort() };
+        }),
+      removeRepoRootDir: (dir) =>
+        set((state) => ({
+          repoRootDirs: state.repoRootDirs.filter((item) => item !== dir),
         })),
       repoLocalPaths: {},
       setRepoLocalPath: (repo, path) =>
@@ -620,6 +636,9 @@ export const useSettingsStore = create<SettingsState>()(
               ? (raw.localLlm as Partial<LocalLlmSettings>)
               : {}),
           },
+          repoRootDirs: Array.isArray(raw.repoRootDirs)
+            ? raw.repoRootDirs.filter((d): d is string => typeof d === "string" && d.trim().length > 0)
+            : current.repoRootDirs,
           repoLocalPaths: normalizeRepoPathMap(raw.repoLocalPaths ?? current.repoLocalPaths),
           preferWorktree:
             typeof raw.preferWorktree === "boolean" ? raw.preferWorktree : current.preferWorktree,
@@ -657,6 +676,7 @@ export const useSettingsStore = create<SettingsState>()(
         workModes: state.workModes,
         activeWorkModeId: state.activeWorkModeId,
         localLlm: state.localLlm,
+        repoRootDirs: state.repoRootDirs,
         repoLocalPaths: state.repoLocalPaths,
         preferWorktree: state.preferWorktree,
         releaseNotificationsEnabled: state.releaseNotificationsEnabled,

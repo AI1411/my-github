@@ -142,10 +142,14 @@ export default function SettingsPage() {
   const repoLocalPaths = useSettingsStore((state) => state.repoLocalPaths);
   const setRepoLocalPath = useSettingsStore((state) => state.setRepoLocalPath);
   const removeRepoLocalPath = useSettingsStore((state) => state.removeRepoLocalPath);
+  const repoRootDirs = useSettingsStore((state) => state.repoRootDirs);
+  const addRepoRootDir = useSettingsStore((state) => state.addRepoRootDir);
+  const removeRepoRootDir = useSettingsStore((state) => state.removeRepoRootDir);
   const preferWorktree = useSettingsStore((state) => state.preferWorktree);
   const setPreferWorktree = useSettingsStore((state) => state.setPreferWorktree);
   const [pathRepoInput, setPathRepoInput] = useState("");
   const [pathDirInput, setPathDirInput] = useState("");
+  const [rootDirInput, setRootDirInput] = useState("");
 
   const repoSuggestions = useMemo(
     () =>
@@ -526,6 +530,58 @@ export default function SettingsPage() {
         )}
 
         {activeTab === "repositories" && (
+          <>
+          <Section title="Clone root directories">
+            <p className="mb-3 text-sm" style={{ color: "var(--text-muted)" }}>
+              Absolute paths searched for local clones when opening a PR in your editor (e.g.{" "}
+              <span className="font-mono">/Users/me/src</span>).
+            </p>
+            <form
+              className="mb-3 flex flex-wrap gap-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                addRepoRootDir(rootDirInput);
+                setRootDirInput("");
+              }}
+            >
+              <input
+                aria-label="Clone root directory"
+                value={rootDirInput}
+                onChange={(event) => setRootDirInput(event.target.value)}
+                placeholder="/path/to/projects"
+                className="min-w-[14rem] flex-[2] rounded-md px-3 py-2 font-mono text-sm outline-none"
+                style={{
+                  backgroundColor: "var(--bg-secondary)",
+                  border: "1px solid var(--border-default)",
+                  color: "var(--text-primary)",
+                }}
+              />
+              <InlineButton
+                onClick={() => {
+                  addRepoRootDir(rootDirInput);
+                  setRootDirInput("");
+                }}
+              >
+                Add
+              </InlineButton>
+            </form>
+            <div className="divide-y" style={sectionStyle()}>
+              {repoRootDirs.length === 0 ? (
+                <p className="py-3 text-sm" style={{ color: "var(--text-muted)" }}>
+                  No root directories configured
+                </p>
+              ) : (
+                repoRootDirs.map((dir) => (
+                  <div key={dir} className="flex min-h-11 items-center justify-between gap-3 py-2">
+                    <div className="min-w-0 truncate font-mono text-sm">{dir}</div>
+                    <InlineButton ariaLabel={`Remove root ${dir}`} onClick={() => removeRepoRootDir(dir)}>
+                      Remove
+                    </InlineButton>
+                  </div>
+                ))
+              )}
+            </div>
+          </Section>
           <Section title="Local clones (Open in editor)">
             <Row label="Worktree">
               <Toggle
@@ -605,6 +661,7 @@ export default function SettingsPage() {
               )}
             </div>
           </Section>
+          </>
         )}
 
         {activeTab === "notifications" && (
