@@ -4,7 +4,9 @@ use tauri::{AppHandle, Manager, Runtime};
 use crate::commands::limits::validate_inbox_first;
 use crate::db::SqlitePool;
 use crate::github::graphql::{fetch_inbox, inbox_query};
-use crate::github::rest::list_notifications;
+use crate::github::rest::{
+    list_notifications, mark_all_notifications_read, mark_notification_thread_read,
+};
 use crate::github::types::Notification;
 
 #[derive(Debug, Clone, Serialize)]
@@ -419,6 +421,11 @@ pub async fn cmd_mark_notification_read<R: Runtime>(
     app: AppHandle<R>,
     thread_id: String,
 ) -> Result<(), String> {
+    let client = crate::github::client::client_for_active_account()?;
+    mark_notification_thread_read(&client, &thread_id)
+        .await
+        .map_err(|e| e.to_string())?;
+
     let pool = app
         .try_state::<SqlitePool>()
         .ok_or_else(|| "db not initialized".to_string())?;
@@ -428,6 +435,11 @@ pub async fn cmd_mark_notification_read<R: Runtime>(
 
 #[tauri::command]
 pub async fn cmd_mark_all_notifications_read<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
+    let client = crate::github::client::client_for_active_account()?;
+    mark_all_notifications_read(&client)
+        .await
+        .map_err(|e| e.to_string())?;
+
     let pool = app
         .try_state::<SqlitePool>()
         .ok_or_else(|| "db not initialized".to_string())?;

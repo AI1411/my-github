@@ -1166,6 +1166,40 @@ pub async fn list_notifications(client: &GithubClient) -> Result<Vec<Notificatio
     Ok(notifications)
 }
 
+/// Mark a notification thread as read (`PATCH /notifications/threads/{thread_id}`).
+pub async fn mark_notification_thread_read(
+    client: &GithubClient,
+    thread_id: &str,
+) -> Result<(), ClientError> {
+    let resp = client
+        .patch(&format!("/notifications/threads/{thread_id}"))
+        .send()
+        .await?;
+    let status = resp.status();
+    if !status.is_success() {
+        let message = resp.text().await.unwrap_or_default();
+        return Err(ClientError::Api {
+            status: status.as_u16(),
+            message,
+        });
+    }
+    Ok(())
+}
+
+/// Mark all notifications as read (`PUT /notifications`).
+pub async fn mark_all_notifications_read(client: &GithubClient) -> Result<(), ClientError> {
+    let resp = client.put("/notifications").send().await?;
+    let status = resp.status();
+    if !status.is_success() {
+        let message = resp.text().await.unwrap_or_default();
+        return Err(ClientError::Api {
+            status: status.as_u16(),
+            message,
+        });
+    }
+    Ok(())
+}
+
 pub async fn list_workflow_runs(
     client: &GithubClient,
     owner: &str,
@@ -1504,6 +1538,26 @@ mod tests {
         let page = 1u32;
         let path = format!("/notifications?per_page=100&page={}", page);
         assert_eq!(path, "/notifications?per_page=100&page=1");
+    }
+
+    #[test]
+    fn mark_notification_thread_read_builds_patch_request() {
+        let thread_id = "abc123-thread";
+        let client = GithubClient::new("gho_test");
+        let req = client
+            .patch(&format!("/notifications/threads/{thread_id}"))
+            .build()
+            .unwrap();
+        assert_eq!(req.method(), reqwest::Method::PATCH);
+        assert_eq!(req.url().path(), "/notifications/threads/abc123-thread");
+    }
+
+    #[test]
+    fn mark_all_notifications_read_builds_put_request() {
+        let client = GithubClient::new("gho_test");
+        let req = client.put("/notifications").build().unwrap();
+        assert_eq!(req.method(), reqwest::Method::PUT);
+        assert_eq!(req.url().path(), "/notifications");
     }
 
     #[test]
