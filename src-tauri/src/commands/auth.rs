@@ -1,5 +1,6 @@
 use crate::auth::pat::{check_required_scopes, validate_pat, PatError, PatUser};
 use crate::auth::token_store::{load_host, save_host, save_last_account_id, save_token};
+use crate::commands::error::AppError;
 use crate::github::host::normalize_api_base_url;
 
 #[tauri::command]
@@ -11,8 +12,11 @@ pub async fn cmd_save_pat(pat: String, base_url: Option<String>) -> Result<PatUs
         .filter(|u| u != "https://api.github.com");
     let (user, scopes) = validate_pat(&client, &pat, api_base.as_deref())
         .await
-        .map_err(|e| e.to_string())?;
-    check_required_scopes(&scopes)?;
+        .map_err(AppError::from)
+        .map_err(AppError::into_string)?;
+    check_required_scopes(&scopes)
+        .map_err(AppError::Message)
+        .map_err(AppError::into_string)?;
     save_token(&user.login, &pat).map_err(|e| e.to_string())?;
     if let Some(base) = api_base.as_deref() {
         save_host(&user.login, base).map_err(|e| e.to_string())?;
@@ -32,13 +36,15 @@ pub async fn cmd_logout(account_id: String) -> Result<(), String> {
 pub async fn cmd_switch_account(account_id: String) -> Result<PatUser, String> {
     crate::sync::account_lock::with_sync_account_lock(|| async {
         let token = crate::auth::token_store::load_token(&account_id)
-            .ok_or_else(|| "no token for account".to_string())?;
+            .ok_or(AppError::NoTokenForAccount)
+            .map_err(AppError::into_string)?;
         crate::auth::token_store::save_last_account_id(&account_id).map_err(|e| e.to_string())?;
         let client = reqwest::Client::new();
         let api_base = load_host(&account_id);
         let (user, _) = validate_pat(&client, &token, api_base.as_deref())
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(AppError::from)
+            .map_err(AppError::into_string)?;
         Ok(user)
     })
     .await
@@ -57,7 +63,7 @@ pub async fn cmd_get_current_user() -> Result<Option<PatUser>, String> {
     match validate_pat(&client, &token, api_base.as_deref()).await {
         Ok((user, _)) => Ok(Some(user)),
         Err(PatError::Unauthorized { status }) => {
-            Err(format!("invalid or expired PAT (HTTP {status})"))
+            Err(AppError::Message(format!("invalid or expired PAT (HTTP {status})")).into_string())
         }
         Err(_) => Ok(None),
     }
