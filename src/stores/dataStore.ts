@@ -70,9 +70,11 @@ export interface NotificationSummary {
   updatedAt: string;
 }
 
+export type InboxItemKind = "review_requested" | "ci_failure" | "mention" | "stale_review_request";
+
 export interface InboxItem {
   id: string;
-  kind: string;
+  kind: InboxItemKind | string;
   repo: string;
   number: number | null;
   title: string;
