@@ -78,9 +78,11 @@ pnpm tauri build
 ## Lint & Format
 
 ```bash
-# Rust
-cargo fmt --check
-cargo clippy -- -D warnings
+# Rust (from repo root — manifest lives in src-tauri/)
+cargo test --manifest-path src-tauri/Cargo.toml
+
+cargo fmt --manifest-path src-tauri/Cargo.toml --check
+cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
 
 # TypeScript / Frontend
 pnpm exec tsc --noEmit
