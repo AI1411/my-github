@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 
+use crate::cache::pulls::upsert_pull;
 use crate::commands::limits::validate_label_list;
 use crate::commands::sync::run_sync_for_scopes;
-use crate::cache::pulls::upsert_pull;
 use crate::db::SqlitePool;
 use crate::github::rest::{
     convert_pull_to_draft, create_pull_request_review, get_check_runs, get_pull_request,
@@ -132,7 +132,14 @@ struct CachedRow {
     repo_full_name: String,
 }
 
-fn pull_fields_from_raw_json(raw: &str) -> (Option<String>, Option<String>, Vec<ReviewerInfo>, Vec<String>) {
+fn pull_fields_from_raw_json(
+    raw: &str,
+) -> (
+    Option<String>,
+    Option<String>,
+    Vec<ReviewerInfo>,
+    Vec<String>,
+) {
     let value: serde_json::Value = match serde_json::from_str(raw) {
         Ok(v) => v,
         Err(_) => return (None, None, Vec::new(), Vec::new()),
@@ -657,7 +664,10 @@ fn format_review_api_error(err: crate::github::client::ClientError) -> String {
         crate::github::client::ClientError::Api { status: 403, .. } => {
             "Permission denied (403). You may not be able to review this pull request.".to_string()
         }
-        crate::github::client::ClientError::Api { status: 422, message } => {
+        crate::github::client::ClientError::Api {
+            status: 422,
+            message,
+        } => {
             format!("Review rejected (422): {message}")
         }
         other => other.to_string(),
@@ -846,22 +856,21 @@ pub async fn cmd_apply_pull_suggestion(
         .commit_id
         .clone()
         .unwrap_or_else(|| pr.head.sha.clone());
-    let (sha, content) = crate::github::rest::get_file_contents(
-        &client,
-        &owner,
-        &repo,
-        &comment.path,
-        &git_ref,
-    )
-    .await
-    .map_err(format_mutation_api_error)?;
-    let next = apply_suggestion_to_content(&content, comment.line.or(comment.original_line), &suggestion);
+    let (sha, content) =
+        crate::github::rest::get_file_contents(&client, &owner, &repo, &comment.path, &git_ref)
+            .await
+            .map_err(format_mutation_api_error)?;
+    let next = apply_suggestion_to_content(
+        &content,
+        comment.line.or(comment.original_line),
+        &suggestion,
+    );
     crate::github::rest::update_file_contents(
         &client,
         &owner,
         &repo,
         &comment.path,
-        &format!("Apply suggestion from review comment"),
+        "Apply suggestion from review comment",
         &next,
         &sha,
         &branch,
@@ -1001,11 +1010,10 @@ pub async fn cmd_get_check_failure_excerpt(
     let run = crate::github::rest::get_check_run(&client, &owner, &repo, check_run_id)
         .await
         .map_err(|e| e.to_string())?;
-    let annotations = crate::github::rest::list_check_run_annotations(
-        &client, &owner, &repo, check_run_id,
-    )
-    .await
-    .unwrap_or_default();
+    let annotations =
+        crate::github::rest::list_check_run_annotations(&client, &owner, &repo, check_run_id)
+            .await
+            .unwrap_or_default();
 
     let output = run.output.unwrap_or_default();
     let mut truncated = false;
@@ -1057,13 +1065,22 @@ fn format_mutation_api_error(err: crate::github::client::ClientError) -> String 
         crate::github::client::ClientError::Api { status: 403, .. } => {
             "Permission denied (403). You may lack write access.".to_string()
         }
-        crate::github::client::ClientError::Api { status: 405, message } => {
+        crate::github::client::ClientError::Api {
+            status: 405,
+            message,
+        } => {
             format!("Merge not allowed (405): {message}")
         }
-        crate::github::client::ClientError::Api { status: 409, message } => {
+        crate::github::client::ClientError::Api {
+            status: 409,
+            message,
+        } => {
             format!("Conflict (409): {message}")
         }
-        crate::github::client::ClientError::Api { status: 422, message } => {
+        crate::github::client::ClientError::Api {
+            status: 422,
+            message,
+        } => {
             format!("Rejected (422): {message}")
         }
         other => other.to_string(),
@@ -1088,7 +1105,12 @@ pub async fn cmd_merge_pull<R: Runtime>(
         .map_err(format_mutation_api_error)?;
     let full_name = format!("{owner}/{repo}");
     if let Some(pool) = app.try_state::<SqlitePool>() {
-        let _ = crate::cache::pulls::update_pull_state(pool.inner(), &full_name, number as i64, "closed");
+        let _ = crate::cache::pulls::update_pull_state(
+            pool.inner(),
+            &full_name,
+            number as i64,
+            "closed",
+        );
     }
     let _ = app.emit("pulls-updated", ());
     Ok(())
@@ -1107,20 +1129,13 @@ pub async fn cmd_set_pull_state<R: Runtime>(
         return Err("state must be open or closed".to_string());
     }
     let client = crate::github::client::client_for_active_account()?;
-    update_issue(
-        &client,
-        &owner,
-        &repo,
-        number,
-        Some(&state),
-        None,
-        None,
-    )
-    .await
-    .map_err(format_mutation_api_error)?;
+    update_issue(&client, &owner, &repo, number, Some(&state), None, None)
+        .await
+        .map_err(format_mutation_api_error)?;
     let full_name = format!("{owner}/{repo}");
     if let Some(pool) = app.try_state::<SqlitePool>() {
-        let _ = crate::cache::pulls::update_pull_state(pool.inner(), &full_name, number as i64, &state);
+        let _ =
+            crate::cache::pulls::update_pull_state(pool.inner(), &full_name, number as i64, &state);
     }
     let _ = app.emit("pulls-updated", ());
     Ok(())
@@ -1146,7 +1161,8 @@ pub async fn cmd_set_pull_draft<R: Runtime>(
     }
     let full_name = format!("{owner}/{repo}");
     if let Some(pool) = app.try_state::<SqlitePool>() {
-        let _ = crate::cache::pulls::update_pull_draft(pool.inner(), &full_name, number as i64, draft);
+        let _ =
+            crate::cache::pulls::update_pull_draft(pool.inner(), &full_name, number as i64, draft);
     }
     let _ = app.emit("pulls-updated", ());
     Ok(())

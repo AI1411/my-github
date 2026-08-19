@@ -205,9 +205,7 @@ fn apply_item_states(
             if state.dismissed {
                 return false;
             }
-            state
-                .snoozed_until
-                .is_none_or(|until| until <= now)
+            state.snoozed_until.is_none_or(|until| until <= now)
         })
         .map(|mut item| {
             item.pinned = states.get(&item.id).map(|s| s.pinned).unwrap_or(false);
@@ -314,7 +312,9 @@ pub async fn cmd_get_inbox<R: Runtime>(
     let pool = app
         .try_state::<SqlitePool>()
         .ok_or_else(|| "db not initialized".to_string())?;
-    let inbox = fetch_inbox(&client, first).await.map_err(|e| e.to_string())?;
+    let inbox = fetch_inbox(&client, first)
+        .await
+        .map_err(|e| e.to_string())?;
     let review_requests = review_requests_from_graphql(&inbox);
     let mentions = mentions_from_graphql(&inbox);
     let ci_failures = read_ci_failures(pool.inner()).unwrap_or_default();

@@ -266,7 +266,26 @@ mod tests {
 
     #[test]
     fn migrations_include_v6() {
-        assert_eq!(MIGRATIONS.len(), 6);
         assert_eq!(MIGRATIONS[5].version, 6);
+    }
+
+    #[test]
+    fn v7_list_filter_indexes_applies_after_v6() {
+        let conn = Connection::open_in_memory().unwrap();
+        apply_through(&conn, 7);
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='idx_pulls_repo_state'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 1, "idx_pulls_repo_state should exist after v7");
+    }
+
+    #[test]
+    fn migrations_include_v7() {
+        assert_eq!(MIGRATIONS.len(), 7);
+        assert_eq!(MIGRATIONS[6].version, 7);
     }
 }

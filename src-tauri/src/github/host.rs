@@ -27,10 +27,9 @@ fn split_host_path(input: &str) -> Option<(String, String, String)> {
     };
     let (scheme, rest) = if let Some(r) = with_scheme.strip_prefix("https://") {
         ("https", r)
-    } else if let Some(r) = with_scheme.strip_prefix("http://") {
-        ("http", r)
     } else {
-        return None;
+        let r = with_scheme.strip_prefix("http://")?;
+        ("http", r)
     };
     let (host_port, path) = match rest.split_once('/') {
         Some((h, p)) => (h, format!("/{p}")),

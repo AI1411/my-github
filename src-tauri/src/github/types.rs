@@ -1130,7 +1130,10 @@ mod tests {
         }"#;
         let item: CodeSearchItem = serde_json::from_str(json).unwrap();
         assert_eq!(item.path, "src/lib.rs");
-        assert_eq!(item.text_matches[0].fragment.as_deref(), Some("pub fn ping() {}"));
+        assert_eq!(
+            item.text_matches[0].fragment.as_deref(),
+            Some("pub fn ping() {}")
+        );
     }
 
     #[test]

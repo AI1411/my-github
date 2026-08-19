@@ -206,8 +206,7 @@ pub fn persist_repo_issues(
     if let Some(delete_error) = delete_error {
         return Err((Vec::new(), Some(delete_error)));
     }
-    tx.commit()
-        .map_err(|err| (vec![err.to_string()], None))?;
+    tx.commit().map_err(|err| (vec![err.to_string()], None))?;
     Ok(written)
 }
 
@@ -340,11 +339,12 @@ mod tests {
         upsert_issue(&pool, 1, &closed, "t1").unwrap();
 
         let deleted = delete_issues_not_in_numbers(&pool, 1, &[1]).unwrap();
-        let numbers = list_issues_by_repo(&pool, 1)
+        let mut numbers = list_issues_by_repo(&pool, 1)
             .unwrap()
             .into_iter()
             .map(|issue| issue.number)
             .collect::<Vec<_>>();
+        numbers.sort();
 
         assert_eq!(deleted, 1);
         assert_eq!(numbers, vec![1, 3]);

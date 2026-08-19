@@ -249,8 +249,7 @@ pub fn persist_repo_pulls(
     if let Some(delete_error) = delete_error {
         return Err((Vec::new(), Some(delete_error)));
     }
-    tx.commit()
-        .map_err(|err| (vec![err.to_string()], None))?;
+    tx.commit().map_err(|err| (vec![err.to_string()], None))?;
     Ok(written)
 }
 
@@ -386,11 +385,12 @@ mod tests {
         upsert_pull(&pool, 1, &closed, "t1").unwrap();
 
         let deleted = delete_pulls_not_in_numbers(&pool, 1, &[1]).unwrap();
-        let numbers = list_pulls_by_repo(&pool, 1)
+        let mut numbers = list_pulls_by_repo(&pool, 1)
             .unwrap()
             .into_iter()
             .map(|pull| pull.number)
             .collect::<Vec<_>>();
+        numbers.sort();
 
         assert_eq!(deleted, 1);
         assert_eq!(numbers, vec![1, 3]);
@@ -419,7 +419,13 @@ mod tests {
     #[test]
     fn update_pull_review_state_sets_column() {
         let pool = test_pool();
-        upsert_pull(&pool, 1, &sample_pr(1, "hello", "2026-04-21T00:00:00Z"), "t1").unwrap();
+        upsert_pull(
+            &pool,
+            1,
+            &sample_pr(1, "hello", "2026-04-21T00:00:00Z"),
+            "t1",
+        )
+        .unwrap();
         update_pull_review_state(&pool, "octocat/hello", 1, "approved").unwrap();
         let conn = pool.get().unwrap();
         let state: String = conn

@@ -6,10 +6,14 @@ pub const MAX_LABEL_NAME_LEN: usize = 100;
 pub fn validate_inbox_first(first: Option<i64>) -> Result<i64, String> {
     let value = first.unwrap_or(DEFAULT_INBOX_FIRST);
     if value < 1 {
-        return Err(format!("inbox first must be between 1 and {MAX_INBOX_FIRST}"));
+        return Err(format!(
+            "inbox first must be between 1 and {MAX_INBOX_FIRST}"
+        ));
     }
     if value > MAX_INBOX_FIRST {
-        return Err(format!("inbox first must be between 1 and {MAX_INBOX_FIRST}"));
+        return Err(format!(
+            "inbox first must be between 1 and {MAX_INBOX_FIRST}"
+        ));
     }
     Ok(value)
 }
@@ -20,10 +24,7 @@ pub fn validate_label_list(labels: &[String], field_name: &str) -> Result<(), St
             "{field_name} supports at most {MAX_FILTER_LABELS} labels"
         ));
     }
-    if labels
-        .iter()
-        .any(|label| label.len() > MAX_LABEL_NAME_LEN)
-    {
+    if labels.iter().any(|label| label.len() > MAX_LABEL_NAME_LEN) {
         return Err(format!(
             "each {field_name} label must be at most {MAX_LABEL_NAME_LEN} characters"
         ));

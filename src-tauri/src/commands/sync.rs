@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter, Manager, Runtime};
+use tauri::{AppHandle, Emitter, Runtime};
 
 use crate::auth::pat::validate_pat;
 use crate::commands::helpers::{get_pool, require_active_token};
@@ -210,7 +210,9 @@ mod tests {
             "GitHub API error (HTTP 401): Bad credentials"
         ));
         assert!(is_auth_expired_message("invalid or expired PAT (HTTP 401)"));
-        assert!(!is_auth_expired_message("GitHub API error (HTTP 500): unavailable"));
+        assert!(!is_auth_expired_message(
+            "GitHub API error (HTTP 500): unavailable"
+        ));
     }
 
     #[test]

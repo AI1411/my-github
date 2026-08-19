@@ -234,14 +234,10 @@ mod tests {
 
     #[test]
     fn with_base_url_uses_ghes_api() {
-        let client =
-            GithubClient::with_base_url("gho_x", "https://github.example.com/api/v3/");
+        let client = GithubClient::with_base_url("gho_x", "https://github.example.com/api/v3/");
         assert_eq!(client.base_url(), "https://github.example.com/api/v3");
         let req = client.get("/user").build().unwrap();
-        assert_eq!(
-            req.url().as_str(),
-            "https://github.example.com/api/v3/user"
-        );
+        assert_eq!(req.url().as_str(), "https://github.example.com/api/v3/user");
     }
 
     #[test]
