@@ -26,7 +26,7 @@ _Note: replace with a real capture after UI polish._
 
 | Tool | Version | Install |
 |------|---------|---------|
-| Rust | 1.82+ | `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \| sh` |
+| Rust | 1.85+ | `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \| sh` |
 | Node.js | 20+ | [nodejs.org](https://nodejs.org) |
 | pnpm | latest | `npm install -g pnpm` |
 | Tauri CLI | 2.x | included via `pnpm tauri` |
@@ -66,6 +66,8 @@ pnpm install
 # Start dev server (hot reload for frontend + Rust rebuild on save)
 pnpm tauri dev
 ```
+
+Vite serves the frontend on **port 1430** (see `vite.config.ts`). Tauri dev connects to that port; HMR uses 1431 when `TAURI_DEV_HOST` is set.
 
 **Linux (container / headless VM):** use software rendering so WebKitGTK starts reliably:
 
@@ -118,7 +120,7 @@ cargo fmt --manifest-path src-tauri/Cargo.toml --check
 cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
 
 # TypeScript / Frontend
-pnpm exec tsc --noEmit
+pnpm typecheck
 pnpm lint
 ```
 
