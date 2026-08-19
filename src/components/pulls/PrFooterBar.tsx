@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useSettingsShortcut } from "../../hooks/useSettingsShortcut";
 import { Button } from "../common/Button";
 import { checkoutCommand, copyToClipboard } from "../../lib/checkout";
 import { openInBrowser } from "../../lib/openInBrowser";
@@ -119,6 +120,22 @@ export function PrFooterBar({
       setBusy(null);
     }
   };
+
+  useSettingsShortcut("approvePull", () => {
+    if (!canApprove || busy !== null) return;
+    void submitReview("APPROVE");
+  });
+
+  useSettingsShortcut("requestChanges", () => {
+    if (!canApprove || busy !== null) return;
+    void submitReview("REQUEST_CHANGES", "Requested changes");
+  });
+
+  useSettingsShortcut("mergePull", () => {
+    if (!canMerge || busy !== null) return;
+    if (!window.confirm("Merge this pull request?")) return;
+    void mergePull();
+  });
 
   return (
     <footer
