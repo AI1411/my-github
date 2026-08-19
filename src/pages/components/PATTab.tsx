@@ -5,6 +5,7 @@ import {
   normalizeGithubApiBaseUrl,
   normalizeGithubWebBaseUrl,
 } from "../../lib/githubHost";
+import { openInBrowser } from "../../lib/openInBrowser";
 
 interface AuthUser {
   login: string;
@@ -18,6 +19,26 @@ interface Props {
 }
 
 type State = "idle" | "loading" | "error";
+
+const PAT_CREATE_QUERY = "scopes=repo,read:user,notifications&description=my-github";
+
+export function buildPatCreateUrl(hostUrl: string): string {
+  const webBase = hostUrl.trim() ? normalizeGithubWebBaseUrl(hostUrl) : DEFAULT_GITHUB_WEB_BASE;
+  return `${webBase}/settings/tokens/new?${PAT_CREATE_QUERY}`;
+}
+
+function CreateTokenLink({ hostUrl }: { hostUrl: string }) {
+  return (
+    <button
+      type="button"
+      onClick={() => void openInBrowser(buildPatCreateUrl(hostUrl))}
+      className="underline hover:opacity-80"
+      style={{ color: "var(--accent-blue)" }}
+    >
+      Create token
+    </button>
+  );
+}
 
 export function PATTab({ onSuccess, showHostField = true }: Props) {
   const [token, setToken] = useState("");
@@ -50,8 +71,7 @@ export function PATTab({ onSuccess, showHostField = true }: Props) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-        Create a token at{" "}
-        <span style={{ color: "var(--accent-blue)" }}>github.com/settings/tokens</span> with{" "}
+        Create a token at <CreateTokenLink hostUrl={hostUrl} /> with{" "}
         <code
           className="text-xs px-1 py-0.5 rounded"
           style={{ backgroundColor: "var(--bg-tertiary)", color: "var(--text-primary)" }}
@@ -158,7 +178,8 @@ export function PATTab({ onSuccess, showHostField = true }: Props) {
                   color: "color-mix(in srgb, var(--accent-red) 70%, var(--text-secondary))",
                 }}
               >
-                Regenerate your token with the required scopes.
+                Regenerate your token with the required scopes, or{" "}
+                <CreateTokenLink hostUrl={hostUrl} />.
               </p>
             </>
           ) : (
