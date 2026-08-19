@@ -1,18 +1,28 @@
 import { appStorageKey } from "./appStorageKeys";
 export const WRITE_QUEUE_STORAGE_KEY = appStorageKey("write-queue");
 
+export type UpdateIssueWriteArgs = {
+  owner: string;
+  repo: string;
+  number: number;
+  state?: string | null;
+  labels?: string[] | null;
+  assignees?: string[] | null;
+};
+
+/** Discriminated union of offline write commands the queue can flush. */
+export type WriteQueueCommand =
+  | { command: "cmd_update_issue"; args: UpdateIssueWriteArgs };
+
 export type WriteQueueEntry = {
   id: string;
-  command: string;
-  args: Record<string, unknown>;
+  command: WriteQueueCommand["command"];
+  args: WriteQueueCommand["args"];
   createdAt: number;
   lastError?: string;
 };
 
-export type EnqueueWriteInput = {
-  command: string;
-  args: Record<string, unknown>;
-};
+export type EnqueueWriteInput = WriteQueueCommand;
 
 type InvokeFn = (command: string, args?: Record<string, unknown>) => Promise<unknown>;
 
