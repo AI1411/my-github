@@ -30,8 +30,10 @@ React (UI) ↔ Tauri IPC Commands ↔ Rust Core
                                     ├─ auth    (PAT + keyring)
                                     ├─ github  (REST via octocrab, GraphQL via graphql_client)
                                     ├─ cache   (SQLite + ETag, stale-while-revalidate)
-                                    └─ sync    (60s poller, 5m when unfocused)
+                                    └─ sync    (on-demand via IPC; no background poller in Rust)
 ```
+
+**Sync / polling**: The React shell owns periodic sync (`useNotificationPolling`, focus/resume `cmd_sync_now`). Rust exposes `sync::poller::spawn_poller` for tests only; `run()` does **not** start a backend poller.
 
 **Cache strategy**: Return cached data immediately, revalidate in background. Pause polling at 25% rate limit remaining.
 

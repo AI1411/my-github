@@ -60,6 +60,8 @@ pnpm tauri dev
 
 Sign in with a GitHub Personal Access Token (PAT).
 
+Periodic GitHub sync is driven by the **frontend** (`useNotificationPolling` + `cmd_sync_now` on focus). The Rust backend does not spawn a background poller at startup.
+
 ## Build
 
 ```bash
