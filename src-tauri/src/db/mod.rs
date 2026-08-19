@@ -32,9 +32,15 @@ pub fn init_pool(db_path: &Path) -> Result<SqlitePool, DbError> {
     }
 
     let manager = if db_path == Path::new(":memory:") {
-        SqliteConnectionManager::memory()
+        SqliteConnectionManager::memory().with_init(|conn| {
+            conn.execute_batch("PRAGMA foreign_keys = ON;")?;
+            Ok(())
+        })
     } else {
-        SqliteConnectionManager::file(db_path)
+        SqliteConnectionManager::file(db_path).with_init(|conn| {
+            conn.execute_batch("PRAGMA foreign_keys = ON;")?;
+            Ok(())
+        })
     };
     // `:memory:` databases are per-connection: migrations applied on one
     // connection are invisible on others. Pin the pool to a single connection
@@ -137,6 +143,16 @@ mod tests {
 
         assert!(db_path.exists(), "pulse.db should be created on connect");
         assert!(db_path.parent().unwrap().exists());
+    }
+
+    #[test]
+    fn init_pool_enables_foreign_keys() {
+        let pool = init_pool(Path::new(":memory:")).expect("in-memory pool");
+        let conn = pool.get().unwrap();
+        let enabled: i64 = conn
+            .query_row("PRAGMA foreign_keys", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(enabled, 1);
     }
 
     #[test]
