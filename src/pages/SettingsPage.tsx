@@ -5,6 +5,11 @@ import packageJson from "../../package.json";
 import { Tabs } from "../components/common/Tabs";
 import { Toolbar } from "../components/common/Toolbar";
 import { useRepoSearchQuery } from "../features/settings/useRepoSearchQuery";
+import {
+  WatchRepoBulkChecklist,
+  WatchRepoSourceTabs,
+  type WatchRepoSource,
+} from "../features/settings/WatchRepoBulkChecklist";
 import { hostDisplayLabel } from "../lib/githubHost";
 import {
   displayShortcutKeys,
@@ -102,6 +107,7 @@ export default function SettingsPage() {
   const dockBadgeEnabled = useSettingsStore((state) => state.dockBadgeEnabled);
   const shortcuts = useSettingsStore((state) => state.shortcuts);
   const addWatchedRepository = useSettingsStore((state) => state.addWatchedRepository);
+  const addWatchedRepositories = useSettingsStore((state) => state.addWatchedRepositories);
   const removeWatchedRepository = useSettingsStore((state) => state.removeWatchedRepository);
   const setNotificationSetting = useSettingsStore((state) => state.setNotificationSetting);
   const staleThresholds = useSettingsStore((state) => state.staleThresholds);
@@ -161,6 +167,7 @@ export default function SettingsPage() {
 
   const [repoDropdownOpen, setRepoDropdownOpen] = useState(false);
   const [repoHighlightIndex, setRepoHighlightIndex] = useState(-1);
+  const [repoSource, setRepoSource] = useState<WatchRepoSource>("search");
   const {
     results: repoSearchResults,
     loading: repoSearchLoading,
@@ -305,6 +312,8 @@ export default function SettingsPage() {
 
         {activeTab === "repositories" && (
           <Section title="Watched repositories">
+            <WatchRepoSourceTabs active={repoSource} onChange={setRepoSource} />
+            {repoSource === "search" && (
             <form
               className="mb-4 flex max-w-2xl gap-2"
               onSubmit={(event) => {
@@ -413,6 +422,25 @@ export default function SettingsPage() {
               </div>
               <InlineButton onClick={handleAddRepository}>Add repository</InlineButton>
             </form>
+            )}
+            {repoSource === "starred" && (
+              <div className="mb-4 max-w-2xl">
+                <WatchRepoBulkChecklist
+                  mode="starred"
+                  watchedRepositories={watchedRepositories}
+                  onAddSelected={addWatchedRepositories}
+                />
+              </div>
+            )}
+            {repoSource === "org" && (
+              <div className="mb-4 max-w-2xl">
+                <WatchRepoBulkChecklist
+                  mode="org"
+                  watchedRepositories={watchedRepositories}
+                  onAddSelected={addWatchedRepositories}
+                />
+              </div>
+            )}
             <div className="divide-y" style={sectionStyle()}>
               {watchedRepositories.length === 0 ? (
                 <p className="py-3 text-sm" style={{ color: "var(--text-muted)" }}>

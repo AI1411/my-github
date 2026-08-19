@@ -245,6 +245,7 @@ export interface SettingsState {
   /** Apply mode snapshot; returns homePath for navigation. */
   activateWorkMode: (id: string) => string | null;
   addWatchedRepository: (repo: string) => void;
+  addWatchedRepositories: (repos: string[]) => void;
   addSavedFilter: (filter: Omit<SavedFilter, "id">) => void;
   removeSavedFilter: (id: string) => void;
   renameSavedFilter: (id: string, name: string) => void;
@@ -532,6 +533,15 @@ export const useSettingsStore = create<SettingsState>()(
           return {
             watchedRepositories: [...state.watchedRepositories, normalized].sort(),
           };
+        }),
+      addWatchedRepositories: (repos) =>
+        set((state) => {
+          const next = new Set(state.watchedRepositories);
+          for (const repo of repos) {
+            const normalized = normalizeRepo(repo);
+            if (normalized) next.add(normalized);
+          }
+          return { watchedRepositories: [...next].sort() };
         }),
       removeWatchedRepository: (repo) =>
         set((state) => ({

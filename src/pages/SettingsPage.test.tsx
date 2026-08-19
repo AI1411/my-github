@@ -202,6 +202,35 @@ describe("SettingsPage", () => {
     expect(useSettingsStore.getState().watchedRepositories).toContain("AI1411/manual-repo");
   });
 
+  it("bulk-adds starred repositories from the Starred tab", async () => {
+    (invoke as ReturnType<typeof vi.fn>).mockImplementation((cmd: string) => {
+      if (cmd === "cmd_list_starred_repos") {
+        return Promise.resolve(["octocat/hello", "octocat/world"]);
+      }
+      if (cmd === "cmd_get_sync_status") {
+        return Promise.resolve({
+          isRunning: false,
+          lastStartedAtEpoch: 1760000000,
+          lastFinishedAtEpoch: 1760000001,
+          lastStatus: "success",
+          lastReport: null,
+          lastRateLimit: { remaining: 4321, reset: 1770000000 },
+        });
+      }
+      return Promise.resolve(null);
+    });
+
+    renderPage();
+    fireEvent.click(screen.getByRole("tab", { name: "Repositories" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Starred" }));
+
+    fireEvent.click(await screen.findByLabelText("octocat/hello"));
+    fireEvent.click(screen.getByLabelText("octocat/world"));
+    fireEvent.click(screen.getByRole("button", { name: "Add selected" }));
+
+    expect(useSettingsStore.getState().watchedRepositories).toEqual(["octocat/hello", "octocat/world"]);
+  });
+
   it("changes notification polling interval", () => {
     renderPage();
 
