@@ -26,6 +26,8 @@ export interface PullSummary {
   deletions: number | null;
   changedFiles: number | null;
   labels?: string[];
+  /** Head commit SHA for review line comments (`commit_id`). */
+  headSha?: string | null;
 }
 
 export interface IssueLabelInfo {

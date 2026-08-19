@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import { parsePatch, toSplitRows, type DiffLine } from "./diff/parseDiff";
-import { DiffLineRow } from "./diff/DiffLineRow";
+import { DiffLineRow, type DiffLineCommentTarget } from "./diff/DiffLineRow";
 import type { ReviewCommentSummary } from "./ReviewCommentsPanel";
 
 export type DiffViewMode = "unified" | "split";
@@ -16,6 +16,14 @@ export interface FileDiffData {
   patch: string | null;
 }
 
+export interface PendingLineComment {
+  id: string;
+  path: string;
+  line: number;
+  side: "LEFT" | "RIGHT";
+  body: string;
+}
+
 export interface FileDiffProps {
   file: FileDiffData;
   mode?: DiffViewMode;
@@ -24,6 +32,11 @@ export interface FileDiffProps {
   defaultOpen?: boolean;
   /** Review comments for this PR; filtered to this file for inline threads. */
   reviewComments?: ReviewCommentSummary[];
+  /** Client-accumulated drafts for this PR (filtered by path inside). */
+  pendingComments?: PendingLineComment[];
+  onAddPendingComment?: (comment: Omit<PendingLineComment, "id">) => void;
+  /** When false, gutters are not interactive (e.g. cannot review). */
+  canComment?: boolean;
 }
 
 function InlineThread({
@@ -116,6 +129,72 @@ function StatusIcon({ status }: { status: string }) {
   );
 }
 
+function LineDraftComposer({
+  target,
+  onCancel,
+  onSave,
+}: {
+  target: DiffLineCommentTarget;
+  onCancel: () => void;
+  onSave: (body: string) => void;
+}) {
+  const [body, setBody] = useState("");
+  return (
+    <div
+      className="mx-3 my-2 rounded-md border px-3 py-2 flex flex-col gap-2"
+      style={{
+        borderColor: "var(--accent-blue)",
+        backgroundColor: "var(--bg-primary)",
+      }}
+      data-testid="line-comment-draft"
+    >
+      <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+        Comment on {target.side === "RIGHT" ? "new" : "old"} line {target.line}
+      </p>
+      <textarea
+        aria-label="Pending line comment"
+        value={body}
+        onChange={(e) => setBody(e.target.value)}
+        rows={3}
+        className="w-full rounded-md px-2 py-1.5 text-xs font-sans outline-none"
+        style={{
+          backgroundColor: "var(--bg-secondary)",
+          border: "1px solid var(--border-default)",
+          color: "var(--text-primary)",
+        }}
+        autoFocus
+      />
+      <div className="flex gap-2 justify-end">
+        <button
+          type="button"
+          className="text-xs px-2 py-1 rounded"
+          style={{ color: "var(--text-secondary)" }}
+          onClick={onCancel}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="text-xs px-2 py-1 rounded"
+          style={{
+            backgroundColor: "var(--accent-blue)",
+            color: "#fff",
+            opacity: body.trim() ? 1 : 0.5,
+          }}
+          disabled={!body.trim()}
+          onClick={() => onSave(body.trim())}
+        >
+          Add to review
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function lineKey(side: string, line: number): string {
+  return `${side}:${line}`;
+}
+
 export function FileDiff({
   file,
   mode = "unified",
@@ -123,8 +202,12 @@ export function FileDiff({
   onToggleViewed,
   defaultOpen = true,
   reviewComments = [],
+  pendingComments = [],
+  onAddPendingComment,
+  canComment = true,
 }: FileDiffProps) {
   const [open, setOpen] = useState(defaultOpen);
+  const [draft, setDraft] = useState<DiffLineCommentTarget | null>(null);
   const lines: DiffLine[] = useMemo(() => parsePatch(file.patch), [file.patch]);
   const splitRows = useMemo(() => toSplitRows(lines), [lines]);
 
@@ -136,6 +219,38 @@ export function FileDiff({
       replies: forFile.filter((c) => c.inReplyToId === root.id),
     }));
   }, [reviewComments, file.filename]);
+
+  const pendingForFile = useMemo(
+    () => pendingComments.filter((c) => c.path === file.filename),
+    [pendingComments, file.filename],
+  );
+  const pendingKeys = useMemo(
+    () => new Set(pendingForFile.map((c) => lineKey(c.side, c.line))),
+    [pendingForFile],
+  );
+
+  const onCommentLine =
+    canComment && onAddPendingComment
+      ? (target: DiffLineCommentTarget) => {
+          setOpen(true);
+          setDraft(target);
+        }
+      : undefined;
+
+  const renderRow = (l: DiffLine, showOld: boolean, showNew: boolean) => {
+    const pending =
+      (l.newNumber != null && pendingKeys.has(lineKey("RIGHT", l.newNumber))) ||
+      (l.oldNumber != null && pendingKeys.has(lineKey("LEFT", l.oldNumber)));
+    return (
+      <DiffLineRow
+        line={l}
+        showOld={showOld}
+        showNew={showNew}
+        onCommentLine={onCommentLine}
+        pending={pending}
+      />
+    );
+  };
 
   return (
     <section
@@ -160,6 +275,11 @@ export function FileDiff({
         >
           {file.filename}
         </span>
+        {pendingForFile.length > 0 && (
+          <span className="text-[11px] tabular-nums" style={{ color: "var(--accent-blue)" }}>
+            {pendingForFile.length} pending
+          </span>
+        )}
         {fileThreads.length > 0 && (
           <span className="text-[11px] tabular-nums" style={{ color: "var(--accent-yellow)" }}>
             {fileThreads.length} thread{fileThreads.length === 1 ? "" : "s"}
@@ -188,23 +308,19 @@ export function FileDiff({
         <>
           <div className="overflow-x-auto">
             {mode === "unified"
-              ? lines.map((l, i) => <DiffLineRow key={i} line={l} showOld showNew />)
+              ? lines.map((l, i) => <div key={i}>{renderRow(l, true, true)}</div>)
               : splitRows.map((row, i) => (
                   <div key={i} className="grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
-                    <div
-                      style={{
-                        borderRight: "1px solid var(--border-subtle)",
-                      }}
-                    >
+                    <div style={{ borderRight: "1px solid var(--border-subtle)" }}>
                       {row.left ? (
-                        <DiffLineRow line={row.left} showOld showNew={false} />
+                        renderRow(row.left, true, false)
                       ) : (
                         <div className="font-mono text-xs leading-5">&nbsp;</div>
                       )}
                     </div>
                     <div>
                       {row.right ? (
-                        <DiffLineRow line={row.right} showOld={false} showNew />
+                        renderRow(row.right, false, true)
                       ) : (
                         <div className="font-mono text-xs leading-5">&nbsp;</div>
                       )}
@@ -217,6 +333,38 @@ export function FileDiff({
               </div>
             )}
           </div>
+          {draft && onAddPendingComment && (
+            <LineDraftComposer
+              target={draft}
+              onCancel={() => setDraft(null)}
+              onSave={(body) => {
+                onAddPendingComment({
+                  path: file.filename,
+                  line: draft.line,
+                  side: draft.side,
+                  body,
+                });
+                setDraft(null);
+              }}
+            />
+          )}
+          {pendingForFile.length > 0 && (
+            <ul
+              className="border-t px-3 py-2 flex flex-col gap-1"
+              style={{ borderColor: "var(--border-subtle)" }}
+              aria-label="Pending line comments"
+            >
+              {pendingForFile.map((c) => (
+                <li key={c.id} className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                  <span className="font-mono" style={{ color: "var(--accent-blue)" }}>
+                    {c.side} L{c.line}
+                  </span>
+                  {": "}
+                  {c.body}
+                </li>
+              ))}
+            </ul>
+          )}
           {fileThreads.length > 0 && (
             <div
               className="border-t py-1"

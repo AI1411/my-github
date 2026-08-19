@@ -22,7 +22,11 @@ import { PrLlmSummaryPanel } from "../components/pulls/PrLlmSummaryPanel";
 import { PrSummaryCard } from "../components/pulls/PrSummaryCard";
 import { PrSidebar } from "../components/pulls/PrSidebar";
 import { PrFooterBar } from "../components/pulls/PrFooterBar";
-import { FileDiff, type DiffViewMode } from "../components/pulls/FileDiff";
+import {
+  FileDiff,
+  type DiffViewMode,
+  type PendingLineComment,
+} from "../components/pulls/FileDiff";
 import { FileTreePanel } from "../components/pulls/FileTreePanel";
 import { CommitsTab } from "../components/pulls/CommitsTab";
 import { ChecksTab } from "../components/pulls/ChecksTab";
@@ -96,10 +100,15 @@ export default function PullDetailPage() {
   const [viewedSet, setViewedSet] = useState<Set<string>>(() => getViewedSet(pullKey));
   const [readinessKey, setReadinessKey] = useState(0);
   const [reviewComments, setReviewComments] = useState<ReviewCommentSummary[]>([]);
+  const [pendingLineComments, setPendingLineComments] = useState<PendingLineComment[]>([]);
+  const [pendingSubmitBusy, setPendingSubmitBusy] = useState(false);
+  const [pendingSubmitError, setPendingSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     setViewedSet(getViewedSet(pullKey));
     setReviewComments([]);
+    setPendingLineComments([]);
+    setPendingSubmitError(null);
   }, [pullKey]);
 
   useEffect(() => {
@@ -370,6 +379,77 @@ export default function PullDetailPage() {
                   Split
                 </button>
               </div>
+              {pendingLineComments.length > 0 && (
+                <div
+                  className="mx-4 mt-2 flex flex-wrap items-center gap-2 rounded-md border px-3 py-2"
+                  style={{
+                    borderColor: "var(--accent-blue)",
+                    backgroundColor: "color-mix(in srgb, var(--accent-blue) 8%, transparent)",
+                  }}
+                  data-testid="pending-review-bar"
+                >
+                  <span className="text-xs" style={{ color: "var(--text-primary)" }}>
+                    {pendingLineComments.length} pending comment
+                    {pendingLineComments.length === 1 ? "" : "s"}
+                  </span>
+                  <button
+                    type="button"
+                    className="text-xs px-2 py-1 rounded ml-auto"
+                    style={{ color: "var(--text-secondary)" }}
+                    onClick={() => {
+                      setPendingLineComments([]);
+                      setPendingSubmitError(null);
+                    }}
+                    disabled={pendingSubmitBusy}
+                  >
+                    Discard
+                  </button>
+                  <button
+                    type="button"
+                    className="text-xs px-2.5 py-1 rounded"
+                    style={{
+                      backgroundColor: "var(--accent-blue)",
+                      color: "#fff",
+                      opacity: pendingSubmitBusy || !canReview ? 0.5 : 1,
+                    }}
+                    disabled={pendingSubmitBusy || !canReview}
+                    onClick={() => {
+                      if (!owner || !repo || num === undefined) return;
+                      setPendingSubmitBusy(true);
+                      setPendingSubmitError(null);
+                      void invoke("cmd_submit_pull_review", {
+                        owner,
+                        repo,
+                        number: num,
+                        event: "COMMENT",
+                        body: null,
+                        commitId: pull.headSha ?? null,
+                        comments: pendingLineComments.map((c) => ({
+                          path: c.path,
+                          body: c.body,
+                          line: c.line,
+                          side: c.side,
+                        })),
+                      })
+                        .then(() => {
+                          setPendingLineComments([]);
+                          setReadinessKey((k) => k + 1);
+                        })
+                        .catch((e) => {
+                          setPendingSubmitError(e instanceof Error ? e.message : String(e));
+                        })
+                        .finally(() => setPendingSubmitBusy(false));
+                    }}
+                  >
+                    {pendingSubmitBusy ? "Submitting…" : "Submit review comments"}
+                  </button>
+                  {pendingSubmitError && (
+                    <p className="w-full text-xs" style={{ color: "var(--accent-red)" }}>
+                      {pendingSubmitError}
+                    </p>
+                  )}
+                </div>
+              )}
               {filesLoading && (
                 <div className="flex items-center justify-center py-8">
                   <Spinner />
@@ -399,6 +479,14 @@ export default function PullDetailPage() {
                             viewed={viewedSet.has(f.filename)}
                             onToggleViewed={(v) => toggleViewed(f.filename, v)}
                             reviewComments={reviewComments}
+                            pendingComments={pendingLineComments}
+                            canComment={canReview}
+                            onAddPendingComment={(c) =>
+                              setPendingLineComments((prev) => [
+                                ...prev,
+                                { ...c, id: crypto.randomUUID() },
+                              ])
+                            }
                           />
                         </div>
                       ))
