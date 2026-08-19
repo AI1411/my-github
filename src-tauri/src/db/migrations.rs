@@ -14,7 +14,7 @@ pub struct Migration {
 }
 
 /// Initial schema (v1): accounts / repos / pulls / issues / checks /
-/// notifications / sync_meta. Mirrors `docs/requirments.md` §7.
+/// notifications / sync_meta. Mirrors `docs/requirements.md` §7.
 pub const V1_INITIAL: Migration = Migration {
     version: 1,
     name: "v1_initial",

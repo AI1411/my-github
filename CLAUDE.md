@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **my-github** — GitHub cross-repository dashboard desktop application.
 View and act on PRs, Issues, CI, and Notifications across multiple repos in v0.1.0. Common write operations (reviews, merges, issue updates) run in-app via Tauri IPC; ⌘K still opens GitHub for everything else.
 
-Full requirements: `docs/requirments.md` | Task breakdown: `docs/tasks.md`
+Full requirements: `docs/requirements.md` | Task breakdown: `docs/tasks.md`
 
 ## Tech Stack
 
