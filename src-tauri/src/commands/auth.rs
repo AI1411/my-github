@@ -30,15 +30,18 @@ pub async fn cmd_logout(account_id: String) -> Result<(), String> {
 
 #[tauri::command]
 pub async fn cmd_switch_account(account_id: String) -> Result<PatUser, String> {
-    let token = crate::auth::token_store::load_token(&account_id)
-        .ok_or_else(|| "no token for account".to_string())?;
-    crate::auth::token_store::save_last_account_id(&account_id).map_err(|e| e.to_string())?;
-    let client = reqwest::Client::new();
-    let api_base = load_host(&account_id);
-    let (user, _) = validate_pat(&client, &token, api_base.as_deref())
-        .await
-        .map_err(|e| e.to_string())?;
-    Ok(user)
+    crate::sync::account_lock::with_sync_account_lock(|| async {
+        let token = crate::auth::token_store::load_token(&account_id)
+            .ok_or_else(|| "no token for account".to_string())?;
+        crate::auth::token_store::save_last_account_id(&account_id).map_err(|e| e.to_string())?;
+        let client = reqwest::Client::new();
+        let api_base = load_host(&account_id);
+        let (user, _) = validate_pat(&client, &token, api_base.as_deref())
+            .await
+            .map_err(|e| e.to_string())?;
+        Ok(user)
+    })
+    .await
 }
 
 #[tauri::command]
