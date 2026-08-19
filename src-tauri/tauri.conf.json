@@ -25,7 +25,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["dmg", "msi", "nsis"],
+    "targets": ["dmg", "msi", "nsis", "appimage"],
     "publisher": "AI1411",
     "copyright": "Copyright (c) 2026 AI1411",
     "license": "MIT",
