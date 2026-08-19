@@ -20,6 +20,10 @@ describe("SyncStatusBar", () => {
   it("shows Never synced until a sync has completed", async () => {
     render(<SyncStatusBar />);
     expect(screen.getByTestId("sync-status-bar")).toHaveTextContent("Never synced");
+    expect(screen.getByTestId("sync-status-bar")).toHaveAttribute(
+      "title",
+      expect.stringContaining("repositories"),
+    );
     await waitFor(() => {
       expect(screen.getByTestId("sync-status-bar")).toHaveTextContent("4321 remaining");
     });
