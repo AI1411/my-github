@@ -54,6 +54,17 @@ pub fn init_pool(db_path: &Path) -> Result<SqlitePool, DbError> {
     Ok(pool)
 }
 
+/// Run blocking SQLite work off the async runtime (rusqlite pool.get is sync).
+pub async fn run_blocking<F, T>(f: F) -> Result<T, String>
+where
+    F: FnOnce() -> Result<T, String> + Send + 'static,
+    T: Send + 'static,
+{
+    tokio::task::spawn_blocking(f)
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 /// Apply pending migrations from [`MIGRATIONS`] to the database backing
 /// `pool`. Applied versions are recorded in a `schema_migrations` table so
 /// subsequent calls are no-ops.
