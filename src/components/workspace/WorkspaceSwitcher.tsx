@@ -8,6 +8,7 @@ import { useUiStore } from "../../stores/uiStore";
 import { Avatar } from "../common/Avatar";
 import { useAccountAttentionSummaries } from "../../hooks/useAccountAttentionSummaries";
 import { useSettingsShortcut } from "../../hooks/useSettingsShortcut";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { attentionTotal } from "../../lib/accountAttention";
 import {
   accountIndexFromDigitKey,
@@ -94,6 +95,9 @@ export function WorkspaceSwitcher({ onSignOut }: WorkspaceSwitcherProps) {
   switchRef.current = handleSwitchAccount;
   const accountsRef = useRef(accounts);
   accountsRef.current = accounts;
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useFocusTrap(panelRef, isOpen);
 
   useSettingsShortcut("workspaceSwitcher", () => {
     if (isOpen) {
@@ -142,6 +146,10 @@ export function WorkspaceSwitcher({ onSignOut }: WorkspaceSwitcherProps) {
       }}
     >
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Workspace switcher"
         className="m-3 w-64 rounded-xl shadow-xl overflow-hidden"
         style={{
           backgroundColor: "var(--bg-primary)",

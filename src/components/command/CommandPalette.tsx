@@ -11,6 +11,7 @@ import { useSettingsStore, type RecentPullRef } from "../../stores/settingsStore
 import { useUiStore } from "../../stores/uiStore";
 import { useDataStore } from "../../stores/dataStore";
 import { useSettingsShortcut } from "../../hooks/useSettingsShortcut";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 
 const EMPTY_RECENT: RecentPullRef[] = [];
 
@@ -77,6 +78,7 @@ export function CommandPalette() {
   const [remoteResults, setRemoteResults] = useState<CommandItem[]>([]);
   const [searching, setSearching] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchSeqRef = useRef(0);
 
@@ -85,6 +87,8 @@ export function CommandPalette() {
   useSettingsShortcut("commandPalette", toggle, {
     allowInInputs: true,
   });
+
+  useFocusTrap(panelRef, isOpen);
 
   useEffect(() => {
     if (isOpen) {
@@ -407,12 +411,16 @@ export function CommandPalette() {
 
   return (
     <div
-      role="dialog"
+      role="presentation"
       className="fixed inset-0 z-50 flex items-start justify-center pt-20"
       style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
       onClick={close}
     >
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Command palette"
         className="w-full max-w-xl rounded-xl shadow-2xl overflow-hidden"
         style={{
           backgroundColor: "var(--bg-primary)",
