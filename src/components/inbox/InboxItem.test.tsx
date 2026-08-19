@@ -84,13 +84,14 @@ describe("InboxItemRow", () => {
     expect(onSnooze).toHaveBeenCalledWith(item, "tomorrow");
   });
 
-  it("keeps pin and snooze hover-only until the row is selected", () => {
+  it("keeps pin and snooze visible on the selected row", () => {
     const { rerender } = render(
       <InboxItemRow item={item} onTogglePin={vi.fn()} onSnooze={vi.fn()} />,
     );
-    expect(screen.getByLabelText("Pin").parentElement).toHaveClass("hidden", "group-hover:flex");
+    const actions = screen.getByTestId("inbox-row-actions");
+    expect(actions).toHaveClass("opacity-0");
     rerender(<InboxItemRow item={item} selected onTogglePin={vi.fn()} onSnooze={vi.fn()} />);
-    expect(screen.getByLabelText("Pin").parentElement).toHaveClass("flex");
-    expect(screen.getByLabelText("Pin").parentElement).not.toHaveClass("hidden");
+    expect(screen.getByTestId("inbox-row-actions")).toHaveClass("opacity-100");
+    expect(screen.getByLabelText("Pin")).toBeVisible();
   });
 });
