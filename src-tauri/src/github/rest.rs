@@ -62,31 +62,59 @@ pub async fn list_repos_for_authenticated_user(
     Ok(repos)
 }
 
+#[derive(Debug, Clone)]
+pub struct PullListFetch {
+    pub pulls: Vec<PullRequest>,
+    pub not_modified: bool,
+    pub etag: Option<String>,
+}
+
 pub async fn list_pull_requests(
     client: &GithubClient,
     owner: &str,
     repo: &str,
     state: &str,
-) -> Result<Vec<PullRequest>, ClientError> {
+    if_none_match: Option<&str>,
+) -> Result<PullListFetch, ClientError> {
     let mut prs: Vec<PullRequest> = Vec::new();
     let mut page = 1u32;
+    let mut response_etag: Option<String> = None;
 
     loop {
-        let resp = client
-            .get(&format!(
-                "/repos/{}/{}/pulls?state={}&per_page=100&page={}",
-                owner, repo, state, page
-            ))
-            .send()
-            .await?;
+        let path = format!(
+            "/repos/{}/{}/pulls?state={}&per_page=100&page={}",
+            owner, repo, state, page
+        );
+        let mut req = client.get(&path);
+        if page == 1 {
+            if let Some(etag) = if_none_match {
+                req = req.header("If-None-Match", etag);
+            }
+        }
+        let resp = req.send().await?;
 
         let status = resp.status();
+        if status == reqwest::StatusCode::NOT_MODIFIED {
+            return Ok(PullListFetch {
+                pulls: Vec::new(),
+                not_modified: true,
+                etag: if_none_match.map(str::to_string),
+            });
+        }
         if !status.is_success() {
             let message = resp.text().await.unwrap_or_default();
             return Err(ClientError::Api {
                 status: status.as_u16(),
                 message,
             });
+        }
+
+        if page == 1 {
+            response_etag = resp
+                .headers()
+                .get("etag")
+                .and_then(|v| v.to_str().ok())
+                .map(str::to_string);
         }
 
         let has_next = has_next_page(resp.headers());
@@ -99,7 +127,11 @@ pub async fn list_pull_requests(
         page += 1;
     }
 
-    Ok(prs)
+    Ok(PullListFetch {
+        pulls: prs,
+        not_modified: false,
+        etag: response_etag,
+    })
 }
 
 pub async fn list_issues(
@@ -1437,6 +1469,20 @@ mod tests {
         // Type-check: simply referencing the function ensures it compiles
         // with the expected signature.
         let _ = get_rate_limit;
+    }
+
+    #[test]
+    fn list_pull_requests_request_includes_if_none_match_on_first_page() {
+        let client = GithubClient::new("gho_test");
+        let req = client
+            .get("/repos/octocat/hello/pulls?state=open&per_page=100&page=1")
+            .header("If-None-Match", "W/\"abc\"")
+            .build()
+            .unwrap();
+        assert_eq!(
+            req.headers().get("If-None-Match").unwrap().to_str().unwrap(),
+            "W/\"abc\""
+        );
     }
 
     #[test]

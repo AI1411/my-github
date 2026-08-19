@@ -1,3 +1,4 @@
+use crate::cache::meta::{get_etag, set_etag, Scope};
 use crate::cache::pulls::persist_repo_pulls;
 use crate::cache::repos::WatchedRepo;
 use crate::db::SqlitePool;
@@ -19,10 +20,29 @@ pub async fn sync_pulls(
         let Some((owner, name)) = parse_repo_full_name(repo, &mut errors) else {
             continue;
         };
-        let result = list_pull_requests(client, owner, name, "open")
+        let cached_etag = get_etag(pool, Scope::Pulls, &repo.full_name)
+            .ok()
+            .flatten();
+        let fetch = list_pull_requests(client, owner, name, "open", cached_etag.as_deref())
             .await
             .map_err(|err| err.to_string());
-        items_written += record_pull_result(pool, repo, result, now, &mut errors);
+        match fetch {
+            Ok(response) if response.not_modified => {}
+            Ok(response) => {
+                if let Some(etag) = response.etag {
+                    let _ = set_etag(pool, Scope::Pulls, &repo.full_name, &etag);
+                }
+                items_written +=
+                    record_pull_result(pool, repo, Ok(response.pulls), now, &mut errors);
+            }
+            Err(message) => {
+                errors.push(SyncErrorSummary {
+                    repo: Some(repo.full_name.clone()),
+                    operation: "list_pull_requests".to_string(),
+                    message,
+                });
+            }
+        }
     }
 
     pull_report(repos.len(), items_written, errors)
