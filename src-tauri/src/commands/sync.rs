@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager, Runtime};
+use tauri::{AppHandle, Emitter, Manager, Runtime};
 
 use crate::auth::pat::validate_pat;
 use crate::auth::token_store::{load_last_account_id, load_token};
@@ -7,7 +7,7 @@ use crate::db::SqlitePool;
 use crate::github::client::RateLimitInfo;
 use crate::sync::engine::SyncEngine;
 use crate::sync::status::get_sync_status;
-use crate::sync::types::{SyncReport, SyncScope, SyncStatus};
+use crate::sync::types::{is_auth_expired_message, SyncReport, SyncScope, SyncStatus};
 
 /// Cap used when push-assisted mode is on and the window is focused.
 pub const PUSH_ASSISTED_FOCUSED_POLL_SECONDS: u64 = 30;
@@ -91,13 +91,30 @@ pub async fn run_sync_for_scopes<R: Runtime>(
     .await
 }
 
+fn emit_auth_expired_if_needed<R: Runtime>(app: &AppHandle<R>, report: &SyncReport) {
+    if report.has_auth_expired_error() {
+        let _ = app.emit("auth-expired", ());
+    }
+}
+
 #[tauri::command]
 pub async fn cmd_sync_now<R: Runtime>(app: AppHandle<R>) -> Result<SyncNowResult, String> {
-    let report = run_sync_for_scopes(
+    let report = match run_sync_for_scopes(
         &app,
         &[SyncScope::Repositories, SyncScope::Pulls, SyncScope::Issues],
     )
-    .await?;
+    .await
+    {
+        Ok(report) => report,
+        Err(err) => {
+            if is_auth_expired_message(&err) {
+                let _ = app.emit("auth-expired", ());
+            }
+            return Err(err);
+        }
+    };
+
+    emit_auth_expired_if_needed(&app, &report);
 
     Ok(SyncNowResult {
         rate_limit: report.rate_limit.clone(),
@@ -192,5 +209,37 @@ mod tests {
         let _ = cmd_sync_now::<tauri::Wry>;
         let _ = cmd_get_sync_status::<tauri::Wry>;
         let _ = cmd_get_sync_mode;
+    }
+
+    #[test]
+    fn is_auth_expired_message_detects_github_401() {
+        assert!(is_auth_expired_message(
+            "GitHub API error (HTTP 401): Bad credentials"
+        ));
+        assert!(is_auth_expired_message("invalid or expired PAT (HTTP 401)"));
+        assert!(!is_auth_expired_message("GitHub API error (HTTP 500): unavailable"));
+    }
+
+    #[test]
+    fn sync_report_has_auth_expired_error_when_step_failed_with_401() {
+        use crate::sync::types::{SyncErrorSummary, SyncStepReport, SyncStepStatus};
+
+        let report = SyncReport {
+            started_at_epoch: 1,
+            finished_at_epoch: 2,
+            rate_limit: None,
+            steps: vec![SyncStepReport {
+                scope: SyncScope::Pulls,
+                status: SyncStepStatus::Failed,
+                repos_seen: 1,
+                items_written: 0,
+                errors: vec![SyncErrorSummary {
+                    repo: Some("octocat/hello".to_string()),
+                    operation: "list_pull_requests".to_string(),
+                    message: "GitHub API error (HTTP 401): Bad credentials".to_string(),
+                }],
+            }],
+        };
+        assert!(report.has_auth_expired_error());
     }
 }
