@@ -38,3 +38,6 @@ target/
 *.njsproj
 *.sln
 *.sw?
+
+# Git worktrees (local isolated checkouts)
+.worktrees/

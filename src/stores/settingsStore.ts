@@ -42,7 +42,10 @@ export type ShortcutId =
   | "snooze"
   | "snoozeLast"
   | "nextQueue"
-  | "syncNow";
+  | "syncNow"
+  | "approvePull"
+  | "requestChanges"
+  | "mergePull";
 
 export interface ShortcutSetting {
   label: string;
@@ -123,6 +126,9 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutSetting> = {
   snoozeLast: { label: "Snooze last", keys: "Shift+H" },
   nextQueue: { label: "Next in review queue", keys: "]" },
   syncNow: { label: "Sync now", keys: "Cmd+R" },
+  approvePull: { label: "Approve pull", keys: "A" },
+  requestChanges: { label: "Request changes", keys: "R" },
+  mergePull: { label: "Merge pull", keys: "M" },
 };
 
 const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
