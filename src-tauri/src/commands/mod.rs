@@ -9,6 +9,7 @@ pub mod issues;
 pub mod limits;
 pub mod pulls;
 pub mod releases;
+pub mod repos;
 pub mod search;
 pub mod sync;
 pub mod system;

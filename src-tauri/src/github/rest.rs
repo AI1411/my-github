@@ -1,9 +1,9 @@
 use crate::github::client::{ClientError, GithubClient, RateLimitInfo};
 use crate::github::types::{
     CheckAnnotation, CheckRun, CheckRunsResponse, CodeSearchItem, CodeSearchResponse, Issue,
-    IssueComment, Notification, PullCommit, PullRequest, PullRequestFile, PullReviewComment,
-    Reaction, Release, RepoSearchItem, RepoSearchResponse, Repository, Review, SearchIssueItem,
-    SearchIssuesResponse, TimelineEvent, WorkflowRun, WorkflowRunsResponse,
+    IssueComment, Notification, Organization, PullCommit, PullRequest, PullRequestFile,
+    PullReviewComment, Reaction, Release, RepoSearchItem, RepoSearchResponse, Repository, Review,
+    SearchIssueItem, SearchIssuesResponse, TimelineEvent, WorkflowRun, WorkflowRunsResponse,
 };
 use serde::Serialize;
 
@@ -37,6 +37,105 @@ pub async fn list_repos_for_authenticated_user(
     loop {
         let resp = client
             .get(&format!("/user/repos?per_page=100&page={}", page))
+            .send()
+            .await?;
+
+        let status = resp.status();
+        if !status.is_success() {
+            let message = resp.text().await.unwrap_or_default();
+            return Err(ClientError::Api {
+                status: status.as_u16(),
+                message,
+            });
+        }
+
+        let has_next = has_next_page(resp.headers());
+        let page_repos: Vec<Repository> = resp.json().await?;
+        repos.extend(page_repos);
+
+        if !has_next {
+            break;
+        }
+        page += 1;
+    }
+
+    Ok(repos)
+}
+
+pub async fn list_user_orgs(client: &GithubClient) -> Result<Vec<Organization>, ClientError> {
+    let mut orgs: Vec<Organization> = Vec::new();
+    let mut page = 1u32;
+
+    loop {
+        let resp = client
+            .get(&format!("/user/orgs?per_page=100&page={page}"))
+            .send()
+            .await?;
+
+        let status = resp.status();
+        if !status.is_success() {
+            let message = resp.text().await.unwrap_or_default();
+            return Err(ClientError::Api {
+                status: status.as_u16(),
+                message,
+            });
+        }
+
+        let has_next = has_next_page(resp.headers());
+        let page_orgs: Vec<Organization> = resp.json().await?;
+        orgs.extend(page_orgs);
+
+        if !has_next {
+            break;
+        }
+        page += 1;
+    }
+
+    Ok(orgs)
+}
+
+pub async fn list_org_repos(
+    client: &GithubClient,
+    org: &str,
+) -> Result<Vec<Repository>, ClientError> {
+    let mut repos: Vec<Repository> = Vec::new();
+    let mut page = 1u32;
+
+    loop {
+        let resp = client
+            .get(&format!("/orgs/{org}/repos?per_page=100&page={page}"))
+            .send()
+            .await?;
+
+        let status = resp.status();
+        if !status.is_success() {
+            let message = resp.text().await.unwrap_or_default();
+            return Err(ClientError::Api {
+                status: status.as_u16(),
+                message,
+            });
+        }
+
+        let has_next = has_next_page(resp.headers());
+        let page_repos: Vec<Repository> = resp.json().await?;
+        repos.extend(page_repos);
+
+        if !has_next {
+            break;
+        }
+        page += 1;
+    }
+
+    Ok(repos)
+}
+
+pub async fn list_starred_repos(client: &GithubClient) -> Result<Vec<Repository>, ClientError> {
+    let mut repos: Vec<Repository> = Vec::new();
+    let mut page = 1u32;
+
+    loop {
+        let resp = client
+            .get(&format!("/user/starred?per_page=100&page={page}"))
             .send()
             .await?;
 
@@ -1714,6 +1813,28 @@ mod tests {
             format!("/repos/{}/{}/issues/{}", "o", "r", 7),
             "/repos/o/r/issues/7"
         );
+    }
+
+    #[test]
+    fn list_user_orgs_builds_correct_path() {
+        let page = 1u32;
+        let path = format!("/user/orgs?per_page=100&page={page}");
+        assert_eq!(path, "/user/orgs?per_page=100&page=1");
+    }
+
+    #[test]
+    fn list_org_repos_builds_correct_path() {
+        let org = "github";
+        let page = 2u32;
+        let path = format!("/orgs/{org}/repos?per_page=100&page={page}");
+        assert_eq!(path, "/orgs/github/repos?per_page=100&page=2");
+    }
+
+    #[test]
+    fn list_starred_repos_builds_correct_path() {
+        let page = 1u32;
+        let path = format!("/user/starred?per_page=100&page={page}");
+        assert_eq!(path, "/user/starred?per_page=100&page=1");
     }
 
     #[test]

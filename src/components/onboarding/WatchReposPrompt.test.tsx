@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import { useSettingsStore } from "../../stores/settingsStore";
@@ -51,5 +51,31 @@ describe("WatchReposPrompt", () => {
     fireEvent.click(await screen.findByRole("button", { name: /octocat\/hello/ }));
     expect(useSettingsStore.getState().watchedRepositories).toEqual(["octocat/hello"]);
     expect(screen.queryByRole("dialog", { name: "Watch repositories" })).not.toBeInTheDocument();
+  });
+
+  it("bulk-adds starred repositories from the Starred tab", async () => {
+    (invoke as ReturnType<typeof vi.fn>).mockImplementation((cmd: string) => {
+      if (cmd === "cmd_list_starred_repos") {
+        return Promise.resolve(["octocat/hello", "octocat/world"]);
+      }
+      return Promise.resolve([]);
+    });
+
+    render(<WatchReposPrompt />);
+    fireEvent.click(screen.getByRole("tab", { name: "Starred" }));
+
+    fireEvent.click(await screen.findByLabelText("octocat/hello"));
+    fireEvent.click(screen.getByLabelText("octocat/world"));
+    fireEvent.click(screen.getByRole("button", { name: "Add selected" }));
+
+    expect(useSettingsStore.getState().watchedRepositories).toEqual(["octocat/hello", "octocat/world"]);
+    expect(screen.queryByRole("dialog", { name: "Watch repositories" })).not.toBeInTheDocument();
+  });
+
+  it("shows source tabs for search, starred, and org", () => {
+    render(<WatchReposPrompt />);
+    expect(screen.getByRole("tab", { name: "Search" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Starred" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Org" })).toBeInTheDocument();
   });
 });

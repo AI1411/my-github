@@ -74,6 +74,12 @@ describe("settingsStore", () => {
     expect(useSettingsStore.getState().watchedRepositories).toEqual([]);
   });
 
+  it("bulk-adds watched repositories without duplicates", () => {
+    useSettingsStore.getState().addWatchedRepositories(["AI1411/a", " AI1411/b ", "AI1411/a"]);
+
+    expect(useSettingsStore.getState().watchedRepositories).toEqual(["AI1411/a", "AI1411/b"]);
+  });
+
   it("dismisses first-run watch onboarding", () => {
     expect(useSettingsStore.getState().watchOnboardingDismissed).toBe(false);
     useSettingsStore.getState().setWatchOnboardingDismissed(true);

@@ -32,6 +32,11 @@ pub struct Repository {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Organization {
+    pub login: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PrRef {
     pub label: String,
     #[serde(rename = "ref")]
