@@ -213,41 +213,101 @@ struct CachedRow {
     repo_full_name: String,
 }
 
-fn row_to_summary(r: CachedRow) -> IssueSummary {
-    let parsed: Option<Issue> = serde_json::from_str(&r.raw_json).ok();
-    let (html_url, body, labels, assignees, milestone, comments, reactions) = match parsed.as_ref()
-    {
-        Some(i) => (
-            Some(i.html_url.clone()),
-            i.body.clone(),
-            i.labels
-                .iter()
-                .map(|l| LabelInfo {
-                    name: l.name.clone(),
-                    color: l.color.clone(),
-                })
-                .collect(),
-            i.assignees
-                .iter()
-                .map(|u| AssigneeInfo {
-                    login: u.login.clone(),
-                    avatar_url: u.avatar_url.clone(),
-                })
-                .collect(),
-            i.milestone.as_ref().map(|m| m.title.clone()),
-            i.comments,
-            reaction_infos_from_counts(i.reactions.as_ref()),
-        ),
-        None => (
-            None,
-            None,
-            Vec::new(),
-            Vec::new(),
-            None,
-            0,
-            reaction_infos_from_counts(None),
-        ),
+fn issue_fields_from_raw_json(
+    raw: &str,
+) -> (
+    Option<String>,
+    Option<String>,
+    Vec<LabelInfo>,
+    Vec<AssigneeInfo>,
+    Option<String>,
+    u32,
+    Vec<ReactionInfo>,
+) {
+    let value: serde_json::Value = match serde_json::from_str(raw) {
+        Ok(v) => v,
+        Err(_) => {
+            return (
+                None,
+                None,
+                Vec::new(),
+                Vec::new(),
+                None,
+                0,
+                reaction_infos_from_counts(None),
+            );
+        }
     };
+    let html_url = value
+        .get("html_url")
+        .and_then(|v| v.as_str())
+        .map(String::from);
+    let body = value
+        .get("body")
+        .and_then(|v| v.as_str())
+        .map(String::from);
+    let labels = value
+        .get("labels")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|l| {
+                    let name = l.get("name").and_then(|n| n.as_str())?;
+                    let color = l
+                        .get("color")
+                        .and_then(|c| c.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    Some(LabelInfo {
+                        name: name.to_string(),
+                        color,
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let assignees = value
+        .get("assignees")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|u| {
+                    let login = u.get("login").and_then(|l| l.as_str())?;
+                    let avatar_url = u
+                        .get("avatar_url")
+                        .and_then(|a| a.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    Some(AssigneeInfo {
+                        login: login.to_string(),
+                        avatar_url,
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let milestone = value
+        .get("milestone")
+        .and_then(|m| m.get("title"))
+        .and_then(|t| t.as_str())
+        .map(String::from);
+    let comments = value
+        .get("comments")
+        .and_then(|c| c.as_u64())
+        .unwrap_or(0) as u32;
+    let reactions = value
+        .get("reactions")
+        .and_then(|r| serde_json::from_value(r.clone()).ok())
+        .map(|counts: crate::github::types::ReactionCounts| {
+            reaction_infos_from_counts(Some(&counts))
+        })
+        .unwrap_or_else(|| reaction_infos_from_counts(None));
+    (html_url, body, labels, assignees, milestone, comments, reactions)
+}
+
+fn row_to_summary(r: CachedRow) -> IssueSummary {
+    let (html_url, body, labels, assignees, milestone, comments, reactions) =
+        issue_fields_from_raw_json(&r.raw_json);
     IssueSummary {
         id: r.number,
         number: r.number,

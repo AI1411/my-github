@@ -132,23 +132,53 @@ struct CachedRow {
     repo_full_name: String,
 }
 
-fn row_to_summary(r: CachedRow) -> PullSummary {
-    let parsed: Option<PullRequest> = serde_json::from_str(&r.raw_json).ok();
-    let (html_url, merged_at, reviewers, labels) = match parsed.as_ref() {
-        Some(pr) => (
-            Some(pr.html_url.clone()),
-            pr.merged_at.clone(),
-            pr.requested_reviewers
-                .iter()
-                .map(|u| ReviewerInfo {
-                    login: u.login.clone(),
-                    avatar_url: u.avatar_url.clone(),
-                })
-                .collect(),
-            pr.labels.iter().map(|label| label.name.clone()).collect(),
-        ),
-        None => (None, None, Vec::new(), Vec::new()),
+fn pull_fields_from_raw_json(raw: &str) -> (Option<String>, Option<String>, Vec<ReviewerInfo>, Vec<String>) {
+    let value: serde_json::Value = match serde_json::from_str(raw) {
+        Ok(v) => v,
+        Err(_) => return (None, None, Vec::new(), Vec::new()),
     };
+    let html_url = value
+        .get("html_url")
+        .and_then(|v| v.as_str())
+        .map(String::from);
+    let merged_at = value
+        .get("merged_at")
+        .and_then(|v| v.as_str())
+        .map(String::from);
+    let reviewers = value
+        .get("requested_reviewers")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|u| {
+                    let login = u.get("login").and_then(|l| l.as_str())?;
+                    let avatar_url = u
+                        .get("avatar_url")
+                        .and_then(|a| a.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    Some(ReviewerInfo {
+                        login: login.to_string(),
+                        avatar_url,
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let labels = value
+        .get("labels")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|l| l.get("name").and_then(|n| n.as_str()).map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
+    (html_url, merged_at, reviewers, labels)
+}
+
+fn row_to_summary(r: CachedRow) -> PullSummary {
+    let (html_url, merged_at, reviewers, labels) = pull_fields_from_raw_json(&r.raw_json);
     PullSummary {
         id: r.number,
         number: r.number,
