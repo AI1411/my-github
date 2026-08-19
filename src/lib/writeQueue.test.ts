@@ -55,11 +55,17 @@ describe("writeQueue persistence", () => {
 
   it("appends multiple writes in order", () => {
     const storage = memoryStorage();
-    enqueueWrite({ command: "cmd_a", args: { n: 1 } }, storage);
-    enqueueWrite({ command: "cmd_b", args: { n: 2 } }, storage);
+    enqueueWrite(
+      { command: "cmd_update_issue", args: { owner: "o", repo: "r", number: 1 } },
+      storage,
+    );
+    enqueueWrite(
+      { command: "cmd_update_issue", args: { owner: "o", repo: "r", number: 2 } },
+      storage,
+    );
 
     const loaded = loadWriteQueue(storage);
-    expect(loaded.map((e) => e.command)).toEqual(["cmd_a", "cmd_b"]);
+    expect(loaded.map((e) => e.args.number)).toEqual([1, 2]);
   });
 
   it("ignores corrupt stored JSON", () => {
@@ -69,8 +75,14 @@ describe("writeQueue persistence", () => {
 
   it("discards a queued write by id", () => {
     const storage = memoryStorage();
-    const a = enqueueWrite({ command: "cmd_a", args: {} }, storage);
-    const b = enqueueWrite({ command: "cmd_b", args: {} }, storage);
+    const a = enqueueWrite(
+      { command: "cmd_update_issue", args: { owner: "o", repo: "r", number: 1 } },
+      storage,
+    );
+    const b = enqueueWrite(
+      { command: "cmd_update_issue", args: { owner: "o", repo: "r", number: 2 } },
+      storage,
+    );
 
     discardWrite(a.id, storage);
     expect(loadWriteQueue(storage).map((e) => e.id)).toEqual([b.id]);
@@ -117,7 +129,7 @@ describe("flushWriteQueue", () => {
 
   it("skips flush when navigator reports offline", async () => {
     const storage = memoryStorage();
-    enqueueWrite({ command: "cmd_update_issue", args: {} }, storage);
+    enqueueWrite({ command: "cmd_update_issue", args: { owner: "o", repo: "r", number: 1 } }, storage);
     const invoke = vi.fn();
 
     const result = await flushWriteQueue({
