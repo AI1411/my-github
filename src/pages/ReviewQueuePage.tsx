@@ -61,6 +61,7 @@ export default function ReviewQueuePage() {
   const { data, loading, error } = useInboxQuery();
   const pulls = useDataStore((s) => s.pulls);
   const staleThresholds = useSettingsStore((s) => s.staleThresholds);
+  const hideBotReviewRequests = useSettingsStore((s) => s.hideBotReviewRequests);
   const [index, setIndex] = useState(0);
 
   const queue = useMemo(
@@ -69,8 +70,9 @@ export default function ReviewQueuePage() {
         reviewRequests: data?.reviewRequests ?? [],
         pulls,
         thresholds: staleThresholds,
+        hideBotReviewRequests,
       }),
-    [data?.reviewRequests, pulls, staleThresholds],
+    [data?.reviewRequests, pulls, staleThresholds, hideBotReviewRequests],
   );
 
   useEffect(() => {

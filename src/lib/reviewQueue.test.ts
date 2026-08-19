@@ -140,6 +140,41 @@ describe("buildReviewQueue", () => {
 
     expect(queue.map((e) => e.item.id)).toEqual(["older", "newer"]);
   });
+
+  it("excludes bot-authored review requests by default", () => {
+    const human = reviewRequest({ id: "human", number: 1 });
+    const dependabot = reviewRequest({ id: "bot", number: 2 });
+
+    const queue = buildReviewQueue({
+      reviewRequests: [human, dependabot],
+      pulls: [
+        pull({ number: 1, author: "octocat" }),
+        pull({ number: 2, author: "dependabot[bot]" }),
+      ],
+      thresholds: DEFAULT_STALE_THRESHOLDS,
+      now,
+    });
+
+    expect(queue.map((e) => e.item.id)).toEqual(["human"]);
+  });
+
+  it("includes bot-authored review requests when hideBotReviewRequests is false", () => {
+    const human = reviewRequest({ id: "human", number: 1 });
+    const dependabot = reviewRequest({ id: "bot", number: 2 });
+
+    const queue = buildReviewQueue({
+      reviewRequests: [human, dependabot],
+      pulls: [
+        pull({ number: 1, author: "octocat" }),
+        pull({ number: 2, author: "dependabot[bot]" }),
+      ],
+      thresholds: DEFAULT_STALE_THRESHOLDS,
+      hideBotReviewRequests: false,
+      now,
+    });
+
+    expect(queue.map((e) => e.item.id)).toEqual(["human", "bot"]);
+  });
 });
 
 describe("nextReviewQueueIndex", () => {
