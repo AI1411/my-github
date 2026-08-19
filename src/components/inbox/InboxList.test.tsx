@@ -8,7 +8,7 @@ const empty: InboxData = { reviewRequests: [], ciFailures: [], mentions: [] };
 describe("InboxList", () => {
   it("shows empty state when all sections are empty", () => {
     render(<InboxList data={empty} selectedId={null} onSelect={() => {}} />);
-    expect(screen.getByText("You're all caught up")).toBeInTheDocument();
+    expect(screen.getByText("Inbox zero")).toBeInTheDocument();
   });
 
   it("renders Review Requests section with items", () => {
