@@ -32,7 +32,7 @@ struct RawUser {
 
 const REQUIRED_SCOPES: &[&str] = &["repo", "read:user", "notifications"];
 
-/// Checks that all required OAuth scopes are present.
+/// Checks that all required OAuth scopes are present on classic PATs.
 /// Returns Ok if scopes is empty (fine-grained PAT passes through).
 pub fn check_required_scopes(scopes: &[String]) -> Result<(), String> {
     if scopes.is_empty() {

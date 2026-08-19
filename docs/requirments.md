@@ -201,7 +201,8 @@ CREATE TABLE sync_meta (
 ### 8.1 認証
 
 - PAT (Personal Access Token)
-- 必須 scopes: `repo`, `read:org`, `read:user`, `notifications`, `workflow`
+- 必須 scopes (classic PAT): `repo`, `read:user`, `notifications`
+- fine-grained PAT は `X-OAuth-Scopes` が空の場合あり — その場合はスコープ検証をスキップ（権限はトークン設定に依存）
 - token は OS keychain に保存 (keyring crate)、ファイル保存しない
 - 複数アカウントを同時保持、切替は ⌘T でモーダル
 - token 無効化検知 (401) 時は Empty State の "auth expired" 画面に遷移
