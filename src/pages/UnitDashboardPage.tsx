@@ -80,7 +80,7 @@ export default function UnitDashboardPage() {
     <div className="h-full flex flex-col">
       <Toolbar
         title="Dashboards"
-        subtitle="Open PRs · Issues · CI failures from cache"
+        subtitle="Repo and org summaries from cached PRs, issues, and CI"
       />
 
       <div
@@ -189,10 +189,6 @@ export default function UnitDashboardPage() {
               <CountCard label="Open Issues" value={counts.openIssues} />
               <CountCard label="CI Failures" value={counts.ciFailures} tone="danger" />
             </div>
-
-            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-              Team dashboards — coming soon.
-            </p>
           </div>
         )}
       </div>
