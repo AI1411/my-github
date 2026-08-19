@@ -57,4 +57,41 @@ mod tests {
         assert_eq!(results.len(), 2);
         assert_ne!(results[0], results[1]);
     }
+
+    #[tokio::test]
+    async fn sync_and_switch_paths_share_account_lock() {
+        let order = Arc::new(AtomicUsize::new(0));
+        let seen = Arc::new(tokio::sync::Mutex::new(Vec::new()));
+
+        let sync_task = {
+            let order = order.clone();
+            let seen = seen.clone();
+            tokio::spawn(async move {
+                with_sync_account_lock(|| async {
+                    let n = order.fetch_add(1, Ordering::SeqCst);
+                    tokio::time::sleep(Duration::from_millis(40)).await;
+                    seen.lock().await.push(("sync", n));
+                })
+                .await
+            })
+        };
+        let switch_task = {
+            let order = order.clone();
+            let seen = seen.clone();
+            tokio::spawn(async move {
+                with_sync_account_lock(|| async {
+                    let n = order.fetch_add(1, Ordering::SeqCst);
+                    seen.lock().await.push(("switch", n));
+                })
+                .await
+            })
+        };
+
+        sync_task.await.unwrap();
+        switch_task.await.unwrap();
+
+        let results = seen.lock().await.clone();
+        assert_eq!(results.len(), 2);
+        assert_ne!(results[0].1, results[1].1);
+    }
 }
