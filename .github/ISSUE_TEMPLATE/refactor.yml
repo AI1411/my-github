@@ -1,135 +1,119 @@
-name: 🔧 リファクタリング
-description: コード品質改善、技術的負債の解消
+name: 🔧 Refactor / tech debt
+description: Improve code quality without changing user-visible behavior
 title: "[Refactor] "
 labels: ["refactor"]
 body:
   - type: markdown
     attributes:
       value: |
-        リファクタリング提案ありがとうございます。以下の情報を提供してください。
+        Use this template for internal improvements in the Tauri (Rust) backend or React frontend.
 
   - type: textarea
     id: current-state
     attributes:
-      label: 現状の問題
-      description: 現在のコードのどこに問題がありますか？
+      label: Current pain
       placeholder: |
-        例）
-        - `backend/internal/handler/disaster_handler.go` のメソッドが肥大化している（500行超）
-        - 複雑な条件分岐が多く、可読性が低い
-        - テストが書きにくい構造になっている
+        e.g.
+        - `src-tauri/src/commands/pulls.rs` mixes caching and GitHub fetch logic
+        - Duplicate DTO mapping between Rust and TypeScript
     validations:
       required: true
 
   - type: textarea
     id: proposed-change
     attributes:
-      label: 提案する改善策
-      description: どのようにリファクタリングしますか？
+      label: Proposed change
       placeholder: |
-        例）
-        - ハンドラーを複数のサブハンドラーに分割
-        - 共通ロジックをユースケース層に移動
-        - バリデーションロジックを独立した関数に抽出
+        e.g.
+        - Extract a `PullCacheService` used by list + detail commands
+        - Share Zod schemas via a single `shared/types` module
     validations:
       required: true
 
   - type: dropdown
     id: scope
     attributes:
-      label: 影響範囲
-      description: リファクタリングの影響範囲はどこですか？
+      label: Scope
       options:
-        - 単一ファイル
-        - 単一モジュール/パッケージ
-        - 複数モジュール
-        - システム全体
+        - Single file
+        - Rust crate (`src-tauri`)
+        - Frontend (`src/`)
+        - Cross-cutting (IPC boundary)
+        - Tooling / CI
     validations:
       required: true
 
   - type: dropdown
     id: refactor-type
     attributes:
-      label: リファクタリングの種類
-      description: 主にどのような改善ですか？
+      label: Refactor type
       options:
-        - コード構造の改善
-        - パフォーマンス最適化
-        - セキュリティ強化
-        - テスタビリティ向上
-        - 命名・可読性改善
-        - 依存関係の整理
-        - その他
+        - Structure / modularity
+        - Performance
+        - Testability
+        - Naming / readability
+        - Dependency cleanup
+        - Error handling
+        - Other
     validations:
       required: true
 
   - type: textarea
     id: benefits
     attributes:
-      label: 期待される効果
-      description: このリファクタリングによってどのようなメリットがありますか？
+      label: Expected benefits
       placeholder: |
-        例）
-        - コードの可読性が向上し、新規メンバーのオンボーディングが容易になる
-        - テストカバレッジを80%→95%に向上できる
-        - 処理速度が30%改善される
+        - Easier to add new Tauri commands
+        - Fewer stale-response bugs in React Query hooks
     validations:
       required: true
 
   - type: textarea
     id: affected-files
     attributes:
-      label: 変更対象ファイル
-      description: 主にどのファイルを変更しますか？
+      label: Likely files
       placeholder: |
-        例）
-        - backend/internal/handler/disaster_handler.go
-        - backend/internal/usecase/disaster_usecase.go
-        - backend/internal/handler/handler_test.go
+        - src-tauri/src/cache/pulls.rs
+        - src/features/pulls/usePullsQuery.ts
     validations:
       required: false
 
   - type: checkboxes
     id: breaking-changes
     attributes:
-      label: 破壊的変更
-      description: このリファクタリングは既存機能に影響しますか？（いずれも選択しない場合は「破壊的変更なし（内部実装のみ）」とみなします）
+      label: Breaking changes
+      description: Leave unchecked if behavior is unchanged.
       options:
-        - label: API仕様の変更が必要
-        - label: データベーススキーマの変更が必要
-        - label: 環境変数の変更が必要
-        - label: フロントエンドの変更が必要
+        - label: Tauri IPC command signature changes
+        - label: SQLite migration required
+        - label: Settings / persisted state format changes
+        - label: Frontend route or store shape changes
 
   - type: textarea
     id: testing-strategy
     attributes:
-      label: テスト戦略
-      description: どのようにリファクタリングの安全性を確保しますか？
+      label: Verification plan
       placeholder: |
-        例）
-        - 既存のユニットテストが全てパスすることを確認
-        - リファクタリング後のテストカバレッジを維持/向上
-        - E2Eテストで主要フローを検証
+        - `cargo test --manifest-path src-tauri/Cargo.toml`
+        - `pnpm test`
+        - Manual smoke test in `pnpm tauri dev`
     validations:
       required: false
 
   - type: dropdown
     id: urgency
     attributes:
-      label: 緊急度
-      description: このリファクタリングの緊急度はどのくらいですか？
+      label: Urgency
       options:
-        - High（技術的負債が開発を阻害している）
-        - Medium（徐々に対応すべき）
-        - Low（余裕があるときに対応）
+        - High (blocking other work)
+        - Medium (schedule soon)
+        - Low (when convenient)
     validations:
       required: true
 
   - type: textarea
     id: additional
     attributes:
-      label: 追加情報
-      description: その他、リファクタリングに役立つ情報があれば記載してください
-      placeholder: 参考記事、ベストプラクティス、設計パターンなど
+      label: Additional context
     validations:
       required: false
