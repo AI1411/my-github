@@ -46,6 +46,27 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm exec tsc --noEmit
+
+      - name: Vitest
+        run: pnpm test
+
+      - name: Rust fmt
+        working-directory: src-tauri
+        run: cargo fmt --check
+
+      - name: Rust clippy
+        working-directory: src-tauri
+        run: cargo clippy -- -D warnings
+
+      - name: Rust test
+        working-directory: src-tauri
+        run: cargo test
+
       - name: Build frontend
         run: pnpm build
 
