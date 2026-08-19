@@ -306,3 +306,108 @@ describe("InboxPage snooze shortcuts", () => {
     });
   });
 });
+
+const activeAccountSummary = {
+  login: "alice",
+  avatarUrl: null,
+  isActive: true,
+  reviewRequests: 0,
+  ciFailures: 0,
+  mentions: 0,
+};
+
+const otherAccountSummary = {
+  login: "bob",
+  avatarUrl: null,
+  isActive: false,
+  reviewRequests: 0,
+  ciFailures: 1,
+  mentions: 0,
+};
+
+const bobCrossAccountItem = {
+  id: "ci-b/r-2",
+  kind: "ci_failure",
+  repo: "b/r",
+  number: 2,
+  title: "Build broken",
+  htmlUrl: "https://github.com/b/r/pull/2",
+  updatedAt: new Date().toISOString(),
+  unread: true,
+  pinned: false,
+  accountLogin: "bob",
+  accountAvatarUrl: null,
+  isActiveAccount: false,
+};
+
+describe("InboxPage cross-account inbox", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    useAuthStore.setState({ user: { login: "alice", avatar_url: "" }, status: "authenticated" });
+    useDataStore.setState({ pulls: [] });
+  });
+
+  function mockCrossAccountInvoke() {
+    (invoke as ReturnType<typeof vi.fn>).mockImplementation(async (cmd: string) => {
+      if (cmd === "cmd_get_inbox") {
+        return { reviewRequests: [], ciFailures: [], mentions: [] };
+      }
+      if (cmd === "cmd_get_account_attention_summaries") {
+        return [activeAccountSummary, otherAccountSummary];
+      }
+      if (cmd === "cmd_get_cross_account_inbox") {
+        return [bobCrossAccountItem];
+      }
+      if (cmd === "cmd_switch_account") {
+        return { login: "bob", avatar_url: "" };
+      }
+      return null;
+    });
+  }
+
+  it("does not show the All accounts toggle with a single cached account", async () => {
+    (invoke as ReturnType<typeof vi.fn>).mockImplementation(async (cmd: string) => {
+      if (cmd === "cmd_get_inbox") return { reviewRequests: [], ciFailures: [], mentions: [] };
+      if (cmd === "cmd_get_account_attention_summaries") return [activeAccountSummary];
+      return null;
+    });
+    renderInbox();
+    await waitFor(() => expect(screen.getByText("Inbox zero")).toBeInTheDocument());
+    expect(screen.queryByText("All accounts")).not.toBeInTheDocument();
+  });
+
+  it("defaults the All accounts toggle on and merges items across cached accounts", async () => {
+    mockCrossAccountInvoke();
+    renderInbox();
+    const toggle = await screen.findByRole("checkbox", { name: "All accounts" });
+    expect(toggle).toBeChecked();
+    expect(await screen.findByText("Build broken")).toBeInTheDocument();
+    expect(screen.getByText("@bob")).toBeInTheDocument();
+  });
+
+  it("hides cross-account items and restores the single-account view when toggled off", async () => {
+    mockCrossAccountInvoke();
+    renderInbox();
+    const toggle = await screen.findByRole("checkbox", { name: "All accounts" });
+    await screen.findByText("Build broken");
+
+    fireEvent.click(toggle);
+    await waitFor(() => expect(toggle).not.toBeChecked());
+    await waitFor(() => expect(screen.queryByText("Build broken")).not.toBeInTheDocument());
+    expect(screen.getByText("Inbox zero")).toBeInTheDocument();
+  });
+
+  it("switches account then navigates when opening an item from a non-active account", async () => {
+    mockCrossAccountInvoke();
+    renderInbox();
+    await screen.findByText("Build broken");
+    fireEvent.click(screen.getByText("Build broken"));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("cmd_switch_account", { accountId: "bob" });
+    });
+    expect(await screen.findByText("pull-detail")).toBeInTheDocument();
+    await waitFor(() => expect(useAuthStore.getState().user?.login).toBe("bob"));
+  });
+});

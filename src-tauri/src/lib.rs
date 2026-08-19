@@ -55,6 +55,7 @@ pub fn run() {
             commands::issues::cmd_update_issue,
             commands::inbox::cmd_get_inbox,
             commands::inbox::cmd_get_account_attention_summaries,
+            commands::inbox::cmd_get_cross_account_inbox,
             commands::inbox::cmd_get_notifications,
             commands::inbox::cmd_mark_notification_read,
             commands::inbox::cmd_mark_all_notifications_read,
