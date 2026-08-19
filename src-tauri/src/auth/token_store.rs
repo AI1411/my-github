@@ -194,13 +194,31 @@ mod dev_file_store {
             fs::create_dir_all(parent)?;
         }
         let json = serde_json::to_string_pretty(data).map_err(std::io::Error::other)?;
-        fs::write(path, json)?;
+        let tmp_path = path.with_extension("json.tmp");
+        write_atomic_with_mode(&tmp_path, json.as_bytes())?;
+        fs::rename(&tmp_path, path)?;
+        Ok(())
+    }
+
+    fn write_atomic_with_mode(path: &Path, contents: &[u8]) -> Result<(), TokenStoreError> {
         #[cfg(unix)]
         {
-            use std::os::unix::fs::PermissionsExt;
-            fs::set_permissions(path, fs::Permissions::from_mode(0o600))?;
+            use std::io::Write;
+            use std::os::unix::fs::OpenOptionsExt;
+            let mut file = fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .mode(0o600)
+                .open(path)?;
+            file.write_all(contents)?;
+            file.sync_all()?;
+            return Ok(());
         }
-        Ok(())
+        #[cfg(not(unix))]
+        {
+            fs::write(path, contents)?;
+            Ok(())
+        }
     }
 
     pub fn save_token_at(
@@ -404,6 +422,18 @@ mod tests {
             dev_file_store::load_last_account_id_at(&path),
             Some("a".to_string())
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn dev_file_store_writes_atomically_with_owner_only_permissions_from_creation() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("tokens.json");
+        dev_file_store::save_token_at(&path, "octo", "gho_perm").unwrap();
+        let mode = std::fs::metadata(&path).unwrap().permissions().mode();
+        assert_eq!(mode & 0o777, 0o600);
+        assert!(!dir.path().join("tokens.json.tmp").exists());
     }
 
     #[cfg(unix)]
