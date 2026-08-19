@@ -557,7 +557,7 @@ export const useSettingsStore = create<SettingsState>()(
       resetShortcuts: () => set({ shortcuts: DEFAULT_SHORTCUTS }),
     }),
     {
-      name: "pulse-settings",
+      name: "my-github-settings",
       storage: createJSONStorage(() => localStorage),
       merge: (persisted, current) => {
         const raw = (persisted ?? {}) as Partial<SettingsState>;

@@ -1,6 +1,7 @@
+import { appStorageKey } from "./appStorageKeys";
 import type { InboxItem } from "../stores/dataStore";
 
-export const INBOX_QUEUE_KEY = "pulse-inbox-queue";
+export const INBOX_QUEUE_KEY = appStorageKey("inbox-queue");
 
 export interface InboxQueueEntry {
   id: string;
