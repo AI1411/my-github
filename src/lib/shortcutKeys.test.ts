@@ -1,9 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   applyChordKeydown,
+  displayShortcutKeys,
   eventMatchesShortcut,
   findShortcutConflicts,
   formatShortcutEvent,
+  isApplePlatform,
   parseShortcutKeys,
 } from "./shortcutKeys";
 import { DEFAULT_SHORTCUTS, type ShortcutId, type ShortcutSetting } from "../stores/settingsStore";
@@ -57,6 +59,75 @@ describe("eventMatchesShortcut", () => {
   it("does not match a chord on a single keydown", () => {
     const event = new KeyboardEvent("keydown", { key: "i" });
     expect(eventMatchesShortcut(event, "G then I")).toBe(false);
+  });
+});
+
+describe("isApplePlatform", () => {
+  let platformSpy: ReturnType<typeof vi.spyOn> | undefined;
+  let userAgentSpy: ReturnType<typeof vi.spyOn> | undefined;
+
+  afterEach(() => {
+    platformSpy?.mockRestore();
+    userAgentSpy?.mockRestore();
+  });
+
+  function mockNavigator(platform: string, userAgent = "") {
+    platformSpy = vi.spyOn(window.navigator, "platform", "get").mockReturnValue(platform);
+    userAgentSpy = vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue(userAgent);
+  }
+
+  it("detects macOS", () => {
+    mockNavigator("MacIntel", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)");
+    expect(isApplePlatform()).toBe(true);
+  });
+
+  it("detects iOS", () => {
+    mockNavigator("iPhone", "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)");
+    expect(isApplePlatform()).toBe(true);
+  });
+
+  it("returns false on Windows", () => {
+    mockNavigator("Win32", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
+    expect(isApplePlatform()).toBe(false);
+  });
+
+  it("returns false on Linux", () => {
+    mockNavigator("Linux x86_64", "Mozilla/5.0 (X11; Linux x86_64)");
+    expect(isApplePlatform()).toBe(false);
+  });
+});
+
+describe("displayShortcutKeys", () => {
+  let platformSpy: ReturnType<typeof vi.spyOn> | undefined;
+  let userAgentSpy: ReturnType<typeof vi.spyOn> | undefined;
+
+  afterEach(() => {
+    platformSpy?.mockRestore();
+    userAgentSpy?.mockRestore();
+  });
+
+  function mockNavigator(platform: string, userAgent = "") {
+    platformSpy = vi.spyOn(window.navigator, "platform", "get").mockReturnValue(platform);
+    userAgentSpy = vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue(userAgent);
+  }
+
+  it("keeps Cmd on Apple platforms", () => {
+    mockNavigator("MacIntel");
+    expect(displayShortcutKeys("Cmd+K")).toBe("Cmd+K");
+    expect(displayShortcutKeys("Cmd+Shift+P")).toBe("Cmd+Shift+P");
+  });
+
+  it("replaces Cmd with Ctrl on non-Apple platforms", () => {
+    mockNavigator("Win32");
+    expect(displayShortcutKeys("Cmd+K")).toBe("Ctrl+K");
+    expect(displayShortcutKeys("Cmd+Shift+P")).toBe("Ctrl+Shift+P");
+  });
+
+  it("leaves shortcuts without Cmd unchanged", () => {
+    mockNavigator("Linux x86_64");
+    expect(displayShortcutKeys("G then I")).toBe("G then I");
+    expect(displayShortcutKeys("J")).toBe("J");
+    expect(displayShortcutKeys("?")).toBe("?");
   });
 });
 

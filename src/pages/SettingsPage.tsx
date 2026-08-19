@@ -6,7 +6,11 @@ import { Tabs } from "../components/common/Tabs";
 import { Toolbar } from "../components/common/Toolbar";
 import { useRepoSearchQuery } from "../features/settings/useRepoSearchQuery";
 import { hostDisplayLabel } from "../lib/githubHost";
-import { findShortcutConflicts, formatShortcutEvent } from "../lib/shortcutKeys";
+import {
+  displayShortcutKeys,
+  findShortcutConflicts,
+  formatShortcutEvent,
+} from "../lib/shortcutKeys";
 import { useAuthStore } from "../stores/authStore";
 import { useDataStore } from "../stores/dataStore";
 import {
@@ -949,7 +953,7 @@ export default function SettingsPage() {
                 {shortcutConflicts
                   .map(
                     (c) =>
-                      `${shortcuts[c.id].label} and ${shortcuts[c.otherId].label} both use ${c.keys}`,
+                      `${shortcuts[c.id].label} and ${shortcuts[c.otherId].label} both use ${displayShortcutKeys(c.keys)}`,
                   )
                   .join("; ")}
               </div>
@@ -970,7 +974,7 @@ export default function SettingsPage() {
                   <input
                     id={`shortcut-${id}`}
                     aria-label={`${shortcuts[id].label} shortcut`}
-                    value={shortcuts[id].keys}
+                    value={displayShortcutKeys(shortcuts[id].keys)}
                     onChange={(event) => setShortcut(id, event.target.value)}
                     onKeyDown={(event) => {
                       if (recordingId !== id) return;

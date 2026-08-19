@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useSettingsShortcut } from "../../hooks/useSettingsShortcut";
+import { displayShortcutKeys } from "../../lib/shortcutKeys";
 import {
   useSettingsStore,
   type ShortcutId,
@@ -89,7 +90,7 @@ export function ShortcutChips() {
                 className="rounded px-1 py-0.5 font-mono"
                 style={{ backgroundColor: "var(--bg-tertiary)", color: "var(--text-primary)" }}
               >
-                {chip.keys}
+                {displayShortcutKeys(chip.keys)}
               </kbd>
               {chip.label}
             </span>
@@ -123,7 +124,7 @@ export function ShortcutChips() {
                     className="rounded px-1.5 py-0.5 font-mono text-xs"
                     style={{ backgroundColor: "var(--bg-tertiary)", color: "var(--text-primary)" }}
                   >
-                    {setting.keys}
+                    {displayShortcutKeys(setting.keys)}
                   </kbd>
                 </li>
               ))}

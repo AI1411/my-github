@@ -253,10 +253,10 @@ describe("SettingsPage", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "Shortcuts" }));
     fireEvent.change(screen.getByLabelText("Command palette shortcut"), {
-      target: { value: "Ctrl+K" },
+      target: { value: "Alt+K" },
     });
 
-    expect(useSettingsStore.getState().shortcuts.commandPalette.keys).toBe("Ctrl+K");
+    expect(useSettingsStore.getState().shortcuts.commandPalette.keys).toBe("Alt+K");
   });
 
   it("sets theme and home layout", () => {
