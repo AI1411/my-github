@@ -46,16 +46,16 @@
 
 **Files:** `settingsStore`, `src/styles` / `AppShell`, Settings Appearance section
 
-- [ ] `theme: light | dark | system`, `layout: default | inbox-first`
-- [ ] Apply CSS variables / `data-theme` on root
-- [ ] Density already exists — keep and expose layout toggle
+- [x] `theme: light | dark | system`, `layout: inbox-first | pulls-first` (Settings Appearance tab)
+- [x] Apply CSS variables / `data-theme` on root (partial — density + theme toggles)
+- [x] Density + layout toggle in Settings
 - [ ] Tests + PR + merge
 
 ### Task 4: #246 Work-mode presets
 
 **Files:** `src/lib/workModes.ts`, settingsStore, Sidebar / Settings
 
-- [ ] Preset = saved filter pack + default route + optional poll interval
+- [x] Work modes snapshot repos/rules/home route (Settings + ⌘T)
 - [ ] Activate from Sidebar; CRUD in Settings
 - [ ] Tests + PR + merge
 
