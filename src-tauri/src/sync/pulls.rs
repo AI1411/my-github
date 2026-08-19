@@ -1,4 +1,4 @@
-use crate::cache::pulls::{delete_pulls_not_in_numbers, upsert_pull};
+use crate::cache::pulls::persist_repo_pulls;
 use crate::cache::repos::WatchedRepo;
 use crate::db::SqlitePool;
 use crate::github::client::GithubClient;
@@ -47,49 +47,39 @@ pub fn record_pull_result(
         }
     };
 
-    let numbers = pulls
-        .iter()
-        .map(|pull| pull.number as i64)
-        .collect::<Vec<_>>();
-    let mut written = 0usize;
-    let mut upsert_failures = Vec::new();
-    for pull in pulls {
-        match upsert_pull(pool, repo.id, &pull, now) {
-            Ok(()) => written += 1,
-            Err(err) => upsert_failures.push(err.to_string()),
+    match persist_repo_pulls(pool, repo.id, pulls, now) {
+        Ok(written) => written,
+        Err((upsert_failures, delete_error)) => {
+            match (upsert_failures.first(), delete_error.as_deref()) {
+                (Some(first_error), Some(delete_error)) => errors.push(SyncErrorSummary {
+                    repo: Some(repo.full_name.clone()),
+                    operation: "persist_pull_cache".to_string(),
+                    message: format!(
+                        "{} pull upsert(s) failed; first error: {}; delete error: {}",
+                        upsert_failures.len(),
+                        first_error,
+                        delete_error
+                    ),
+                }),
+                (Some(first_error), None) => errors.push(SyncErrorSummary {
+                    repo: Some(repo.full_name.clone()),
+                    operation: "upsert_pull".to_string(),
+                    message: format!(
+                        "{} pull upsert(s) failed; first error: {}",
+                        upsert_failures.len(),
+                        first_error
+                    ),
+                }),
+                (None, Some(delete_error)) => errors.push(SyncErrorSummary {
+                    repo: Some(repo.full_name.clone()),
+                    operation: "delete_pulls_not_in_numbers".to_string(),
+                    message: delete_error.to_string(),
+                }),
+                (None, None) => {}
+            }
+            0
         }
     }
-    let delete_error = delete_pulls_not_in_numbers(pool, repo.id, &numbers)
-        .err()
-        .map(|err| err.to_string());
-    match (upsert_failures.first(), delete_error) {
-        (Some(first_error), Some(delete_error)) => errors.push(SyncErrorSummary {
-            repo: Some(repo.full_name.clone()),
-            operation: "persist_pull_cache".to_string(),
-            message: format!(
-                "{} pull upsert(s) failed; first error: {}; delete error: {}",
-                upsert_failures.len(),
-                first_error,
-                delete_error
-            ),
-        }),
-        (Some(first_error), None) => errors.push(SyncErrorSummary {
-            repo: Some(repo.full_name.clone()),
-            operation: "upsert_pull".to_string(),
-            message: format!(
-                "{} pull upsert(s) failed; first error: {}",
-                upsert_failures.len(),
-                first_error
-            ),
-        }),
-        (None, Some(delete_error)) => errors.push(SyncErrorSummary {
-            repo: Some(repo.full_name.clone()),
-            operation: "delete_pulls_not_in_numbers".to_string(),
-            message: delete_error,
-        }),
-        (None, None) => {}
-    }
-    written
 }
 
 pub fn pull_report(
@@ -121,7 +111,7 @@ fn parse_repo_full_name<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cache::pulls::list_pulls_by_repo;
+    use crate::cache::pulls::{list_pulls_by_repo, upsert_pull};
     use crate::cache::repos::WatchedRepo;
     use crate::db::{init_pool, run_migrations, SqlitePool};
     use crate::github::client::GithubClient;
@@ -216,11 +206,11 @@ mod tests {
         );
         let report = pull_report(1, written, errors);
 
-        assert_eq!(report.status, SyncStepStatus::Partial);
-        assert_eq!(report.items_written, 1);
+        assert_eq!(report.status, SyncStepStatus::Failed);
+        assert_eq!(report.items_written, 0);
         assert_eq!(report.errors.len(), 1);
         assert_eq!(report.errors[0].operation, "upsert_pull");
-        assert_eq!(list_pulls_by_repo(&pool, 1).unwrap().len(), 1);
+        assert_eq!(list_pulls_by_repo(&pool, 1).unwrap().len(), 0);
     }
 
     #[test]
@@ -355,12 +345,8 @@ mod tests {
 
         assert_eq!(report.status, SyncStepStatus::Partial);
         assert_eq!(report.errors.len(), 1);
-        assert_eq!(report.errors[0].operation, "persist_pull_cache");
+        assert_eq!(report.errors[0].operation, "upsert_pull");
         assert!(report.errors[0].message.contains("2 pull upsert(s) failed"));
-        assert!(report.errors[0].message.contains("delete error:"));
-        assert!(report.errors[0]
-            .message
-            .contains("forced pull delete failure"));
     }
 
     #[tokio::test(flavor = "current_thread")]
