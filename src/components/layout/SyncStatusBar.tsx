@@ -41,6 +41,7 @@ export function SyncStatusBar() {
     <div
       role="status"
       data-testid="sync-status-bar"
+      title="Background sync covers watched repositories, open pull requests, and issues. Notifications and CI are fetched on demand."
       className="flex-shrink-0 border-t px-4 py-1.5 text-[11px] flex items-center justify-between gap-3"
       style={{
         borderColor: "var(--border-default)",
@@ -48,7 +49,13 @@ export function SyncStatusBar() {
         color: "var(--text-muted)",
       }}
     >
-      <span>{syncedLabel}</span>
+      <span>
+        {syncedLabel}
+        <span className="hidden sm:inline text-[10px] opacity-80">
+          {" "}
+          · syncs repos, pulls &amp; issues
+        </span>
+      </span>
       {remaining !== null && <span>{remaining} remaining</span>}
     </div>
   );
