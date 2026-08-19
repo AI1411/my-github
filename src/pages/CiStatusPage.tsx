@@ -1,34 +1,45 @@
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Toolbar } from "../components/common/Toolbar";
 import { Spinner } from "../components/common/Spinner";
 import { EmptyState } from "../components/common/EmptyState";
 import { WorkflowRunRow } from "../components/ci/WorkflowRunRow";
-import { useWorkflowRunsQuery } from "../features/ci/useWorkflowRunsQuery";
+import { useCrossRepoWorkflowRunsQuery } from "../features/ci/useCrossRepoWorkflowRunsQuery";
 import { useDataStore } from "../stores/dataStore";
+import { useSettingsStore } from "../stores/settingsStore";
 import type { WorkflowRunSummary } from "../stores/dataStore";
 
-function useDerivedRepos(): string[] {
-  const pulls = useDataStore((s) => s.pulls);
-  const issues = useDataStore((s) => s.issues);
-  return useMemo(() => {
-    const set = new Set<string>();
-    pulls.forEach((p) => set.add(p.repo));
-    issues.forEach((i) => set.add(i.repo));
-    return Array.from(set).sort();
-  }, [pulls, issues]);
+function collectRepos(
+  watched: string[],
+  pulls: { repo: string }[],
+  issues: { repo: string }[],
+): string[] {
+  const set = new Set<string>(watched);
+  pulls.forEach((p) => set.add(p.repo));
+  issues.forEach((i) => set.add(i.repo));
+  return Array.from(set).sort();
 }
 
 export default function CiStatusPage() {
-  const repos = useDerivedRepos();
-  const [selectedRepo, setSelectedRepo] = useState<string>("");
+  const pulls = useDataStore((s) => s.pulls);
+  const issues = useDataStore((s) => s.issues);
+  const watchedRepositories = useSettingsStore((s) => s.watchedRepositories);
+  const repos = useMemo(
+    () => collectRepos(watchedRepositories, pulls, issues),
+    [watchedRepositories, pulls, issues],
+  );
+
+  const [repoFilter, setRepoFilter] = useState<string>("");
   const [branch, setBranch] = useState<string>("");
 
-  const [owner, repoName] = selectedRepo.includes("/")
-    ? (selectedRepo.split("/") as [string, string])
-    : [null, null];
+  const queryRepos = useMemo(
+    () => (repoFilter ? [repoFilter] : repos),
+    [repoFilter, repos],
+  );
 
-  const { runs, loading, error } = useWorkflowRunsQuery(owner, repoName, branch || null);
+  const { runs, loading, error } = useCrossRepoWorkflowRunsQuery(queryRepos, branch || null);
+
+  const failureCount = runs.filter((r) => r.conclusion === "failure").length;
 
   const handleOpenLogs = (run: WorkflowRunSummary) => {
     const [runOwner, runRepo] = run.repo.split("/");
@@ -42,14 +53,22 @@ export default function CiStatusPage() {
 
   return (
     <div className="h-full flex flex-col">
-      <Toolbar title="CI Status" subtitle="Workflow runs for watched repos" />
+      <Toolbar
+        title="CI Status"
+        subtitle={
+          repos.length > 0
+            ? `${failureCount > 0 ? `${failureCount} failing · ` : ""}${repos.length} repo${repos.length === 1 ? "" : "s"}`
+            : "Workflow runs for watched repos"
+        }
+      />
       <div
-        className="px-4 py-2 flex items-center gap-2 border-b flex-shrink-0"
+        className="px-4 py-2 flex items-center gap-2 border-b flex-shrink-0 flex-wrap"
         style={{ borderColor: "var(--border-default)" }}
       >
         <select
-          value={selectedRepo}
-          onChange={(e) => setSelectedRepo(e.target.value)}
+          value={repoFilter}
+          onChange={(e) => setRepoFilter(e.target.value)}
+          aria-label="Filter by repository"
           className="text-sm rounded-md px-2 py-1"
           style={{
             backgroundColor: "var(--bg-tertiary)",
@@ -57,7 +76,7 @@ export default function CiStatusPage() {
             border: "1px solid var(--border-default)",
           }}
         >
-          <option value="">Select repo…</option>
+          <option value="">All repos</option>
           {repos.map((r) => (
             <option key={r} value={r}>
               {r}
@@ -78,25 +97,28 @@ export default function CiStatusPage() {
           }}
         />
       </div>
-      {!selectedRepo && (
+      {repos.length === 0 && (
         <EmptyState
-          title="Select a repository"
-          subtitle="Choose a repo to view its CI workflow runs"
+          title="No repositories to monitor"
+          subtitle="Watch repos in Settings, or sync pull requests and issues so their repos appear here."
         />
       )}
-      {selectedRepo && loading && (
+      {repos.length > 0 && loading && runs.length === 0 && (
         <div className="flex-1 flex items-center justify-center">
           <Spinner />
         </div>
       )}
-      {selectedRepo && error && <EmptyState title="Failed to load CI runs" subtitle={error} />}
-      {selectedRepo && !loading && !error && runs.length === 0 && (
-        <EmptyState title="No workflow runs" subtitle={`No runs found for ${selectedRepo}`} />
+      {repos.length > 0 && error && <EmptyState title="Failed to load CI runs" subtitle={error} />}
+      {repos.length > 0 && !loading && !error && runs.length === 0 && (
+        <EmptyState
+          title="No workflow runs"
+          subtitle={repoFilter ? `No runs found for ${repoFilter}` : "No recent runs across watched repos"}
+        />
       )}
       <div className="flex-1 overflow-y-auto">
         {runs.map((run) => (
           <WorkflowRunRow
-            key={run.id}
+            key={`${run.repo}-${run.id}`}
             run={run}
             onOpenLogs={run.conclusion === "failure" ? () => handleOpenLogs(run) : undefined}
           />
