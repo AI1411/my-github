@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSettingsShortcut } from "./useSettingsShortcut";
 
 export interface UseListNavigationOptions<T> {
   items: T[];
@@ -71,37 +72,34 @@ export function useListNavigation<T>({
     [],
   );
 
-  useEffect(() => {
-    if (!enabled) return;
-    const onKey = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (
-        target &&
-        (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)
-      ) {
-        return;
-      }
-      if (event.key === "j" || event.key === "ArrowDown") {
-        event.preventDefault();
-        moveBy(1);
-      } else if (event.key === "k" || event.key === "ArrowUp") {
-        event.preventDefault();
-        moveBy(-1);
-      } else if (event.key === "Enter") {
-        if (activeId && onOpen) {
-          const item = items.find((i) => getId(i) === activeId);
-          if (item) {
-            event.preventDefault();
-            onOpen(item);
-          }
-        }
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [enabled, moveBy, activeId, items, getId, onOpen]);
-
   const activeItem = activeId !== null ? (items.find((i) => getId(i) === activeId) ?? null) : null;
+  const activeIdRef = useRef(activeId);
+  activeIdRef.current = activeId;
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+  const onOpenRef = useRef(onOpen);
+  onOpenRef.current = onOpen;
+  const getIdRef = useRef(getId);
+  getIdRef.current = getId;
+
+  useSettingsShortcut("listDown", () => {
+    if (!enabled) return;
+    moveBy(1);
+  });
+
+  useSettingsShortcut("listUp", () => {
+    if (!enabled) return;
+    moveBy(-1);
+  });
+
+  useSettingsShortcut("openDetail", () => {
+    if (!enabled) return;
+    const id = activeIdRef.current;
+    const open = onOpenRef.current;
+    if (!id || !open) return;
+    const item = itemsRef.current.find((i) => getIdRef.current(i) === id);
+    if (item) open(item);
+  });
 
   return {
     activeId,
