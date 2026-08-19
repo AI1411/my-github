@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::sync::{LazyLock, RwLock};
 use thiserror::Error;
 
-const SERVICE: &str = "pulse-github";
+const SERVICE: &str = "my-github";
 const LAST_ACCOUNT_KEY: &str = "__last_account__";
 
 // macOS ではキーチェーン読み出しのたびに許可ダイアログが出うるため、

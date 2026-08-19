@@ -1,6 +1,7 @@
+import { readAppStorage, writeAppStorage } from "./appStorageKeys";
 import type { NotificationSummary, ReleaseSummary } from "../stores/dataStore";
 
-const SEEN_KEY = "pulse-seen-release-ids";
+const SEEN_SUFFIX = "seen-release-ids";
 
 /** ActivityRow で表示できるよう Release を通知形式へ写像する。 */
 export function releaseToNotification(release: ReleaseSummary): NotificationSummary {
@@ -27,7 +28,7 @@ export function findNewReleases(
 
 export function loadSeenReleaseIds(storage: Pick<Storage, "getItem"> = localStorage): Set<number> {
   try {
-    const raw = storage.getItem(SEEN_KEY);
+    const raw = readAppStorage(storage, SEEN_SUFFIX);
     if (!raw) return new Set();
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return new Set();
@@ -42,7 +43,7 @@ export function saveSeenReleaseIds(
   storage: Pick<Storage, "setItem"> = localStorage,
 ): void {
   try {
-    storage.setItem(SEEN_KEY, JSON.stringify([...ids]));
+    writeAppStorage(storage, SEEN_SUFFIX, JSON.stringify([...ids]));
   } catch {
     // ストレージ不可時は次回起動時に全件を既知扱いにするだけ
   }
@@ -50,7 +51,7 @@ export function saveSeenReleaseIds(
 
 export function hasSeenReleases(storage: Pick<Storage, "getItem"> = localStorage): boolean {
   try {
-    return storage.getItem(SEEN_KEY) !== null;
+    return readAppStorage(storage, SEEN_SUFFIX) !== null;
   } catch {
     return false;
   }

@@ -1,3 +1,4 @@
+import { readAppStorage, writeAppStorage } from "./appStorageKeys";
 export type SnoozeOption = "1h" | "tomorrow" | "nextWeek";
 
 export const SNOOZE_OPTIONS: { id: SnoozeOption; label: string }[] = [
@@ -6,7 +7,7 @@ export const SNOOZE_OPTIONS: { id: SnoozeOption; label: string }[] = [
   { id: "nextWeek", label: "Next week" },
 ];
 
-const LAST_SNOOZE_KEY = "pulse-inbox-last-snooze";
+const LAST_SNOOZE_SUFFIX = "inbox-last-snooze";
 
 const VALID_OPTIONS = new Set<SnoozeOption>(SNOOZE_OPTIONS.map((o) => o.id));
 
@@ -28,7 +29,7 @@ export function loadLastSnoozeOption(
   storage: Pick<Storage, "getItem"> = localStorage,
 ): SnoozeOption | null {
   try {
-    const raw = storage.getItem(LAST_SNOOZE_KEY);
+    const raw = readAppStorage(storage, LAST_SNOOZE_SUFFIX);
     if (raw && VALID_OPTIONS.has(raw as SnoozeOption)) {
       return raw as SnoozeOption;
     }
@@ -43,7 +44,7 @@ export function saveLastSnoozeOption(
   storage: Pick<Storage, "setItem"> = localStorage,
 ): void {
   try {
-    storage.setItem(LAST_SNOOZE_KEY, option);
+    writeAppStorage(storage, LAST_SNOOZE_SUFFIX, option);
   } catch {
     // 保存失敗時は次回 ⇧H が picker にフォールバックするだけ
   }

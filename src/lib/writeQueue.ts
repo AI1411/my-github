@@ -1,4 +1,5 @@
-export const WRITE_QUEUE_STORAGE_KEY = "pulse-write-queue";
+import { appStorageKey } from "./appStorageKeys";
+export const WRITE_QUEUE_STORAGE_KEY = appStorageKey("write-queue");
 
 export type WriteQueueEntry = {
   id: string;

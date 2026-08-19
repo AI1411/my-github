@@ -21,7 +21,7 @@ import {
 } from "./notificationRoutes";
 import { isInQuietHours, type QuietHours } from "./quietHours";
 
-const APP_OPEN_ACTION = "pulse-open";
+const APP_OPEN_ACTION = "my-github-open";
 
 let activeClickHandler: {
   token: symbol;
@@ -80,7 +80,7 @@ function emitGroup(group: NotificationGroup): void {
     actionTypeId: route ? APP_OPEN_ACTION : undefined,
     autoCancel: true,
     extra: route ? { route } : undefined,
-    group: "pulse-notifications",
+    group: "my-github-notifications",
   };
   sendNotification(options);
 }
@@ -219,7 +219,7 @@ export async function sendReleaseNotification(
     title: "New release",
     body: `${release.repo} · ${release.tagName}`,
     autoCancel: true,
-    group: "pulse-notifications",
+    group: "my-github-notifications",
   });
   return true;
 }

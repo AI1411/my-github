@@ -1,4 +1,5 @@
-const LAST_SEEN_KEY = "pulse-digest-last-seen";
+import { readAppStorage, writeAppStorage } from "./appStorageKeys";
+const LAST_SEEN_SUFFIX = "digest-last-seen";
 const DEFAULT_GAP_HOURS = 6;
 const DEFAULT_LOOKBACK_HOURS = 24;
 
@@ -6,7 +7,7 @@ export function loadDigestLastSeen(
   storage: Pick<Storage, "getItem"> = localStorage,
 ): string | null {
   try {
-    return storage.getItem(LAST_SEEN_KEY);
+    return readAppStorage(storage, LAST_SEEN_SUFFIX);
   } catch {
     return null;
   }
@@ -17,7 +18,7 @@ export function saveDigestLastSeen(
   storage: Pick<Storage, "setItem"> = localStorage,
 ): void {
   try {
-    storage.setItem(LAST_SEEN_KEY, iso);
+    writeAppStorage(storage, LAST_SEEN_SUFFIX, iso);
   } catch {
     // 保存できなければ次回also表示されるだけ
   }

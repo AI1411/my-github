@@ -65,7 +65,7 @@ fn open_inbox<R: Runtime>(app: &AppHandle<R>) {
 /// Creates the tray icon with an empty summary. Called once at startup.
 pub fn init<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     let menu = build_menu(app, 0, 0, 0)?;
-    let mut builder = tauri::tray::TrayIconBuilder::with_id("pulse-tray")
+    let mut builder = tauri::tray::TrayIconBuilder::with_id("my-github-tray")
         .menu(&menu)
         .show_menu_on_left_click(true)
         .on_menu_event(|app, event| {

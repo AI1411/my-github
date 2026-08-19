@@ -1,4 +1,6 @@
-const STORAGE_KEY = "pulse-list-search";
+import { readAppStorage, writeAppStorage } from "./appStorageKeys";
+const STORAGE_SUFFIX = "list-search";
+
 
 function storageKey(accountId: string, routeKey: string): string {
   return `${accountId || "anon"}:${routeKey}`;
@@ -6,7 +8,7 @@ function storageKey(accountId: string, routeKey: string): string {
 
 function readMap(storage: Pick<Storage, "getItem">): Record<string, string> {
   try {
-    const raw = storage.getItem(STORAGE_KEY);
+    const raw = readAppStorage(storage, STORAGE_SUFFIX);
     if (!raw) return {};
     const parsed = JSON.parse(raw) as unknown;
     return parsed && typeof parsed === "object" ? (parsed as Record<string, string>) : {};
@@ -34,7 +36,7 @@ export function saveListSearchQuery(
     const key = storageKey(accountId, routeKey);
     if (query) map[key] = query;
     else delete map[key];
-    storage.setItem(STORAGE_KEY, JSON.stringify(map));
+    writeAppStorage(storage, STORAGE_SUFFIX, JSON.stringify(map));
   } catch {
     // ignore persistence failures
   }
