@@ -33,6 +33,14 @@ describe("MarkdownRenderer", () => {
     expect(code?.className).toMatch(/hljs|language-js/);
   });
 
+  it("sanitizes raw HTML to mitigate XSS", () => {
+    const { container } = render(
+      <MarkdownRenderer source={'<img src="x" onerror="alert(1)" />\n\nSafe text'} />,
+    );
+    expect(container.querySelector("img")).toBeNull();
+    expect(screen.getByText("Safe text")).toBeInTheDocument();
+  });
+
   it("renders nothing useful (empty fragment) for empty input", () => {
     const { container } = render(<MarkdownRenderer source="" />);
     expect(container.textContent).toBe("");
