@@ -83,7 +83,8 @@ describe("AppShell offline banner", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText("Offline · showing cache")).toBeInTheDocument();
+    expect(screen.getByTestId("offline-banner")).toHaveTextContent("Offline · showing cache");
+    expect(screen.getByTestId("offline-banner")).toHaveAttribute("role", "status");
   });
 
   it("retries ping and sync from the offline banner", async () => {
