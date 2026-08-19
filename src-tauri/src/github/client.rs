@@ -1,7 +1,9 @@
+use std::time::Duration;
 use thiserror::Error;
 
 const USER_AGENT: &str = "my-github/0.1";
 const GITHUB_API_BASE: &str = "https://api.github.com";
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[derive(Debug, Error)]
 pub enum ClientError {
@@ -77,11 +79,18 @@ impl GithubClient {
         Self::with_base_url(token, GITHUB_API_BASE)
     }
 
+    fn build_http_client() -> reqwest::Client {
+        reqwest::Client::builder()
+            .timeout(REQUEST_TIMEOUT)
+            .build()
+            .unwrap_or_else(|_| reqwest::Client::new())
+    }
+
     /// Create a client pointed at a specific API base (no trailing slash).
     pub fn with_base_url(token: impl Into<String>, base_url: impl Into<String>) -> Self {
         let base = base_url.into().trim_end_matches('/').to_string();
         Self {
-            inner: reqwest::Client::new(),
+            inner: Self::build_http_client(),
             token: token.into(),
             base_url: if base.is_empty() {
                 GITHUB_API_BASE.to_string()
