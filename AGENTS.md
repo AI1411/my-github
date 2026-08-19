@@ -5,7 +5,7 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 ## Project Overview
 
 **my-github** — GitHub cross-repository dashboard desktop application.
-View-only in v0.1.0 (read PRs, Issues, CI, Notifications across multiple repos). Write operations open browser via ⌘K.
+View and act on PRs, Issues, CI, and Notifications across multiple repos in v0.1.0. Common write operations (reviews, merges, issue updates) run in-app via Tauri IPC; ⌘K still opens GitHub for everything else.
 
 Full requirements: `docs/requirments.md` | Task breakdown: `docs/tasks.md`
 
@@ -75,7 +75,7 @@ Custom skills in `.Codex/skills/`: `commit`, `create-pr`, `create-issue`, `execu
 - **Multi-account**: Switch accounts (personal + work) with ⌘T
 - **Inbox-first layout**: Review requests / CI failing / Mentions
 - **Keyboard-native**: J/K navigation, ⌘-based shortcuts (Raycast/Linear aesthetic)
-- **No write ops in v0.1**: All mutations open GitHub in browser
+- **In-app writes in v0.1**: Reviews, merges, issue state updates, and related mutations go through Rust IPC (with a client write queue); use ⌘K to open GitHub for actions not implemented in-app
 - **macOS + Windows** binaries; Linux in v0.2
 - **Performance targets**: <800ms startup (cached), <200MB idle memory, <30MB dmg
 

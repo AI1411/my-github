@@ -12,7 +12,7 @@
 - **Inbox-first** — Review requests, CI failures, and mentions in one view
 - **Multi-account** — Switch between personal and work accounts (⌘T)
 - **Keyboard-native** — J/K navigation, ⌘K command palette
-- **View-only** — All write ops open GitHub in browser (no accidental merges)
+- **In-app GitHub actions** — Submit PR reviews, merge, close/reopen issues, and more from the app (with offline write queue retry)
 - **Dark theme** — macOS + Windows binaries
 - **GHES / multi-host (foundation)** — Settings can store a custom host per PAT account; API clients use `GithubClient::with_base_url` when a host is set. Full GHES sync parity (GraphQL path quirks, OAuth Device Flow on enterprise) is not complete yet.
 
