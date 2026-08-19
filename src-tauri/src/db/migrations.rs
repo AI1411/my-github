@@ -63,6 +63,14 @@ pub const V7_LIST_FILTER_INDEXES: Migration = Migration {
     sql: include_str!("sql/v7_list_filter_indexes.sql"),
 };
 
+/// v8: cache each notification's subject API URL so cross-account inbox items
+/// can be built (repo/number/html_url) from cache alone.
+pub const V8_NOTIFICATIONS_SUBJECT_URL: Migration = Migration {
+    version: 8,
+    name: "v8_notifications_subject_url",
+    sql: include_str!("sql/v8_notifications_subject_url.sql"),
+};
+
 /// All migrations known to the application, ordered by version.
 pub const MIGRATIONS: &[Migration] = &[
     V1_INITIAL,
@@ -72,6 +80,7 @@ pub const MIGRATIONS: &[Migration] = &[
     V5_RELEASES,
     V6_INBOX_ITEM_DISMISSED,
     V7_LIST_FILTER_INDEXES,
+    V8_NOTIFICATIONS_SUBJECT_URL,
 ];
 
 #[cfg(test)]
@@ -285,7 +294,26 @@ mod tests {
 
     #[test]
     fn migrations_include_v7() {
-        assert_eq!(MIGRATIONS.len(), 7);
         assert_eq!(MIGRATIONS[6].version, 7);
+    }
+
+    #[test]
+    fn v8_notifications_subject_url_applies_after_v7() {
+        let conn = Connection::open_in_memory().unwrap();
+        apply_through(&conn, 8);
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('notifications') WHERE name='subject_url'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 1, "subject_url column should exist after v8");
+    }
+
+    #[test]
+    fn migrations_include_v8() {
+        assert_eq!(MIGRATIONS.len(), 8);
+        assert_eq!(MIGRATIONS[7].version, 8);
     }
 }

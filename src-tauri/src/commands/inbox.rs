@@ -304,6 +304,217 @@ pub async fn cmd_get_account_attention_summaries<R: Runtime>(
     read_account_attention_summaries(pool.inner())
 }
 
+/// An Inbox item tagged with the account it belongs to, for the cross-account
+/// "All accounts" view. Built from local cache only (no live API calls) so
+/// non-active accounts can be shown without switching to them first.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CrossAccountInboxItem {
+    pub id: String,
+    pub kind: String,
+    pub repo: String,
+    pub number: Option<i64>,
+    pub title: String,
+    pub html_url: Option<String>,
+    pub updated_at: String,
+    pub unread: bool,
+    pub pinned: bool,
+    pub account_login: String,
+    pub account_avatar_url: Option<String>,
+    pub is_active_account: bool,
+}
+
+/// Parses the trailing `/{number}` segment off a GitHub html/API URL, e.g.
+/// `.../pull/42` or `.../issues/7` → `Some(42)` / `Some(7)`.
+fn extract_number_from_url(url: &str) -> Option<i64> {
+    url.rsplit('/').next()?.parse::<i64>().ok()
+}
+
+struct CachedAccount {
+    id: i64,
+    login: String,
+    avatar_url: Option<String>,
+    is_active: bool,
+}
+
+fn list_accounts(pool: &SqlitePool) -> Result<Vec<CachedAccount>, String> {
+    let conn = pool.get().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare("SELECT id, login, avatar_url, is_active FROM accounts ORDER BY is_active DESC, login ASC")
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(CachedAccount {
+                id: row.get(0)?,
+                login: row.get(1)?,
+                avatar_url: row.get(2)?,
+                is_active: row.get::<_, i32>(3)? == 1,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+    let mut out = Vec::new();
+    for r in rows {
+        out.push(r.map_err(|e| e.to_string())?);
+    }
+    Ok(out)
+}
+
+/// review_requested / mention notifications cached for one account, converted
+/// to Inbox-shaped rows. Notifications don't carry a PR/issue number directly,
+/// so it's recovered from the cached subject API URL.
+fn read_notification_inbox_items_for_account(
+    pool: &SqlitePool,
+    account_id: i64,
+) -> Result<Vec<InboxItem>, String> {
+    let conn = pool.get().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT thread_id, subject_title, reason, is_read, updated_at,
+                    repo_full_name, subject_url
+             FROM notifications
+             WHERE account_id = ?1
+               AND is_read = 0
+               AND reason IN ('review_requested', 'mention', 'team_mention')
+             ORDER BY updated_at DESC
+             LIMIT 50",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map(rusqlite::params![account_id], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, Option<String>>(1)?,
+                row.get::<_, Option<String>>(2)?,
+                row.get::<_, i32>(3)?,
+                row.get::<_, String>(4)?,
+                row.get::<_, Option<String>>(5)?,
+                row.get::<_, Option<String>>(6)?,
+            ))
+        })
+        .map_err(|e| e.to_string())?;
+    let mut out = Vec::new();
+    for r in rows {
+        let (thread_id, title, reason, is_read, updated_at, repo, subject_url) =
+            r.map_err(|e| e.to_string())?;
+        let kind = match reason.as_deref() {
+            Some("review_requested") => "review_requested",
+            _ => "mention",
+        };
+        let html_url = subject_url.as_deref().map(api_url_to_html);
+        let number = html_url.as_deref().and_then(extract_number_from_url);
+        out.push(InboxItem {
+            id: thread_id,
+            kind: kind.to_string(),
+            repo: repo.unwrap_or_default(),
+            number,
+            title: title.unwrap_or_default(),
+            html_url,
+            updated_at,
+            unread: is_read == 0,
+            pinned: false,
+        });
+    }
+    Ok(out)
+}
+
+/// Failing-CI pulls cached for one account's repos.
+fn read_ci_failures_for_account(
+    pool: &SqlitePool,
+    account_id: i64,
+) -> Result<Vec<InboxItem>, String> {
+    let conn = pool.get().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT p.number, p.title, p.raw_json, r.full_name, p.updated_at
+             FROM pulls p
+             JOIN repos r ON r.id = p.repo_id
+             WHERE p.ci_state = 'failure' AND r.account_id = ?1
+             ORDER BY p.updated_at DESC
+             LIMIT 50",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map(rusqlite::params![account_id], |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, String>(4)?,
+            ))
+        })
+        .map_err(|e| e.to_string())?;
+    let mut out = Vec::new();
+    for r in rows {
+        let (number, title, raw, repo, updated_at) = r.map_err(|e| e.to_string())?;
+        let html_url = serde_json::from_str::<serde_json::Value>(&raw)
+            .ok()
+            .and_then(|v| v["html_url"].as_str().map(String::from));
+        out.push(InboxItem {
+            id: format!("ci-{}-{}", repo, number),
+            kind: "ci_failure".to_string(),
+            repo,
+            number: Some(number),
+            title,
+            html_url,
+            updated_at,
+            unread: true,
+            pinned: false,
+        });
+    }
+    Ok(out)
+}
+
+/// Cache-only Inbox items across every cached account, each tagged with its
+/// owning account, for the "All accounts" cross-account Inbox view. Snoozed /
+/// dismissed items are filtered per-account, pinned items are marked but not
+/// reordered (the frontend groups/sorts across accounts).
+fn read_cross_account_inbox(pool: &SqlitePool) -> Result<Vec<CrossAccountInboxItem>, String> {
+    let now = crate::cache::inbox_state::now_epoch_secs();
+    let accounts = list_accounts(pool)?;
+    let mut out = Vec::new();
+    for account in &accounts {
+        let mut items = read_notification_inbox_items_for_account(pool, account.id)?;
+        items.extend(read_ci_failures_for_account(pool, account.id)?);
+        let states = crate::cache::inbox_state::get_states(pool, account.id).unwrap_or_default();
+        for item in apply_item_states(items, &states, now) {
+            out.push(CrossAccountInboxItem {
+                id: item.id,
+                kind: item.kind,
+                repo: item.repo,
+                number: item.number,
+                title: item.title,
+                html_url: item.html_url,
+                updated_at: item.updated_at,
+                unread: item.unread,
+                pinned: item.pinned,
+                account_login: account.login.clone(),
+                account_avatar_url: account.avatar_url.clone(),
+                is_active_account: account.is_active,
+            });
+        }
+    }
+    out.sort_by(|a, b| {
+        b.pinned
+            .cmp(&a.pinned)
+            .then(b.updated_at.cmp(&a.updated_at))
+    });
+    Ok(out)
+}
+
+/// Returns Inbox items for every cached account (local cache only), each
+/// tagged with its account, powering the Inbox "All accounts" toggle without
+/// switching the active account.
+#[tauri::command]
+pub async fn cmd_get_cross_account_inbox<R: Runtime>(
+    app: AppHandle<R>,
+) -> Result<Vec<CrossAccountInboxItem>, String> {
+    let pool = app
+        .try_state::<SqlitePool>()
+        .ok_or_else(|| "db not initialized".to_string())?;
+    read_cross_account_inbox(pool.inner())
+}
+
 #[tauri::command]
 pub async fn cmd_get_inbox<R: Runtime>(
     app: AppHandle<R>,
@@ -840,5 +1051,130 @@ mod tests {
 
         let summaries = read_account_attention_summaries(&pool).unwrap();
         assert_eq!(summaries[0].ci_failures, 0);
+    }
+
+    #[test]
+    fn extract_number_from_url_parses_trailing_segment() {
+        assert_eq!(
+            extract_number_from_url("https://github.com/octocat/hello/pull/42"),
+            Some(42)
+        );
+        assert_eq!(
+            extract_number_from_url("https://github.com/octocat/hello/issues/7"),
+            Some(7)
+        );
+        assert_eq!(extract_number_from_url("not-a-number"), None);
+    }
+
+    fn seed_two_accounts(pool: &SqlitePool) {
+        let conn = pool.get().unwrap();
+        conn.execute(
+            "INSERT INTO accounts (id, login, host, avatar_url, is_active, created_at)
+             VALUES (1,'alice','github.com','https://a.test/a.png',1,'2026-04-21'),
+                    (2,'bob','github.com','https://a.test/b.png',0,'2026-04-21')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO repos (id, account_id, full_name) VALUES (10, 1, 'a/r'), (20, 2, 'b/r')",
+            [],
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn read_notification_inbox_items_for_account_derives_number_from_subject_url() {
+        let pool = init_pool(Path::new(":memory:")).unwrap();
+        run_migrations(&pool).unwrap();
+        seed_two_accounts(&pool);
+        let conn = pool.get().unwrap();
+        conn.execute(
+            "INSERT INTO notifications (account_id, thread_id, subject_title, reason, is_read, updated_at, repo_full_name, subject_url)
+             VALUES (2, 't1', 'Review this', 'review_requested', 0, '2026-04-21', 'b/r',
+                     'https://api.github.com/repos/b/r/pulls/9'),
+                    (2, 't2', 'Read notification', 'mention', 1, '2026-04-21', 'b/r',
+                     'https://api.github.com/repos/b/r/issues/3')",
+            [],
+        )
+        .unwrap();
+        drop(conn);
+
+        let items = read_notification_inbox_items_for_account(&pool, 2).unwrap();
+        assert_eq!(items.len(), 1, "only unread notifications are returned");
+        assert_eq!(items[0].id, "t1");
+        assert_eq!(items[0].kind, "review_requested");
+        assert_eq!(items[0].number, Some(9));
+        assert_eq!(
+            items[0].html_url.as_deref(),
+            Some("https://github.com/b/r/pull/9")
+        );
+    }
+
+    #[test]
+    fn read_ci_failures_for_account_scopes_to_account_repos() {
+        let pool = init_pool(Path::new(":memory:")).unwrap();
+        run_migrations(&pool).unwrap();
+        seed_two_accounts(&pool);
+        let conn = pool.get().unwrap();
+        conn.execute(
+            "INSERT INTO pulls (repo_id, number, title, state, is_draft, raw_json, ci_state, updated_at, fetched_at)
+             VALUES (10, 1, 'fail-a', 'open', 0, '{}', 'failure', '2026-04-21', '2026-04-21'),
+                    (20, 2, 'fail-b', 'open', 0, '{}', 'failure', '2026-04-21', '2026-04-21')",
+            [],
+        )
+        .unwrap();
+        drop(conn);
+
+        let alice_failures = read_ci_failures_for_account(&pool, 1).unwrap();
+        assert_eq!(alice_failures.len(), 1);
+        assert_eq!(alice_failures[0].repo, "a/r");
+
+        let bob_failures = read_ci_failures_for_account(&pool, 2).unwrap();
+        assert_eq!(bob_failures.len(), 1);
+        assert_eq!(bob_failures[0].repo, "b/r");
+    }
+
+    #[test]
+    fn read_cross_account_inbox_tags_items_with_account_and_skips_dismissed() {
+        let pool = init_pool(Path::new(":memory:")).unwrap();
+        run_migrations(&pool).unwrap();
+        seed_two_accounts(&pool);
+        let conn = pool.get().unwrap();
+        conn.execute(
+            "INSERT INTO pulls (repo_id, number, title, state, is_draft, raw_json, ci_state, updated_at, fetched_at)
+             VALUES (10, 1, 'fail-a', 'open', 0, '{}', 'failure', '2026-04-21', '2026-04-21'),
+                    (20, 2, 'fail-b', 'open', 0, '{}', 'failure', '2026-04-22', '2026-04-22')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO notifications (account_id, thread_id, subject_title, reason, is_read, updated_at, repo_full_name, subject_url)
+             VALUES (2, 't1', 'Review this', 'review_requested', 0, '2026-04-23', 'b/r',
+                     'https://api.github.com/repos/b/r/pulls/9')",
+            [],
+        )
+        .unwrap();
+        drop(conn);
+        crate::cache::inbox_state::set_dismissed(&pool, 1, "ci-a/r-1", true).unwrap();
+
+        let items = read_cross_account_inbox(&pool).unwrap();
+        let ids: Vec<&str> = items.iter().map(|i| i.id.as_str()).collect();
+        assert!(
+            !ids.contains(&"ci-a/r-1"),
+            "dismissed items are filtered out"
+        );
+        assert!(ids.contains(&"ci-b/r-2"));
+        assert!(ids.contains(&"t1"));
+
+        let bob_item = items.iter().find(|i| i.id == "t1").unwrap();
+        assert_eq!(bob_item.account_login, "bob");
+        assert_eq!(
+            bob_item.account_avatar_url.as_deref(),
+            Some("https://a.test/b.png")
+        );
+        assert!(!bob_item.is_active_account);
+
+        // Most recently updated first.
+        assert_eq!(items[0].id, "t1");
     }
 }

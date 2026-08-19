@@ -5,10 +5,14 @@ import { Toolbar } from "../components/common/Toolbar";
 import { EmptyState } from "../components/common/EmptyState";
 import { ListSkeleton } from "../components/common/ListSkeleton";
 import { InboxList } from "../components/inbox/InboxList";
+import { CrossAccountInboxList } from "../components/inbox/CrossAccountInboxList";
 import { InboxDetailPanel } from "../components/inbox/InboxDetailPanel";
 import { SnoozePicker } from "../components/inbox/SnoozePicker";
 import { ListSearchBar } from "../components/common/ListSearchBar";
+import { Toggle } from "../components/settings/settingsUi";
 import { useInboxQuery } from "../features/inbox/useInboxQuery";
+import { useCrossAccountInboxQuery } from "../features/inbox/useCrossAccountInboxQuery";
+import { useAccountAttentionSummaries } from "../hooks/useAccountAttentionSummaries";
 import { useSettingsShortcut } from "../hooks/useSettingsShortcut";
 import { useKeyboardShortcut } from "../hooks/useKeyboardShortcut";
 import { useListNavigation } from "../hooks/useListNavigation";
@@ -30,7 +34,7 @@ import { findStaleItems } from "../lib/stalePulls";
 import { useAuthStore } from "../stores/authStore";
 import { useDataStore } from "../stores/dataStore";
 import { useSettingsStore } from "../stores/settingsStore";
-import type { InboxItem } from "../stores/dataStore";
+import type { CrossAccountInboxItem, InboxItem } from "../stores/dataStore";
 
 function flattenInboxItems(
   data: { reviewRequests: InboxItem[]; ciFailures: InboxItem[]; mentions: InboxItem[] },
@@ -59,10 +63,26 @@ export default function InboxPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const pulls = useDataStore((state) => state.pulls);
   const currentUser = useAuthStore((state) => state.user?.login ?? null);
+  const setUser = useAuthStore((state) => state.setUser);
+  const resetData = useDataStore((state) => state.reset);
   const staleThresholds = useSettingsStore((state) => state.staleThresholds);
   const hideBotReviewRequests = useSettingsStore((state) => state.hideBotReviewRequests);
   const accountId = useAuthStore((state) => state.user?.login ?? "");
   const listSearch = useListSearch(accountId, "inbox");
+
+  // "All accounts" merges cached inbox items across every cached account.
+  // Default on once there's more than one account to merge; the user's
+  // explicit choice (if any) wins over that default.
+  const { summaries: accountSummaries } = useAccountAttentionSummaries(true);
+  const hasMultipleAccounts = accountSummaries.length > 1;
+  const [allAccountsOverride, setAllAccountsOverride] = useState<boolean | null>(null);
+  const allAccountsEnabled = hasMultipleAccounts && (allAccountsOverride ?? true);
+  const {
+    items: crossAccountItems,
+    loading: crossAccountLoading,
+    error: crossAccountError,
+  } = useCrossAccountInboxQuery(allAccountsEnabled);
+  const [switchingAccount, setSwitchingAccount] = useState(false);
 
   const reportActionError = (cause: unknown) => {
     setActionError(cause instanceof Error ? cause.message : String(cause));
@@ -120,6 +140,35 @@ export default function InboxPage() {
       navigate(`${path}?from=inbox`);
     },
     [flatItems, navigate],
+  );
+
+  const openCrossAccountItem = useCallback(
+    async (item: CrossAccountInboxItem) => {
+      const path = inboxItemDetailPath(item);
+      if (!item.isActiveAccount) {
+        setSwitchingAccount(true);
+        try {
+          const nextUser = await invoke<{ login: string; avatar_url: string }>(
+            "cmd_switch_account",
+            { accountId: item.accountLogin },
+          );
+          resetData();
+          setUser(nextUser);
+          setActionError(null);
+        } catch (cause) {
+          reportActionError(cause);
+          setSwitchingAccount(false);
+          return;
+        }
+        setSwitchingAccount(false);
+      }
+      if (path) {
+        navigate(`${path}?from=inbox`);
+      } else {
+        setSelected(item);
+      }
+    },
+    [navigate, resetData, setUser],
   );
 
   const { activeId, activeItem, setActiveId, registerItemRef } = useListNavigation({
@@ -288,7 +337,19 @@ export default function InboxPage() {
   );
   return (
     <div className="h-full flex flex-col">
-      <Toolbar title="Inbox" subtitle="Review requests · CI failures · Mentions" />
+      <Toolbar
+        title="Inbox"
+        subtitle="Review requests · CI failures · Mentions"
+        actions={
+          hasMultipleAccounts ? (
+            <Toggle
+              checked={allAccountsEnabled}
+              onChange={(checked) => setAllAccountsOverride(checked)}
+              label="All accounts"
+            />
+          ) : undefined
+        }
+      />
       <ListSearchBar
         open={listSearch.open}
         query={listSearch.query}
@@ -309,36 +370,65 @@ export default function InboxPage() {
           {actionError}
         </div>
       )}
-      {loading && !data && <ListSkeleton />}
-      {error && <EmptyState title="Failed to load inbox" subtitle={error} />}
-      {data && (
+      {switchingAccount && (
         <div
-          className="flex-1 grid overflow-hidden"
-          style={{ gridTemplateColumns: selected ? "1fr 1fr" : "1fr" }}
+          role="status"
+          className="px-4 py-2 text-xs border-b"
+          style={{ color: "var(--text-muted)", borderColor: "var(--border-subtle)" }}
         >
-          <div
-            className="min-h-0 border-r"
-            style={{ borderColor: selected ? "var(--border-default)" : "transparent" }}
-          >
-            <InboxList
-              data={visibleData}
-              staleItems={visibleStaleItems}
-              selectedId={activeId ?? selected?.id ?? null}
-              onSelect={(item) => {
-                setActiveId(item.id);
-                setSelected(item);
-              }}
-              onTogglePin={handleTogglePin}
-              onSnooze={handleSnooze}
-              registerItemRef={registerItemRef}
-            />
-          </div>
-          {selected && (
-            <div className="overflow-y-auto">
-              <InboxDetailPanel item={selected} onOpenInApp={openFromInbox} />
+          Switching account…
+        </div>
+      )}
+      {allAccountsEnabled ? (
+        <>
+          {crossAccountLoading && crossAccountItems.length === 0 && <ListSkeleton />}
+          {crossAccountError && (
+            <EmptyState title="Failed to load cross-account inbox" subtitle={crossAccountError} />
+          )}
+          {!crossAccountLoading && !crossAccountError && (
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <CrossAccountInboxList
+                items={crossAccountItems}
+                selectedId={selected?.id ?? null}
+                onSelect={(item) => void openCrossAccountItem(item)}
+              />
             </div>
           )}
-        </div>
+        </>
+      ) : (
+        <>
+          {loading && !data && <ListSkeleton />}
+          {error && <EmptyState title="Failed to load inbox" subtitle={error} />}
+          {data && (
+            <div
+              className="flex-1 grid overflow-hidden"
+              style={{ gridTemplateColumns: selected ? "1fr 1fr" : "1fr" }}
+            >
+              <div
+                className="min-h-0 border-r"
+                style={{ borderColor: selected ? "var(--border-default)" : "transparent" }}
+              >
+                <InboxList
+                  data={visibleData}
+                  staleItems={visibleStaleItems}
+                  selectedId={activeId ?? selected?.id ?? null}
+                  onSelect={(item) => {
+                    setActiveId(item.id);
+                    setSelected(item);
+                  }}
+                  onTogglePin={handleTogglePin}
+                  onSnooze={handleSnooze}
+                  registerItemRef={registerItemRef}
+                />
+              </div>
+              {selected && (
+                <div className="overflow-y-auto">
+                  <InboxDetailPanel item={selected} onOpenInApp={openFromInbox} />
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
       <SnoozePicker
         open={pickerOpen}

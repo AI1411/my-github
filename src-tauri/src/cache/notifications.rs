@@ -12,13 +12,14 @@ pub fn upsert_notification(
     conn.execute(
         "INSERT INTO notifications
              (account_id, thread_id, subject_type, subject_title, reason,
-              is_read, updated_at, repo_full_name)
-         VALUES (?1,?2,?3,?4,?5,?6,?7,?8)
+              is_read, updated_at, repo_full_name, subject_url)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)
          ON CONFLICT(account_id, thread_id) DO UPDATE SET
              subject_title  = excluded.subject_title,
              reason         = excluded.reason,
              updated_at     = excluded.updated_at,
-             repo_full_name = excluded.repo_full_name",
+             repo_full_name = excluded.repo_full_name,
+             subject_url    = excluded.subject_url",
         params![
             account_id,
             notification.id,
@@ -28,6 +29,7 @@ pub fn upsert_notification(
             if notification.unread { 0i32 } else { 1i32 },
             notification.updated_at,
             notification.repository.full_name,
+            notification.subject.url,
         ],
     )?;
     Ok(())
@@ -59,6 +61,7 @@ pub struct CachedNotification {
     pub is_read: bool,
     pub updated_at: String,
     pub repo_full_name: Option<String>,
+    pub subject_url: Option<String>,
 }
 
 pub fn list_notifications_for_account(
@@ -68,7 +71,7 @@ pub fn list_notifications_for_account(
     let conn = pool.get()?;
     let mut stmt = conn.prepare(
         "SELECT thread_id, subject_type, subject_title, reason,
-                is_read, updated_at, repo_full_name
+                is_read, updated_at, repo_full_name, subject_url
          FROM notifications
          WHERE account_id = ?1
          ORDER BY updated_at DESC
@@ -83,6 +86,7 @@ pub fn list_notifications_for_account(
             is_read: row.get::<_, i32>(4)? == 1,
             updated_at: row.get(5)?,
             repo_full_name: row.get(6)?,
+            subject_url: row.get(7)?,
         })
     })?;
     let mut out = Vec::new();
@@ -160,6 +164,10 @@ mod tests {
         assert_eq!(rows[0].thread_id, "thread-1");
         assert_eq!(rows[0].reason.as_deref(), Some("review_requested"));
         assert_eq!(rows[0].repo_full_name.as_deref(), Some("octocat/hello"));
+        assert_eq!(
+            rows[0].subject_url.as_deref(),
+            Some("https://api.github.com/repos/octocat/hello/pulls/1")
+        );
     }
 
     #[test]

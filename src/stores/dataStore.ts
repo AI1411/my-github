@@ -92,6 +92,13 @@ export interface InboxData {
   mentions: InboxItem[];
 }
 
+/** An Inbox item tagged with the account it belongs to, for the "All accounts" view. */
+export interface CrossAccountInboxItem extends InboxItem {
+  accountLogin: string;
+  accountAvatarUrl: string | null;
+  isActiveAccount: boolean;
+}
+
 export interface ReleaseSummary {
   id: number;
   repo: string;
