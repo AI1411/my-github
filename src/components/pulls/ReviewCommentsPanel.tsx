@@ -115,7 +115,7 @@ export function ReviewCommentsPanel({ owner, repo, number }: ReviewCommentsPanel
               </span>
               <span className="text-[11px] truncate" style={{ color: "var(--text-muted)" }}>
                 {c.path}
-                {c.line != null ? `:${c.line}` : ""}
+                {c.line !== null ? `:${c.line}` : ""}
               </span>
             </div>
             <pre
@@ -124,13 +124,22 @@ export function ReviewCommentsPanel({ owner, repo, number }: ReviewCommentsPanel
             >
               {c.body}
             </pre>
-            <ul className="flex flex-col gap-2 mb-2 pl-3 border-l" style={{ borderColor: "var(--border-subtle)" }}>
+            <ul
+              className="flex flex-col gap-2 mb-2 pl-3 border-l"
+              style={{ borderColor: "var(--border-subtle)" }}
+            >
               {repliesOf(c.id).map((r) => (
                 <li key={r.id}>
-                  <span className="text-[11px] font-medium" style={{ color: "var(--text-primary)" }}>
+                  <span
+                    className="text-[11px] font-medium"
+                    style={{ color: "var(--text-primary)" }}
+                  >
                     {r.userLogin}
                   </span>
-                  <pre className="text-xs whitespace-pre-wrap" style={{ color: "var(--text-secondary)" }}>
+                  <pre
+                    className="text-xs whitespace-pre-wrap"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
                     {r.body}
                   </pre>
                 </li>
@@ -141,9 +150,7 @@ export function ReviewCommentsPanel({ owner, repo, number }: ReviewCommentsPanel
                 aria-label={`Reply to comment ${c.id}`}
                 rows={2}
                 value={replyDrafts[c.id] ?? ""}
-                onChange={(e) =>
-                  setReplyDrafts((d) => ({ ...d, [c.id]: e.target.value }))
-                }
+                onChange={(e) => setReplyDrafts((d) => ({ ...d, [c.id]: e.target.value }))}
                 className="w-full rounded-md px-2 py-1.5 text-xs outline-none"
                 style={{
                   backgroundColor: "var(--bg-primary)",

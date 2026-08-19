@@ -35,7 +35,12 @@ function hasDetail(readiness: MergeReadiness): boolean {
   );
 }
 
-export function MergeReadinessBadge({ owner, repo, number, refreshKey = 0 }: MergeReadinessBadgeProps) {
+export function MergeReadinessBadge({
+  owner,
+  repo,
+  number,
+  refreshKey = 0,
+}: MergeReadinessBadgeProps) {
   const [readiness, setReadiness] = useState<MergeReadiness | null>(null);
   const [expanded, setExpanded] = useState(false);
 

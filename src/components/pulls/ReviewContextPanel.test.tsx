@@ -1,12 +1,11 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { invoke } from "@tauri-apps/api/core";
 import { ReviewContextPanel } from "./ReviewContextPanel";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
 }));
-
-import { invoke } from "@tauri-apps/api/core";
 
 const invokeMock = vi.mocked(invoke);
 
@@ -18,9 +17,7 @@ describe("ReviewContextPanel", () => {
   it("shows CODEOWNERS owners and unmet team request", async () => {
     invokeMock.mockResolvedValue({
       requestedReviewers: [{ login: "bob", avatarUrl: "" }],
-      requestedTeams: [
-        { slug: "platform", name: "Platform", combinedSlug: "acme/platform" },
-      ],
+      requestedTeams: [{ slug: "platform", name: "Platform", combinedSlug: "acme/platform" }],
       changedFiles: ["src/app.ts"],
       codeownersText: "* @alice\nsrc/** @acme/frontend\n",
       codeownersPath: ".github/CODEOWNERS",

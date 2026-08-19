@@ -52,7 +52,7 @@ function InlineThread({
         <span className="text-[11px] font-medium" style={{ color: "var(--text-primary)" }}>
           {root.userLogin}
         </span>
-        {root.line != null && (
+        {root.line !== null && (
           <span className="text-[11px] font-mono" style={{ color: "var(--text-muted)" }}>
             L{root.line}
           </span>
@@ -71,7 +71,10 @@ function InlineThread({
               <span className="text-[11px] font-medium" style={{ color: "var(--text-primary)" }}>
                 {r.userLogin}
               </span>
-              <pre className="text-xs whitespace-pre-wrap" style={{ color: "var(--text-secondary)" }}>
+              <pre
+                className="text-xs whitespace-pre-wrap"
+                style={{ color: "var(--text-secondary)" }}
+              >
                 {r.body}
               </pre>
             </li>
@@ -81,7 +84,6 @@ function InlineThread({
     </div>
   );
 }
-
 
 const STATUS_COLOR: Record<string, string> = {
   added: "var(--accent-green)",
@@ -128,7 +130,7 @@ export function FileDiff({
 
   const fileThreads = useMemo(() => {
     const forFile = reviewComments.filter((c) => c.path === file.filename);
-    const roots = forFile.filter((c) => c.inReplyToId == null);
+    const roots = forFile.filter((c) => c.inReplyToId === null);
     return roots.map((root) => ({
       root,
       replies: forFile.filter((c) => c.inReplyToId === root.id),

@@ -77,7 +77,10 @@ export function staleItemDescription(kind: string): string {
 
 /** Whether an open PR authored by currentUser is stale by myPullDays. */
 export function isOwnPullStale(
-  pull: Pick<PullSummary, "state" | "isDraft" | "author" | "mergedAt" | "reviewState" | "updatedAt">,
+  pull: Pick<
+    PullSummary,
+    "state" | "isDraft" | "author" | "mergedAt" | "reviewState" | "updatedAt"
+  >,
   currentUser: string | null,
   thresholds: StaleThresholds,
   now: Date = new Date(),

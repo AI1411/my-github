@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  loadLastSnoozeOption,
-  saveLastSnoozeOption,
-  snoozeUntilEpochSecs,
-} from "./snooze";
+import { loadLastSnoozeOption, saveLastSnoozeOption, snoozeUntilEpochSecs } from "./snooze";
 
 describe("snoozeUntilEpochSecs", () => {
   const now = new Date("2026-07-16T15:30:00");

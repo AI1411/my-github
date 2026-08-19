@@ -31,9 +31,7 @@ export function PATTab({ onSuccess, showHostField = true }: Props) {
     if (!token.trim()) return;
     setState("loading");
     setError(null);
-    const webBase = hostUrl.trim()
-      ? normalizeGithubWebBaseUrl(hostUrl)
-      : DEFAULT_GITHUB_WEB_BASE;
+    const webBase = hostUrl.trim() ? normalizeGithubWebBaseUrl(hostUrl) : DEFAULT_GITHUB_WEB_BASE;
     const apiBase = normalizeGithubApiBaseUrl(webBase);
     try {
       const user = await invoke<AuthUser>("cmd_save_pat", {
@@ -74,10 +72,10 @@ export function PATTab({ onSuccess, showHostField = true }: Props) {
         >
           notifications
         </code>{" "}
-        scopes. Fine-grained tokens with repository access may omit the classic scope
-        header — those are accepted when GitHub returns an empty{" "}
-        <code className="text-[11px]">X-OAuth-Scopes</code> list. For GitHub Enterprise
-        Server, enter the host URL below.
+        scopes. Fine-grained tokens with repository access may omit the classic scope header — those
+        are accepted when GitHub returns an empty{" "}
+        <code className="text-[11px]">X-OAuth-Scopes</code> list. For GitHub Enterprise Server,
+        enter the host URL below.
       </p>
 
       {showHostField && (

@@ -49,10 +49,7 @@ function Section({
   return (
     <section className="px-3 py-3 border-b" style={{ borderColor: "var(--border-subtle)" }}>
       <div className="flex items-center justify-between mb-2">
-        <h3
-          className="text-[11px] uppercase tracking-wide"
-          style={{ color: "var(--text-muted)" }}
-        >
+        <h3 className="text-[11px] uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
           {title}
         </h3>
         {action}

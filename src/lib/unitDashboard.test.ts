@@ -80,11 +80,7 @@ describe("summarizeUnitDashboard", () => {
         pull({ id: 3, ciState: "success" }),
         pull({ id: 4, state: "closed", ciState: "failure" }),
       ],
-      issues: [
-        issue({ id: 1 }),
-        issue({ id: 2, state: "closed" }),
-        issue({ id: 3 }),
-      ],
+      issues: [issue({ id: 1 }), issue({ id: 2, state: "closed" }), issue({ id: 3 })],
     });
     expect(result).toEqual({ openPrs: 3, openIssues: 2, ciFailures: 2 });
   });
@@ -95,10 +91,7 @@ describe("summarizeUnitDashboard", () => {
         pull({ id: 1, repo: "acme/app", ciState: "failure" }),
         pull({ id: 2, repo: "beta/b", ciState: "failure" }),
       ],
-      issues: [
-        issue({ id: 1, repo: "acme/app" }),
-        issue({ id: 2, repo: "beta/b" }),
-      ],
+      issues: [issue({ id: 1, repo: "acme/app" }), issue({ id: 2, repo: "beta/b" })],
       repos: ["acme/app"],
     });
     expect(result).toEqual({ openPrs: 1, openIssues: 1, ciFailures: 1 });

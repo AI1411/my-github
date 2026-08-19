@@ -23,10 +23,7 @@ type VirtualRow =
   | { kind: "header"; id: string; title: string; tone: "default" | "warning" }
   | { kind: "item"; id: string; item: InboxItem };
 
-function buildVirtualRows(
-  data: InboxData,
-  staleItems: InboxItem[],
-): VirtualRow[] {
+function buildVirtualRows(data: InboxData, staleItems: InboxItem[]): VirtualRow[] {
   const rows: VirtualRow[] = [];
   const sections: { title: string; items: InboxItem[]; tone?: "default" | "warning" }[] = [
     { title: "Stale", items: staleItems, tone: "warning" },
@@ -122,9 +119,7 @@ export function InboxList({
                   height: v.size,
                   transform: `translateY(${v.start}px)`,
                   color:
-                    row.tone === "warning"
-                      ? "var(--accent-orange, #fb923c)"
-                      : "var(--text-muted)",
+                    row.tone === "warning" ? "var(--accent-orange, #fb923c)" : "var(--text-muted)",
                   borderColor: "var(--border-subtle)",
                 }}
               >

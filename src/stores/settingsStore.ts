@@ -252,7 +252,7 @@ export interface SettingsState {
 
 export const useSettingsStore = create<SettingsState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       hosts: [DEFAULT_GITHUB_HOST],
       accountHosts: {},
       setAccountHost: (login, hostUrl) =>
@@ -423,7 +423,7 @@ export const useSettingsStore = create<SettingsState>()(
           activeWorkModeId: state.activeWorkModeId === id ? null : state.activeWorkModeId,
         })),
       activateWorkMode: (id) => {
-        const state = useSettingsStore.getState();
+        const state = get();
         const mode = state.workModes.find((m) => m.id === id);
         if (!mode) return null;
         set({

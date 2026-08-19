@@ -25,10 +25,7 @@ export function shouldRunGithubSearch(query: string, searchMode: boolean): boole
 }
 
 /** Build a saved-search payload; returns null when name or query is empty. */
-export function createSavedSearch(
-  name: string,
-  query: string,
-): Omit<SavedSearch, "id"> | null {
+export function createSavedSearch(name: string, query: string): Omit<SavedSearch, "id"> | null {
   const trimmedName = name.trim();
   const trimmedQuery = query.trim();
   if (!trimmedName || !trimmedQuery) return null;

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import packageJson from "../../package.json";
@@ -19,7 +19,13 @@ import {
 } from "../stores/settingsStore";
 import { AboutLicensesSection } from "../components/settings/AboutLicensesSection";
 import { AppearanceSettingsSection } from "../components/settings/AppearanceSettingsSection";
-import { InlineButton, Row, Section, Toggle, sectionStyle } from "../components/settings/settingsUi";
+import {
+  InlineButton,
+  Row,
+  Section,
+  Toggle,
+  sectionStyle,
+} from "../components/settings/settingsUi";
 import { PATTab } from "./components/PATTab";
 
 type SettingsTab =

@@ -48,9 +48,7 @@ export function PrFooterBar({
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [lastFailed, setLastFailed] = useState<{ event: ReviewEvent; body?: string } | null>(
-    null,
-  );
+  const [lastFailed, setLastFailed] = useState<{ event: ReviewEvent; body?: string } | null>(null);
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => () => clearTimeout(copiedTimer.current), []);

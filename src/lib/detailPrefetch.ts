@@ -41,6 +41,11 @@ export function getPrefetchPromise<T>(
   return cached as Promise<T> | undefined;
 }
 
-export function hasPrefetch(kind: PrefetchKind, owner: string, repo: string, number: number): boolean {
+export function hasPrefetch(
+  kind: PrefetchKind,
+  owner: string,
+  repo: string,
+  number: number,
+): boolean {
   return cache.has(key(kind, owner, repo, number));
 }

@@ -32,7 +32,10 @@ export function AppearanceSettingsSection() {
       </Row>
       <Row label="Density">
         <div className="flex flex-wrap gap-2">
-          <InlineButton active={density === "comfortable"} onClick={() => setDensity("comfortable")}>
+          <InlineButton
+            active={density === "comfortable"}
+            onClick={() => setDensity("comfortable")}
+          >
             Comfortable
           </InlineButton>
           <InlineButton active={density === "compact"} onClick={() => setDensity("compact")}>

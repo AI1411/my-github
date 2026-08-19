@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { saveDigestLastSeen } from "../../lib/digest";
+import type { WriteQueueEntry } from "../../lib/writeQueue";
 import { useAuthStore } from "../../stores/authStore";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useUiStore } from "../../stores/uiStore";
@@ -18,14 +19,23 @@ const notificationLifecycle = vi.hoisted(() => ({
 }));
 
 const writeQueueMock = vi.hoisted(() => ({
-  useWriteQueue: vi.fn(() => ({
-    queue: [],
-    pendingCount: 0,
-    flushing: false,
-    retry: vi.fn(),
-    discard: vi.fn(),
-    discardAll: vi.fn(),
-  })),
+  useWriteQueue: vi.fn(
+    (): {
+      queue: WriteQueueEntry[];
+      pendingCount: number;
+      flushing: boolean;
+      retry: ReturnType<typeof vi.fn>;
+      discard: ReturnType<typeof vi.fn>;
+      discardAll: ReturnType<typeof vi.fn>;
+    } => ({
+      queue: [],
+      pendingCount: 0,
+      flushing: false,
+      retry: vi.fn(),
+      discard: vi.fn(),
+      discardAll: vi.fn(),
+    }),
+  ),
 }));
 
 vi.mock("../../hooks/useOnlineStatus", () => ({
@@ -112,11 +122,13 @@ describe("AppShell offline banner", () => {
   it("marks auth expired when sync emits auth-expired", async () => {
     const { listen } = await import("@tauri-apps/api/event");
     let authExpiredHandler: (() => void) | undefined;
-    (listen as ReturnType<typeof vi.fn>).mockImplementation((event: string, handler: () => void) => {
-      if (event === "auth-expired") authExpiredHandler = handler;
-      return Promise.resolve(() => undefined);
-    });
-    useAuthStore.setState({ status: "authenticated", user: { login: "octo", avatar_url: "" }, token: "t" });
+    (listen as ReturnType<typeof vi.fn>).mockImplementation(
+      (event: string, handler: () => void) => {
+        if (event === "auth-expired") authExpiredHandler = handler;
+        return Promise.resolve(() => undefined);
+      },
+    );
+    useAuthStore.setState({ status: "authenticated", user: { login: "octo", avatar_url: "" } });
 
     render(
       <MemoryRouter>
@@ -132,7 +144,14 @@ describe("AppShell offline banner", () => {
   it("shows a pending writes banner with Retry when the queue is non-empty", () => {
     const retry = vi.fn();
     writeQueueMock.useWriteQueue.mockReturnValue({
-      queue: [{ id: "1", command: "cmd_update_issue", args: {}, createdAt: 1 }],
+      queue: [
+        {
+          id: "1",
+          command: "cmd_update_issue",
+          args: { owner: "o", repo: "r", number: 1 },
+          createdAt: 1,
+        },
+      ] satisfies WriteQueueEntry[],
       pendingCount: 2,
       flushing: false,
       retry,

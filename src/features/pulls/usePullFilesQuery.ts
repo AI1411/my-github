@@ -32,8 +32,9 @@ export function usePullFilesQuery(
       if (requestId !== requestIdRef.current) return;
       setError(typeof e === "string" ? e : String(e));
     } finally {
-      if (requestId !== requestIdRef.current) return;
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [owner, repo, number]);
 

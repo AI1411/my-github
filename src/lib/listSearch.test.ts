@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  loadListSearchQuery,
-  matchesListSearch,
-  saveListSearchQuery,
-} from "./listSearch";
+import { loadListSearchQuery, matchesListSearch, saveListSearchQuery } from "./listSearch";
 
 function memoryStorage(initial: Record<string, string> = {}): Storage {
   const map = new Map(Object.entries(initial));

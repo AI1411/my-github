@@ -56,7 +56,6 @@ describe("useNotificationPolling", () => {
     });
     useAuthStore.setState({
       user: { login: "octocat", avatar_url: "" },
-      token: "token",
       status: "authenticated",
     });
     useDataStore.getState().reset();

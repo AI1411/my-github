@@ -23,7 +23,6 @@ describe("Sidebar badge integration", () => {
     vi.mocked(invoke).mockResolvedValue(null);
     useAuthStore.setState({
       user: { login: "octocat", avatar_url: "" },
-      token: null,
       status: "authenticated",
     });
     useUiStore.setState({ workspaceSwitcherOpen: false });

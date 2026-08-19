@@ -132,7 +132,6 @@ describe("CommandPalette", () => {
   it("lists recent pulls when the query is empty", () => {
     useAuthStore.setState({
       user: { login: "octocat", avatar_url: "" },
-      token: null,
       status: "authenticated",
     });
     useSettingsStore.setState({

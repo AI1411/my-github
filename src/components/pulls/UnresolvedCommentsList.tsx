@@ -20,7 +20,7 @@ function snippet(body: string, max = 120): string {
 
 /** Root review comments (no in_reply_to) are treated as open/unresolved threads for MVP. */
 export function groupUnresolvedRoots(comments: ReviewCommentSummary[]): ReviewCommentSummary[] {
-  return comments.filter((c) => c.inReplyToId == null);
+  return comments.filter((c) => c.inReplyToId === null);
 }
 
 export function UnresolvedCommentsList({
@@ -90,7 +90,7 @@ export function UnresolvedCommentsList({
       </h2>
       <ul className="flex flex-col gap-1.5">
         {roots.map((c) => {
-          const location = `${c.path}${c.line != null ? `:${c.line}` : ""}`;
+          const location = `${c.path}${c.line !== null ? `:${c.line}` : ""}`;
           return (
             <li key={c.id}>
               <button

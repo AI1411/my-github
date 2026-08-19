@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
 import { CommitsTab } from "./CommitsTab";
 import { ChecksTab } from "./ChecksTab";

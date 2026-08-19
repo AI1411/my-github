@@ -32,10 +32,7 @@ export default function CiStatusPage() {
   const [repoFilter, setRepoFilter] = useState<string>("");
   const [branch, setBranch] = useState<string>("");
 
-  const queryRepos = useMemo(
-    () => (repoFilter ? [repoFilter] : repos),
-    [repoFilter, repos],
-  );
+  const queryRepos = useMemo(() => (repoFilter ? [repoFilter] : repos), [repoFilter, repos]);
 
   const { runs, loading, error } = useCrossRepoWorkflowRunsQuery(queryRepos, branch || null);
 
@@ -112,7 +109,9 @@ export default function CiStatusPage() {
       {repos.length > 0 && !loading && !error && runs.length === 0 && (
         <EmptyState
           title="No workflow runs"
-          subtitle={repoFilter ? `No runs found for ${repoFilter}` : "No recent runs across watched repos"}
+          subtitle={
+            repoFilter ? `No runs found for ${repoFilter}` : "No recent runs across watched repos"
+          }
         />
       )}
       <div className="flex-1 overflow-y-auto">

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
-import { usePullsQuery } from "./usePullsQuery";
+import { usePullsQuery, type PullFilter } from "./usePullsQuery";
 import { useDataStore } from "../../stores/dataStore";
 
 vi.mock("@tauri-apps/api/core", () => ({
@@ -59,7 +59,7 @@ describe("usePullsQuery", () => {
   });
 
   it("ignores stale responses when the filter changes", async () => {
-    let resolveFirst!: (value: typeof samplePull[]) => void;
+    let resolveFirst!: (value: (typeof samplePull)[]) => void;
     (invoke as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(
       () =>
         new Promise((resolve) => {
@@ -70,11 +70,11 @@ describe("usePullsQuery", () => {
       { ...samplePull, id: 2, title: "Latest pull" },
     ]);
 
-    const { rerender } = renderHook(({ filter }) => usePullsQuery(filter), {
-      initialProps: { filter: { tab: "created" as const } },
+    const { rerender } = renderHook(({ filter }: { filter: PullFilter }) => usePullsQuery(filter), {
+      initialProps: { filter: { tab: "created" } },
     });
 
-    rerender({ filter: { tab: "assigned" as const } });
+    rerender({ filter: { tab: "assigned" } });
 
     await waitFor(() => {
       expect(useDataStore.getState().pulls[0]?.title).toBe("Latest pull");

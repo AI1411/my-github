@@ -3,9 +3,7 @@ import { buildCodeSearchQuery, buildFileJumpUrl } from "./codeSearch";
 
 describe("buildCodeSearchQuery", () => {
   it("appends repo:owner/name to the query", () => {
-    expect(buildCodeSearchQuery("fn ping", "octocat/hello")).toBe(
-      "fn ping repo:octocat/hello",
-    );
+    expect(buildCodeSearchQuery("fn ping", "octocat/hello")).toBe("fn ping repo:octocat/hello");
     expect(buildCodeSearchQuery("  path:src  ", "o/r")).toBe("path:src repo:o/r");
   });
 

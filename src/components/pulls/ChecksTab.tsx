@@ -213,7 +213,7 @@ export function ChecksTab({ owner, repo, number }: ChecksTabProps) {
                           <li key={`${a.path}-${i}`}>
                             <span style={{ color: "var(--text-primary)" }}>
                               {a.path}
-                              {a.startLine != null ? `:${a.startLine}` : ""}
+                              {a.startLine !== null ? `:${a.startLine}` : ""}
                             </span>
                             {a.message ? ` — ${a.message}` : ""}
                           </li>

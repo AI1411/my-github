@@ -25,11 +25,11 @@ export function normalizeQuietHours(raw: unknown): QuietHours {
   if (!raw || typeof raw !== "object") return { ...DEFAULT_QUIET_HOURS };
   const source = raw as Record<string, unknown>;
   const start =
-    typeof source.start === "string" && parseTimeToMinutes(source.start) != null
+    typeof source.start === "string" && parseTimeToMinutes(source.start) !== null
       ? source.start.slice(0, 5)
       : DEFAULT_QUIET_HOURS.start;
   const end =
-    typeof source.end === "string" && parseTimeToMinutes(source.end) != null
+    typeof source.end === "string" && parseTimeToMinutes(source.end) !== null
       ? source.end.slice(0, 5)
       : DEFAULT_QUIET_HOURS.end;
   return {
@@ -43,7 +43,7 @@ export function isInQuietHours(now: Date, hours: QuietHours): boolean {
   if (!hours.enabled) return false;
   const start = parseTimeToMinutes(hours.start);
   const end = parseTimeToMinutes(hours.end);
-  if (start == null || end == null) return false;
+  if (start === null || end === null) return false;
   const current = now.getHours() * 60 + now.getMinutes();
   if (start === end) return true;
   if (start < end) return current >= start && current < end;

@@ -12,9 +12,7 @@ vi.mock("./components/PATTab", () => ({
     <button
       type="button"
       data-testid="pat-tab"
-      onClick={() =>
-        onSuccess({ login: "octocat", avatar_url: "" }, "https://github.example.com")
-      }
+      onClick={() => onSuccess({ login: "octocat", avatar_url: "" }, "https://github.example.com")}
     >
       Connect
     </button>

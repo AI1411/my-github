@@ -22,10 +22,7 @@ function isCiFailing(ciState: string | null | undefined): boolean {
   return ciState === "failure" || ciState === "error";
 }
 
-function findMatchingPull(
-  item: InboxItem,
-  pulls: PullSummary[],
-): PullSummary | undefined {
+function findMatchingPull(item: InboxItem, pulls: PullSummary[]): PullSummary | undefined {
   if (item.number === null) return undefined;
   return pulls.find((p) => p.repo === item.repo && p.number === item.number);
 }

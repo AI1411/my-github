@@ -75,7 +75,9 @@ describe("MergeReadinessBadge", () => {
     );
     render(<MergeReadinessBadge owner="o" repo="r" number={1} />);
     const badge = await screen.findByRole("button", { name: /CI failing/i });
-    expect(screen.queryByRole("region", { name: /Merge readiness details/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: /Merge readiness details/i }),
+    ).not.toBeInTheDocument();
 
     await user.click(badge);
 

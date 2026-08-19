@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  computeReviewGaps,
-  matchCodeowners,
-  parseCodeowners,
-  uniqueOwners,
-} from "./codeowners";
+import { computeReviewGaps, matchCodeowners, parseCodeowners, uniqueOwners } from "./codeowners";
 
 describe("parseCodeowners", () => {
   it("ignores comments and blank lines", () => {
@@ -54,11 +49,7 @@ describe("uniqueOwners / computeReviewGaps", () => {
       requiredOwners: ["@alice", "@acme/platform"],
       approvedLogins: ["carol"],
     });
-    expect(gaps.map((g) => g.name)).toEqual([
-      "bob",
-      "acme/platform",
-      "@alice",
-    ]);
+    expect(gaps.map((g) => g.name)).toEqual(["bob", "acme/platform", "@alice"]);
   });
 
   it("skips codeowner already requested as team", () => {

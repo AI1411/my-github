@@ -1,10 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
-import {
-  defaultSavedSearchName,
-  isAdvancedSearchQuery,
-} from "../../lib/advancedSearch";
+import { defaultSavedSearchName, isAdvancedSearchQuery } from "../../lib/advancedSearch";
 import { useAuthStore } from "../../stores/authStore";
 import { useSettingsStore, type RecentPullRef } from "../../stores/settingsStore";
 import { useUiStore } from "../../stores/uiStore";

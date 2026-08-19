@@ -30,17 +30,10 @@ function latestApprovals(reviews: { login: string; state: string }[]): string[] 
   for (const r of reviews) {
     byUser.set(r.login.toLowerCase(), r.state.toUpperCase());
   }
-  return [...byUser.entries()]
-    .filter(([, state]) => state === "APPROVED")
-    .map(([login]) => login);
+  return [...byUser.entries()].filter(([, state]) => state === "APPROVED").map(([login]) => login);
 }
 
-export function ReviewContextPanel({
-  owner,
-  repo,
-  number,
-  reviewState,
-}: ReviewContextPanelProps) {
+export function ReviewContextPanel({ owner, repo, number, reviewState }: ReviewContextPanelProps) {
   const [data, setData] = useState<ReviewContextPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
 

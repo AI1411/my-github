@@ -1,9 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
-import {
-  attentionTotal,
-  type AccountAttentionSummary,
-} from "../lib/accountAttention";
+import { attentionTotal, type AccountAttentionSummary } from "../lib/accountAttention";
 
 export function useAccountAttentionSummaries(enabled = true) {
   const [summaries, setSummaries] = useState<AccountAttentionSummary[]>([]);
@@ -26,10 +23,7 @@ export function useAccountAttentionSummaries(enabled = true) {
     };
   }, [enabled]);
 
-  const crossAccountTotal = (summaries ?? []).reduce(
-    (sum, s) => sum + attentionTotal(s),
-    0,
-  );
+  const crossAccountTotal = (summaries ?? []).reduce((sum, s) => sum + attentionTotal(s), 0);
 
   return { summaries, crossAccountTotal };
 }

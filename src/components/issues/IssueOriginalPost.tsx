@@ -61,11 +61,7 @@ export function IssueOriginalPost({
       </div>
       {reactions && onToggleReaction ? (
         <div className="px-3 pb-3">
-          <ReactionPills
-            reactions={reactions}
-            busy={reactionsBusy}
-            onToggle={onToggleReaction}
-          />
+          <ReactionPills reactions={reactions} busy={reactionsBusy} onToggle={onToggleReaction} />
         </div>
       ) : null}
     </article>

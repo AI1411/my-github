@@ -19,12 +19,8 @@ describe("syncMode", () => {
   });
 
   it("caps at 30s when push-assisted and focused", () => {
-    expect(effectivePollingSeconds(true, "60s", true)).toBe(
-      PUSH_ASSISTED_FOCUSED_POLL_SECONDS,
-    );
-    expect(effectivePollingSeconds(true, "5m", true)).toBe(
-      PUSH_ASSISTED_FOCUSED_POLL_SECONDS,
-    );
+    expect(effectivePollingSeconds(true, "60s", true)).toBe(PUSH_ASSISTED_FOCUSED_POLL_SECONDS);
+    expect(effectivePollingSeconds(true, "5m", true)).toBe(PUSH_ASSISTED_FOCUSED_POLL_SECONDS);
     expect(effectivePollingSeconds(true, "30s", true)).toBe(30);
   });
 
