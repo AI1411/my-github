@@ -17,6 +17,7 @@ import { useOpenInBrowserShortcut } from "../hooks/useOpenInBrowserShortcut";
 import { matchesListSearch } from "../lib/listSearch";
 import { focusAfterRemoval } from "../lib/inboxFocus";
 import { buildInboxQueue, inboxItemDetailPath, saveInboxQueue } from "../lib/inboxQueue";
+import { isBotReviewRequest } from "../lib/reviewQueue";
 import { CHORD_TIMEOUT_MS } from "../lib/shortcutKeys";
 import {
   loadLastSnoozeOption,
@@ -59,6 +60,7 @@ export default function InboxPage() {
   const pulls = useDataStore((state) => state.pulls);
   const currentUser = useAuthStore((state) => state.user?.login ?? null);
   const staleThresholds = useSettingsStore((state) => state.staleThresholds);
+  const hideBotReviewRequests = useSettingsStore((state) => state.hideBotReviewRequests);
   const accountId = useAuthStore((state) => state.user?.login ?? "");
   const listSearch = useListSearch(accountId, "inbox");
 
@@ -86,12 +88,17 @@ export default function InboxPage() {
 
   const visibleData = useMemo(() => {
     if (!data) return null;
+    const reviewRequests = data.reviewRequests.filter(matchItem);
+    const filteredReviewRequests =
+      hideBotReviewRequests === false
+        ? reviewRequests
+        : reviewRequests.filter((item) => !isBotReviewRequest(item, pulls));
     return {
-      reviewRequests: data.reviewRequests.filter(matchItem),
+      reviewRequests: filteredReviewRequests,
       ciFailures: data.ciFailures.filter(matchItem),
       mentions: data.mentions.filter(matchItem),
     };
-  }, [data, matchItem]);
+  }, [data, matchItem, hideBotReviewRequests, pulls]);
 
   const visibleStaleItems = useMemo(() => staleItems.filter(matchItem), [staleItems, matchItem]);
 

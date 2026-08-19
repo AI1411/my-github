@@ -32,6 +32,7 @@ describe("settingsStore", () => {
       repoNotificationRules: {},
       quietHours: { enabled: false, start: "22:00", end: "08:00" },
       watchOnboardingDismissed: false,
+      hideBotReviewRequests: true,
     });
   });
 
@@ -100,6 +101,12 @@ describe("settingsStore", () => {
     expect(useSettingsStore.getState().pushSyncEnabled).toBe(false);
     useSettingsStore.getState().setPushSyncEnabled(true);
     expect(useSettingsStore.getState().pushSyncEnabled).toBe(true);
+  });
+
+  it("defaults to hiding bot review requests", () => {
+    expect(useSettingsStore.getState().hideBotReviewRequests).toBe(true);
+    useSettingsStore.getState().setHideBotReviewRequests(false);
+    expect(useSettingsStore.getState().hideBotReviewRequests).toBe(false);
   });
 
   it("migrates legacy boolean notification settings", () => {

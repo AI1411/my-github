@@ -1,4 +1,5 @@
 import type { InboxItem, PullSummary } from "../stores/dataStore";
+import { isBotLogin } from "./botAuthors";
 import type { StaleThresholds } from "./stalePulls";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -27,6 +28,12 @@ function findMatchingPull(item: InboxItem, pulls: PullSummary[]): PullSummary | 
   return pulls.find((p) => p.repo === item.repo && p.number === item.number);
 }
 
+/** Whether a review-request inbox item was opened by a bot author. */
+export function isBotReviewRequest(item: InboxItem, pulls: PullSummary[]): boolean {
+  const author = findMatchingPull(item, pulls)?.author;
+  return author != null && isBotLogin(author);
+}
+
 export interface ReviewQueueEntry {
   item: InboxItem;
   ciFailing: boolean;
@@ -42,10 +49,15 @@ export function buildReviewQueue(params: {
   reviewRequests: InboxItem[];
   pulls: PullSummary[];
   thresholds: StaleThresholds;
+  hideBotReviewRequests?: boolean;
   now?: Date;
 }): ReviewQueueEntry[] {
   const now = params.now ?? new Date();
-  const entries: ReviewQueueEntry[] = params.reviewRequests.map((item) => {
+  const reviewRequests =
+    params.hideBotReviewRequests === false
+      ? params.reviewRequests
+      : params.reviewRequests.filter((item) => !isBotReviewRequest(item, params.pulls));
+  const entries: ReviewQueueEntry[] = reviewRequests.map((item) => {
     const pull = findMatchingPull(item, params.pulls);
     const ciState = pull?.ciState ?? null;
     return {

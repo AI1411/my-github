@@ -120,6 +120,8 @@ export default function SettingsPage() {
     (state) => state.setReleaseNotificationsEnabled,
   );
   const digestAutoShowEnabled = useSettingsStore((state) => state.digestAutoShowEnabled);
+  const hideBotReviewRequests = useSettingsStore((state) => state.hideBotReviewRequests);
+  const setHideBotReviewRequests = useSettingsStore((state) => state.setHideBotReviewRequests);
   const setDigestAutoShowEnabled = useSettingsStore((state) => state.setDigestAutoShowEnabled);
   const setPollingInterval = useSettingsStore((state) => state.setPollingInterval);
   const setDockBadgeEnabled = useSettingsStore((state) => state.setDockBadgeEnabled);
@@ -742,6 +744,13 @@ export default function SettingsPage() {
                 checked={digestAutoShowEnabled}
                 label="Show digest when returning after 6+ hours"
                 onChange={setDigestAutoShowEnabled}
+              />
+            </Row>
+            <Row label="Bot review requests">
+              <Toggle
+                checked={hideBotReviewRequests}
+                label="Hide Dependabot and other bot PRs from review queue and inbox"
+                onChange={setHideBotReviewRequests}
               />
             </Row>
             <Row label="Notification rules">

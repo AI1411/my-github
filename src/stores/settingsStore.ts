@@ -220,6 +220,8 @@ export interface SettingsState {
   setDigestAutoShowEnabled: (enabled: boolean) => void;
   shortcutChipsEnabled: boolean;
   setShortcutChipsEnabled: (enabled: boolean) => void;
+  hideBotReviewRequests: boolean;
+  setHideBotReviewRequests: (enabled: boolean) => void;
   togglePinnedPull: (accountId: string, repo: string, number: number) => void;
   recordRecentPull: (
     accountId: string,
@@ -344,6 +346,8 @@ export const useSettingsStore = create<SettingsState>()(
       setDigestAutoShowEnabled: (enabled) => set({ digestAutoShowEnabled: enabled }),
       shortcutChipsEnabled: true,
       setShortcutChipsEnabled: (enabled) => set({ shortcutChipsEnabled: enabled }),
+      hideBotReviewRequests: true,
+      setHideBotReviewRequests: (enabled) => set({ hideBotReviewRequests: enabled }),
       setRepoNotificationRule: (repo, key, enabled) =>
         set((state) => {
           const current = state.repoNotificationRules[repo] ?? DEFAULT_REPO_NOTIFICATION_RULE;
@@ -623,6 +627,10 @@ export const useSettingsStore = create<SettingsState>()(
             typeof raw.watchOnboardingDismissed === "boolean"
               ? raw.watchOnboardingDismissed
               : current.watchOnboardingDismissed,
+          hideBotReviewRequests:
+            typeof raw.hideBotReviewRequests === "boolean"
+              ? raw.hideBotReviewRequests
+              : current.hideBotReviewRequests,
         };
       },
       partialize: (state) => ({
@@ -654,6 +662,7 @@ export const useSettingsStore = create<SettingsState>()(
         releaseNotificationsEnabled: state.releaseNotificationsEnabled,
         digestAutoShowEnabled: state.digestAutoShowEnabled,
         shortcutChipsEnabled: state.shortcutChipsEnabled,
+        hideBotReviewRequests: state.hideBotReviewRequests,
       }),
     },
   ),
