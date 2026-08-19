@@ -186,4 +186,40 @@ mod tests {
 
         handle.abort();
     }
+
+    #[tokio::test(flavor = "current_thread", start_paused = true)]
+    async fn sustained_rate_limit_hits_emit_on_each_tick() {
+        use crate::github::client::RateLimitInfo;
+        use std::sync::Mutex;
+
+        #[derive(Default)]
+        struct MockEmitter {
+            hits: Mutex<Vec<RateLimitInfo>>,
+        }
+        impl EventEmitter for MockEmitter {
+            fn emit_rate_limit_hit(&self, info: &RateLimitInfo) {
+                self.hits.lock().unwrap().push(info.clone());
+            }
+        }
+
+        let emitter = Arc::new(MockEmitter::default());
+        let handle = spawn_rate_limited_poller(Duration::from_secs(1), emitter.clone(), || {
+            async {
+                PollOutcome::RateLimited(RateLimitInfo {
+                    remaining: 0,
+                    reset: 999,
+                    limit: 5000,
+                })
+            }
+        });
+
+        for _ in 0..3 {
+            tokio::task::yield_now().await;
+            tokio::task::yield_now().await;
+            tokio::time::advance(Duration::from_secs(1)).await;
+        }
+
+        assert_eq!(emitter.hits.lock().unwrap().len(), 3);
+        handle.abort();
+    }
 }
