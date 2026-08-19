@@ -14,6 +14,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
     strategy:
       fail-fast: false
+      # Linux AppImage: build locally (`pnpm tauri build`); not in this matrix — signing/secrets differ from macOS/Windows.
       matrix:
         include:
           - platform: macos-latest

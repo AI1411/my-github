@@ -19,7 +19,7 @@ _Note: replace with a real capture after UI polish._
 - **Multi-account** — Switch between personal and work accounts (⌘T)
 - **Keyboard-native** — J/K navigation, ⌘K command palette
 - **In-app GitHub actions** — Submit PR reviews, merge, close/reopen issues, and more from the app (with offline write queue retry)
-- **Dark theme** — macOS + Windows binaries
+- **Dark theme** — macOS + Windows binaries; Linux AppImage (unofficial, build-supported)
 - **GHES / multi-host (foundation)** — Settings can store a custom host per PAT account; API clients use `GithubClient::with_base_url` when a host is set. Full GHES sync parity (GraphQL path quirks, OAuth Device Flow on enterprise) is not complete yet.
 
 ## Prerequisites
@@ -33,12 +33,15 @@ _Note: replace with a real capture after UI polish._
 
 **macOS only:** Xcode Command Line Tools (`xcode-select --install`)
 
-**Linux only:**
+**Linux only:** unofficial but supported for local development and AppImage builds (v0.1 targets macOS/Windows for releases).
 
 ```bash
 sudo apt-get install libwebkit2gtk-4.1-dev libgtk-3-dev \
-  libayatana-appindicator3-dev librsvg2-dev patchelf
+  libayatana-appindicator3-dev librsvg2-dev patchelf \
+  libsoup-3.0-dev libjavascriptcoregtk-4.1-dev libssl-dev pkg-config
 ```
+
+Rust **stable ≥ 1.85** is required on Linux (a transitive dependency needs the `edition2024` cargo feature).
 
 ## Tech Stack
 
@@ -62,6 +65,13 @@ pnpm install
 
 # Start dev server (hot reload for frontend + Rust rebuild on save)
 pnpm tauri dev
+```
+
+**Linux (container / headless VM):** use software rendering so WebKitGTK starts reliably:
+
+```bash
+DISPLAY=:1 WEBKIT_DISABLE_COMPOSITING_MODE=1 WEBKIT_DISABLE_DMABUF_RENDERER=1 \
+  LIBGL_ALWAYS_SOFTWARE=1 pnpm tauri dev
 ```
 
 Sign in with a GitHub Personal Access Token (PAT).
@@ -95,6 +105,8 @@ To reset login state during development, quit the app and delete `tokens.json` (
 # Production binary (output: src-tauri/target/release/bundle/)
 pnpm tauri build
 ```
+
+On Linux, `pnpm tauri build` produces an **AppImage** under `src-tauri/target/release/bundle/appimage/` (alongside the raw binary). CI release builds remain macOS + Windows only; build AppImage locally when needed.
 
 ## Lint & Format
 
