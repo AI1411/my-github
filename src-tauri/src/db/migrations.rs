@@ -56,6 +56,13 @@ pub const V6_INBOX_ITEM_DISMISSED: Migration = Migration {
     sql: include_str!("sql/v6_inbox_item_dismissed.sql"),
 };
 
+/// v7: indexes for common pulls/issues list filters.
+pub const V7_LIST_FILTER_INDEXES: Migration = Migration {
+    version: 7,
+    name: "v7_list_filter_indexes",
+    sql: include_str!("sql/v7_list_filter_indexes.sql"),
+};
+
 /// All migrations known to the application, ordered by version.
 pub const MIGRATIONS: &[Migration] = &[
     V1_INITIAL,
@@ -64,6 +71,7 @@ pub const MIGRATIONS: &[Migration] = &[
     V4_INBOX_ITEM_STATE,
     V5_RELEASES,
     V6_INBOX_ITEM_DISMISSED,
+    V7_LIST_FILTER_INDEXES,
 ];
 
 #[cfg(test)]
