@@ -26,9 +26,7 @@ describe("useCrossRepoWorkflowRunsQuery", () => {
       .mockResolvedValueOnce([run(1, "o/r1", "success")])
       .mockResolvedValueOnce([run(2, "o/r2", "failure")]);
 
-    const { result } = renderHook(() =>
-      useCrossRepoWorkflowRunsQuery(["o/r1", "o/r2"], null),
-    );
+    const { result } = renderHook(() => useCrossRepoWorkflowRunsQuery(["o/r1", "o/r2"], null));
 
     await waitFor(() => expect(result.current.runs).toHaveLength(2));
     expect(result.current.runs[0]?.conclusion).toBe("failure");

@@ -203,14 +203,12 @@ mod tests {
         }
 
         let emitter = Arc::new(MockEmitter::default());
-        let handle = spawn_rate_limited_poller(Duration::from_secs(1), emitter.clone(), || {
-            async {
-                PollOutcome::RateLimited(RateLimitInfo {
-                    remaining: 0,
-                    reset: 999,
-                    limit: 5000,
-                })
-            }
+        let handle = spawn_rate_limited_poller(Duration::from_secs(1), emitter.clone(), || async {
+            PollOutcome::RateLimited(RateLimitInfo {
+                remaining: 0,
+                reset: 999,
+                limit: 5000,
+            })
         });
 
         for _ in 0..3 {

@@ -3,6 +3,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
 import { useAuthStore } from "../../stores/authStore";
 import { useInboxQuery } from "./useInboxQuery";
+import type { InboxData } from "../../stores/dataStore";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
@@ -13,7 +14,6 @@ describe("useInboxQuery", () => {
     vi.clearAllMocks();
     useAuthStore.setState({
       user: { login: "octocat", avatar_url: "" },
-      token: "pat",
       status: "authenticated",
     });
   });
@@ -65,7 +65,6 @@ describe("useInboxQuery", () => {
 
     useAuthStore.setState({
       user: { login: "octocat", avatar_url: "" },
-      token: "pat",
       status: "authenticated",
     });
     (invoke as ReturnType<typeof vi.fn>).mockRejectedValue("network error");
@@ -75,8 +74,8 @@ describe("useInboxQuery", () => {
   });
 
   it("ignores stale responses when a newer refetch wins", async () => {
-    let resolveFirst!: (value: typeof emptyInbox) => void;
-    const first = new Promise<typeof emptyInbox>((resolve) => {
+    let resolveFirst!: (value: InboxData) => void;
+    const first = new Promise<InboxData>((resolve) => {
       resolveFirst = resolve;
     });
     const second = {

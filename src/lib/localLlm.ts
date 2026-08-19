@@ -16,11 +16,7 @@ export const DEFAULT_LOCAL_LLM: LocalLlmSettings = {
 export function isLocalEndpoint(url: string): boolean {
   try {
     const u = new URL(url);
-    return (
-      u.hostname === "127.0.0.1" ||
-      u.hostname === "localhost" ||
-      u.hostname === "::1"
-    );
+    return u.hostname === "127.0.0.1" || u.hostname === "localhost" || u.hostname === "::1";
   } catch {
     return false;
   }
@@ -45,10 +41,7 @@ export interface PrSummaryInput {
 export function buildPrSummaryPrompt(input: PrSummaryInput): string {
   const fileLines = input.files
     .slice(0, 40)
-    .map(
-      (f) =>
-        `- ${f.filename} (${f.status}, +${f.additions}/-${f.deletions})`,
-    )
+    .map((f) => `- ${f.filename} (${f.status}, +${f.additions}/-${f.deletions})`)
     .join("\n");
   return [
     "Summarize this GitHub pull request for a reviewer.",

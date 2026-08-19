@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
 import { useIssuesQuery } from "./useIssuesQuery";
-import { useDataStore } from "../../stores/dataStore";
+import { useDataStore, type IssueSummary } from "../../stores/dataStore";
+import type { IssueFilter } from "./issueFilter";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
@@ -61,7 +62,7 @@ describe("useIssuesQuery", () => {
   });
 
   it("ignores stale responses when the filter changes", async () => {
-    let resolveFirst!: (value: { id: number; title: string }[]) => void;
+    let resolveFirst!: (value: IssueSummary[]) => void;
     (invoke as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(
       () =>
         new Promise((resolve) => {
@@ -86,11 +87,14 @@ describe("useIssuesQuery", () => {
       },
     ]);
 
-    const { rerender } = renderHook(({ filter }) => useIssuesQuery(filter), {
-      initialProps: { filter: { labels: [], state: "open" as const } },
-    });
+    const { rerender } = renderHook(
+      ({ filter }: { filter: IssueFilter }) => useIssuesQuery(filter),
+      {
+        initialProps: { filter: { labels: [], state: "open" } },
+      },
+    );
 
-    rerender({ filter: { labels: [], state: "closed" as const } });
+    rerender({ filter: { labels: [], state: "closed" } });
 
     await waitFor(() => {
       expect(useDataStore.getState().issues[0]?.title).toBe("Latest issue");

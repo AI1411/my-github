@@ -11,8 +11,7 @@ export type UpdateIssueWriteArgs = {
 };
 
 /** Discriminated union of offline write commands the queue can flush. */
-export type WriteQueueCommand =
-  | { command: "cmd_update_issue"; args: UpdateIssueWriteArgs };
+export type WriteQueueCommand = { command: "cmd_update_issue"; args: UpdateIssueWriteArgs };
 
 export type WriteQueueEntry = {
   id: string;
@@ -72,7 +71,7 @@ function parseQueue(raw: string | null): WriteQueueEntry[] {
     return parsed.filter(isEntry).map((e) => ({
       id: e.id,
       command: e.command,
-      args: e.args as Record<string, unknown>,
+      args: e.args,
       createdAt: e.createdAt,
       ...(typeof e.lastError === "string" ? { lastError: e.lastError } : {}),
     }));

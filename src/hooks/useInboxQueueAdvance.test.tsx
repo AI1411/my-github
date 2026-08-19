@@ -1,7 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
 import { saveInboxQueue } from "../lib/inboxQueue";
 import { useInboxQueueAdvance } from "./useInboxQueueAdvance";

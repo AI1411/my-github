@@ -121,8 +121,7 @@ export function computeReviewGaps(input: ReviewContextInput): ReviewGap[] {
 
   for (const team of input.requestedTeams) {
     const slug = team.includes("/") ? team.split("/").pop()! : team;
-    const covered =
-      approved.has(team.toLowerCase()) || approved.has(slug.toLowerCase());
+    const covered = approved.has(team.toLowerCase()) || approved.has(slug.toLowerCase());
     if (!covered) {
       gaps.push({
         kind: "team",

@@ -21,8 +21,7 @@ function CountCard({
   value: number;
   tone?: "danger" | "default";
 }) {
-  const color =
-    tone === "danger" && value > 0 ? "var(--accent-red)" : "var(--text-primary)";
+  const color = tone === "danger" && value > 0 ? "var(--accent-red)" : "var(--text-primary)";
   return (
     <div
       className="rounded-md px-4 py-3 flex flex-col gap-1"
@@ -32,7 +31,10 @@ function CountCard({
       }}
       data-testid={`dashboard-count-${label}`}
     >
-      <span className="text-[11px] uppercase tracking-wider font-semibold" style={{ color: "var(--text-muted)" }}>
+      <span
+        className="text-[11px] uppercase tracking-wider font-semibold"
+        style={{ color: "var(--text-muted)" }}
+      >
         {label}
       </span>
       <span className="text-2xl font-semibold tabular-nums" style={{ color }}>
@@ -71,10 +73,7 @@ export default function UnitDashboardPage() {
     return summarizeUnitDashboard({ pulls, issues, repos: scopeRepos });
   }, [pulls, issues, scopeRepos]);
 
-  const scopeLabel =
-    mode === "org"
-      ? selectedOrg || null
-      : selectedRepo || null;
+  const scopeLabel = mode === "org" ? selectedOrg || null : selectedRepo || null;
 
   return (
     <div className="h-full flex flex-col">
@@ -100,8 +99,7 @@ export default function UnitDashboardPage() {
               onClick={() => setMode(value)}
               className="text-xs px-2.5 py-1 rounded-md"
               style={{
-                backgroundColor:
-                  mode === value ? "var(--bg-tertiary)" : "transparent",
+                backgroundColor: mode === value ? "var(--bg-tertiary)" : "transparent",
                 color: mode === value ? "var(--text-primary)" : "var(--text-secondary)",
                 border: "1px solid var(--border-default)",
                 fontWeight: mode === value ? 600 : 500,
@@ -172,14 +170,19 @@ export default function UnitDashboardPage() {
             <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
               {mode === "org" ? (
                 <>
-                  Org <span style={{ color: "var(--text-primary)", fontWeight: 600 }}>{scopeLabel}</span>
+                  Org{" "}
+                  <span style={{ color: "var(--text-primary)", fontWeight: 600 }}>
+                    {scopeLabel}
+                  </span>
                   {" · "}
                   {scopeRepos?.length ?? 0} repo{(scopeRepos?.length ?? 0) === 1 ? "" : "s"}
                 </>
               ) : (
                 <>
                   Repo{" "}
-                  <span style={{ color: "var(--text-primary)", fontWeight: 600 }}>{scopeLabel}</span>
+                  <span style={{ color: "var(--text-primary)", fontWeight: 600 }}>
+                    {scopeLabel}
+                  </span>
                 </>
               )}
             </p>

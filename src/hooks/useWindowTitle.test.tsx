@@ -21,7 +21,6 @@ describe("useWindowTitle", () => {
     document.title = "my-github";
     useAuthStore.setState({
       user: { login: "octocat", avatar_url: "" },
-      token: "pat",
       status: "authenticated",
     });
   });

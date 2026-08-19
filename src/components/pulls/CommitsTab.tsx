@@ -72,7 +72,11 @@ export function CommitsTab({ owner, repo, number }: CommitsTabProps) {
             </a>
           </code>
           <div className="min-w-0 flex-1">
-            <p className="text-sm truncate" style={{ color: "var(--text-primary)" }} title={c.message}>
+            <p
+              className="text-sm truncate"
+              style={{ color: "var(--text-primary)" }}
+              title={c.message}
+            >
               {c.message}
             </p>
             <p className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)" }}>

@@ -11,6 +11,10 @@ export function readAppStorage(storage: Pick<Storage, "getItem">, suffix: string
   return storage.getItem(`${LEGACY_PREFIX}${suffix}`);
 }
 
-export function writeAppStorage(storage: Pick<Storage, "setItem">, suffix: string, value: string): void {
+export function writeAppStorage(
+  storage: Pick<Storage, "setItem">,
+  suffix: string,
+  value: string,
+): void {
   storage.setItem(appStorageKey(suffix), value);
 }

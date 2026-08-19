@@ -14,9 +14,7 @@ export interface WorkMode {
   savedFilterIds: string[];
 }
 
-export function createWorkMode(
-  partial: Omit<WorkMode, "id"> & { id?: string },
-): WorkMode {
+export function createWorkMode(partial: Omit<WorkMode, "id"> & { id?: string }): WorkMode {
   return {
     id: partial.id ?? crypto.randomUUID(),
     name: partial.name.trim() || "Untitled mode",

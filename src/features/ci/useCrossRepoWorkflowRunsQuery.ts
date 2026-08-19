@@ -29,7 +29,8 @@ export function useCrossRepoWorkflowRunsQuery(
   const reposKey = repos.join("\0");
 
   const fetchRuns = useCallback(() => {
-    if (repos.length === 0) {
+    const repoList = reposKey ? reposKey.split("\0") : [];
+    if (repoList.length === 0) {
       setRuns([]);
       setLoading(false);
       setError(null);
@@ -39,7 +40,7 @@ export function useCrossRepoWorkflowRunsQuery(
     setLoading(true);
     setError(null);
 
-    const fetches = repos.map((fullName) => {
+    const fetches = repoList.map((fullName) => {
       const [owner, repo] = fullName.split("/");
       if (!owner || !repo) return Promise.resolve([] as WorkflowRunSummary[]);
       return invoke<WorkflowRunSummary[]>("cmd_get_workflow_runs", {
@@ -63,7 +64,7 @@ export function useCrossRepoWorkflowRunsQuery(
         if (requestId !== requestIdRef.current) return;
         setLoading(false);
       });
-  }, [reposKey, branch, repos]);
+  }, [reposKey, branch]);
 
   useEffect(() => {
     fetchRuns();

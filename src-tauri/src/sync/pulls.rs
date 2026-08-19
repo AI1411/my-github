@@ -20,9 +20,7 @@ pub async fn sync_pulls(
         let Some((owner, name)) = parse_repo_full_name(repo, &mut errors) else {
             continue;
         };
-        let cached_etag = get_etag(pool, Scope::Pulls, &repo.full_name)
-            .ok()
-            .flatten();
+        let cached_etag = get_etag(pool, Scope::Pulls, &repo.full_name).ok().flatten();
         let fetch = list_pull_requests(client, owner, name, "open", cached_etag.as_deref())
             .await
             .map_err(|err| err.to_string());

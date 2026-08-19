@@ -164,10 +164,7 @@ export default function ReviewQueuePage() {
             >
               {index + 1} of {queue.length}
             </p>
-            <h2
-              className="text-lg font-semibold mt-2"
-              style={{ color: "var(--text-primary)" }}
-            >
+            <h2 className="text-lg font-semibold mt-2" style={{ color: "var(--text-primary)" }}>
               {current.item.title}
             </h2>
             <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>

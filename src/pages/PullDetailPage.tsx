@@ -65,7 +65,8 @@ export default function PullDetailPage() {
   const cachedPull = useDataStore((s) =>
     s.pulls.find((p) => p.repo === `${owner}/${repo}` && p.number === num),
   );
-  const shouldFetchPull = !cachedPull && !!owner && !!repo && num !== undefined && Number.isFinite(num);
+  const shouldFetchPull =
+    !cachedPull && !!owner && !!repo && num !== undefined && Number.isFinite(num);
   const {
     pull: fetchedPull,
     loading: pullLoading,
@@ -174,9 +175,7 @@ export default function PullDetailPage() {
         ) : (
           <EmptyState
             title={pullError ? "Failed to load pull request" : "Not in cache"}
-            subtitle={
-              pullError ?? "Sync or open the list to load this pull request."
-            }
+            subtitle={pullError ?? "Sync or open the list to load this pull request."}
           />
         )}
       </div>

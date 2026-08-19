@@ -407,9 +407,7 @@ pub async fn create_issue_reaction(
     content: &str,
 ) -> Result<Reaction, ClientError> {
     let resp = client
-        .post(&format!(
-            "/repos/{owner}/{repo}/issues/{number}/reactions"
-        ))
+        .post(&format!("/repos/{owner}/{repo}/issues/{number}/reactions"))
         .json(&CreateReactionBody { content })
         .send()
         .await?;
@@ -523,9 +521,7 @@ pub async fn list_issue_comment_reactions_by_content(
     let encoded = encode_reaction_content(content);
     list_reactions_at(
         client,
-        &format!(
-            "/repos/{owner}/{repo}/issues/comments/{comment_id}/reactions?content={encoded}"
-        ),
+        &format!("/repos/{owner}/{repo}/issues/comments/{comment_id}/reactions?content={encoded}"),
     )
     .await
 }
@@ -646,7 +642,11 @@ pub async fn get_file_contents(
             message: format!("unsupported content encoding: {encoding}"),
         });
     }
-    let cleaned: String = parsed.content.chars().filter(|c| !c.is_whitespace()).collect();
+    let cleaned: String = parsed
+        .content
+        .chars()
+        .filter(|c| !c.is_whitespace())
+        .collect();
     use base64::Engine as _;
     let bytes = base64::engine::general_purpose::STANDARD
         .decode(cleaned)
@@ -661,6 +661,7 @@ pub async fn get_file_contents(
     Ok((parsed.sha, text))
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn update_file_contents(
     client: &GithubClient,
     owner: &str,
@@ -834,10 +835,7 @@ pub async fn merge_pull_request(
         merge_method: &'a str,
     }
     let resp = client
-        .put(&format!(
-            "/repos/{}/{}/pulls/{}/merge",
-            owner, repo, number
-        ))
+        .put(&format!("/repos/{}/{}/pulls/{}/merge", owner, repo, number))
         .json(&Body { merge_method })
         .send()
         .await?;
@@ -1480,7 +1478,11 @@ mod tests {
             .build()
             .unwrap();
         assert_eq!(
-            req.headers().get("If-None-Match").unwrap().to_str().unwrap(),
+            req.headers()
+                .get("If-None-Match")
+                .unwrap()
+                .to_str()
+                .unwrap(),
             "W/\"abc\""
         );
     }
@@ -1521,10 +1523,7 @@ mod tests {
         let query = "ping repo:octocat/hello";
         let encoded = query.replace(' ', "+");
         let path = format!("/search/code?q={}&per_page=30", encoded);
-        assert_eq!(
-            path,
-            "/search/code?q=ping+repo:octocat/hello&per_page=30"
-        );
+        assert_eq!(path, "/search/code?q=ping+repo:octocat/hello&per_page=30");
     }
 
     #[test]

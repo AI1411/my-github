@@ -61,17 +61,11 @@ describe("pushRecent", () => {
 
   it("respects a custom max", () => {
     const list = pushRecent(
-      [
-        entry({ repo: "o/r", number: 1 }),
-        entry({ repo: "o/r", number: 2 }),
-      ],
+      [entry({ repo: "o/r", number: 1 }), entry({ repo: "o/r", number: 2 })],
       entry({ repo: "o/r", number: 3 }),
       2,
     );
-    expect(list).toEqual([
-      entry({ repo: "o/r", number: 3 }),
-      entry({ repo: "o/r", number: 1 }),
-    ]);
+    expect(list).toEqual([entry({ repo: "o/r", number: 3 }), entry({ repo: "o/r", number: 1 })]);
   });
 
   it("ignores invalid entries", () => {

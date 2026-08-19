@@ -207,7 +207,7 @@ describe("settingsStore", () => {
   it("persists settings to localStorage", () => {
     useSettingsStore.getState().setPollingInterval("30s");
 
-    expect(localStorage.getItem("pulse-settings")).toContain("30s");
+    expect(localStorage.getItem("my-github-settings")).toContain("30s");
   });
 
   it("adds and removes saved searches without duplicate queries", () => {

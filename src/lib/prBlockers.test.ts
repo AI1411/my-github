@@ -58,12 +58,7 @@ describe("classifyOwnPullBlockers", () => {
 
   it("classifies CI fail, changes requested, and stale", () => {
     expect(
-      classifyOwnPullBlockers(
-        pull({ ciState: "failure" }),
-        "me",
-        DEFAULT_STALE_THRESHOLDS,
-        now,
-      ),
+      classifyOwnPullBlockers(pull({ ciState: "failure" }), "me", DEFAULT_STALE_THRESHOLDS, now),
     ).toEqual(["ci_fail"]);
 
     expect(
@@ -152,9 +147,11 @@ describe("filterPrBlockers", () => {
   });
 
   it("returns all when no chips are active", () => {
-    expect(filterPrBlockers(entries, []).map((e) => e.pull.number).sort()).toEqual([
-      1, 2, 3,
-    ]);
+    expect(
+      filterPrBlockers(entries, [])
+        .map((e) => e.pull.number)
+        .sort(),
+    ).toEqual([1, 2, 3]);
   });
 
   it("filters by selected kinds (OR)", () => {

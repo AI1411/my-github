@@ -63,9 +63,7 @@ export function ReactionPills({ reactions, busy, onToggle }: ReactionPillsProps)
                 ? "color-mix(in srgb, var(--accent-blue, #58a6ff) 15%, transparent)"
                 : "var(--bg-tertiary)",
               border: `1px solid ${
-                r.viewerHasReacted
-                  ? "var(--accent-blue, #58a6ff)"
-                  : "var(--border-subtle)"
+                r.viewerHasReacted ? "var(--accent-blue, #58a6ff)" : "var(--border-subtle)"
               }`,
             }}
           >

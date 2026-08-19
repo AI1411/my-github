@@ -1,7 +1,6 @@
 import { readAppStorage, writeAppStorage } from "./appStorageKeys";
 const STORAGE_SUFFIX = "list-search";
 
-
 function storageKey(accountId: string, routeKey: string): string {
   return `${accountId || "anon"}:${routeKey}`;
 }

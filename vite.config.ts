@@ -32,5 +32,8 @@ export default defineConfig(async () => ({
     setupFiles: ["./src/test/setup.ts"],
     css: false,
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    // Avoid tinypool worker crashes under CI memory pressure / jsdom teardown races.
+    pool: "forks",
+    fileParallelism: false,
   },
 }));

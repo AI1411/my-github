@@ -46,13 +46,7 @@ function BlockerBadges({ blockers }: { blockers: PrBlockerKind[] }) {
   );
 }
 
-function BlockerRow({
-  entry,
-  onOpen,
-}: {
-  entry: PrBlockerEntry;
-  onOpen: () => void;
-}) {
+function BlockerRow({ entry, onOpen }: { entry: PrBlockerEntry; onOpen: () => void }) {
   const { pull, blockers } = entry;
   return (
     <div
@@ -99,10 +93,7 @@ export default function MyBlockersPage() {
     [pulls, currentUser, staleThresholds],
   );
 
-  const visible = useMemo(
-    () => filterPrBlockers(blocked, activeKinds),
-    [blocked, activeKinds],
-  );
+  const visible = useMemo(() => filterPrBlockers(blocked, activeKinds), [blocked, activeKinds]);
 
   const openEntry = (entry: PrBlockerEntry) => {
     const path = prBlockerDetailPath(entry.pull);
@@ -159,10 +150,7 @@ export default function MyBlockersPage() {
         />
       )}
       {!error && blocked.length > 0 && visible.length === 0 && (
-        <EmptyState
-          title="No matches"
-          subtitle="No blocked PRs match the selected filters."
-        />
+        <EmptyState title="No matches" subtitle="No blocked PRs match the selected filters." />
       )}
       {visible.length > 0 && (
         <div className="flex-1 overflow-y-auto" role="table" aria-label="Blocked pull requests">

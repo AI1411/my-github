@@ -92,16 +92,30 @@ describe("writeQueue persistence", () => {
 describe("flushWriteQueue", () => {
   it("invokes each pending command and clears successes", async () => {
     const storage = memoryStorage();
-    enqueueWrite({ command: "cmd_update_issue", args: { number: 1 } }, storage);
-    enqueueWrite({ command: "cmd_update_issue", args: { number: 2 } }, storage);
+    enqueueWrite(
+      { command: "cmd_update_issue", args: { owner: "o", repo: "r", number: 1 } },
+      storage,
+    );
+    enqueueWrite(
+      { command: "cmd_update_issue", args: { owner: "o", repo: "r", number: 2 } },
+      storage,
+    );
 
     const invoke = vi.fn().mockResolvedValueOnce({ ok: true }).mockResolvedValueOnce({ ok: true });
 
     const result = await flushWriteQueue({ invoke, storage });
 
     expect(invoke).toHaveBeenCalledTimes(2);
-    expect(invoke).toHaveBeenNthCalledWith(1, "cmd_update_issue", { number: 1 });
-    expect(invoke).toHaveBeenNthCalledWith(2, "cmd_update_issue", { number: 2 });
+    expect(invoke).toHaveBeenNthCalledWith(1, "cmd_update_issue", {
+      owner: "o",
+      repo: "r",
+      number: 1,
+    });
+    expect(invoke).toHaveBeenNthCalledWith(2, "cmd_update_issue", {
+      owner: "o",
+      repo: "r",
+      number: 2,
+    });
     expect(result.succeeded).toBe(2);
     expect(result.failed).toBe(0);
     expect(loadWriteQueue(storage)).toEqual([]);
@@ -109,8 +123,14 @@ describe("flushWriteQueue", () => {
 
   it("keeps failed writes and records lastError", async () => {
     const storage = memoryStorage();
-    enqueueWrite({ command: "cmd_update_issue", args: { number: 1 } }, storage);
-    enqueueWrite({ command: "cmd_update_issue", args: { number: 2 } }, storage);
+    enqueueWrite(
+      { command: "cmd_update_issue", args: { owner: "o", repo: "r", number: 1 } },
+      storage,
+    );
+    enqueueWrite(
+      { command: "cmd_update_issue", args: { owner: "o", repo: "r", number: 2 } },
+      storage,
+    );
 
     const invoke = vi
       .fn()
@@ -123,13 +143,16 @@ describe("flushWriteQueue", () => {
     expect(result.failed).toBe(1);
     const remaining = loadWriteQueue(storage);
     expect(remaining).toHaveLength(1);
-    expect(remaining[0]?.args).toEqual({ number: 1 });
+    expect(remaining[0]?.args).toEqual({ owner: "o", repo: "r", number: 1 });
     expect(remaining[0]?.lastError).toBe("network down");
   });
 
   it("skips flush when navigator reports offline", async () => {
     const storage = memoryStorage();
-    enqueueWrite({ command: "cmd_update_issue", args: { owner: "o", repo: "r", number: 1 } }, storage);
+    enqueueWrite(
+      { command: "cmd_update_issue", args: { owner: "o", repo: "r", number: 1 } },
+      storage,
+    );
     const invoke = vi.fn();
 
     const result = await flushWriteQueue({

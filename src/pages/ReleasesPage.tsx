@@ -59,10 +59,7 @@ export default function ReleasesPage() {
 
   return (
     <div className="h-full flex flex-col">
-      <Toolbar
-        title="Releases"
-        subtitle="Latest releases across watched repositories"
-      />
+      <Toolbar title="Releases" subtitle="Latest releases across watched repositories" />
       {loading && releases.length === 0 && (
         <div className="flex-1 flex items-center justify-center">
           <Spinner />

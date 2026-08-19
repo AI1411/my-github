@@ -180,7 +180,10 @@ export function WorkspaceSwitcher({ onSignOut }: WorkspaceSwitcherProps) {
             >
               <Avatar login={acct.login} src={acct.avatarUrl ?? undefined} size="sm" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>
+                <p
+                  className="text-sm font-medium truncate"
+                  style={{ color: "var(--text-primary)" }}
+                >
                   {acct.login}
                 </p>
                 <p

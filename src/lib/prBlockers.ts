@@ -3,11 +3,7 @@ import { isOwnPullStale, type StaleThresholds } from "./stalePulls";
 
 export type PrBlockerKind = "ci_fail" | "changes_requested" | "stale";
 
-export const PR_BLOCKER_KINDS: PrBlockerKind[] = [
-  "ci_fail",
-  "changes_requested",
-  "stale",
-];
+export const PR_BLOCKER_KINDS: PrBlockerKind[] = ["ci_fail", "changes_requested", "stale"];
 
 export const PR_BLOCKER_LABELS: Record<PrBlockerKind, string> = {
   ci_fail: "CI failing",
@@ -56,12 +52,7 @@ export function buildOwnPrBlockers(params: {
   const entries: PrBlockerEntry[] = [];
 
   for (const pull of params.pulls) {
-    const blockers = classifyOwnPullBlockers(
-      pull,
-      params.currentUser,
-      params.thresholds,
-      now,
-    );
+    const blockers = classifyOwnPullBlockers(pull, params.currentUser, params.thresholds, now);
     if (blockers.length === 0) continue;
     entries.push({ pull, blockers });
   }

@@ -62,9 +62,7 @@ describe("UnresolvedCommentsList", () => {
 
   it("invokes onJumpToFile when a thread is clicked", async () => {
     const onJumpToFile = vi.fn();
-    render(
-      <UnresolvedCommentsList owner="o" repo="r" number={1} onJumpToFile={onJumpToFile} />,
-    );
+    render(<UnresolvedCommentsList owner="o" repo="r" number={1} onJumpToFile={onJumpToFile} />);
     const jumpTarget = await screen.findByText("src/util.ts:10");
     fireEvent.click(jumpTarget.closest("button")!);
     expect(onJumpToFile).toHaveBeenCalledWith("src/util.ts");
@@ -73,12 +71,7 @@ describe("UnresolvedCommentsList", () => {
   it("notifies parent when comments load", async () => {
     const onCommentsLoaded = vi.fn();
     render(
-      <UnresolvedCommentsList
-        owner="o"
-        repo="r"
-        number={1}
-        onCommentsLoaded={onCommentsLoaded}
-      />,
+      <UnresolvedCommentsList owner="o" repo="r" number={1} onCommentsLoaded={onCommentsLoaded} />,
     );
     await waitFor(() => {
       expect(onCommentsLoaded).toHaveBeenCalled();

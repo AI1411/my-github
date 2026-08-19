@@ -208,9 +208,7 @@ export default function CodeSearchPage() {
         </div>
       )}
 
-      {!loading && error && (
-        <EmptyState title="Code search failed" subtitle={error} />
-      )}
+      {!loading && error && <EmptyState title="Code search failed" subtitle={error} />}
 
       {!loading && !error && searched && results.length === 0 && (
         <EmptyState title="No matches" subtitle="Try a different query or repository" />

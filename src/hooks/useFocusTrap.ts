@@ -10,10 +10,7 @@ function getFocusable(container: HTMLElement): HTMLElement[] {
 }
 
 /** Trap Tab focus inside `container` while `active`. */
-export function useFocusTrap(
-  containerRef: RefObject<HTMLElement | null>,
-  active: boolean,
-): void {
+export function useFocusTrap(containerRef: RefObject<HTMLElement | null>, active: boolean): void {
   useEffect(() => {
     if (!active) return;
     const container = containerRef.current;

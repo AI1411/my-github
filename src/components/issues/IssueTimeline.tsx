@@ -34,7 +34,7 @@ function describeEvent(ev: TimelineEventSummary): string {
       return `${actor} removed this from milestone ${ev.milestoneTitle ?? ""}`.trim();
     case "cross-referenced": {
       const ref =
-        ev.crossRefNumber != null
+        ev.crossRefNumber !== null && ev.crossRefNumber !== undefined
           ? `#${ev.crossRefNumber}${ev.crossRefTitle ? ` ${ev.crossRefTitle}` : ""}`
           : (ev.crossRefTitle ?? "another issue");
       return `${actor} mentioned this in ${ref}`;

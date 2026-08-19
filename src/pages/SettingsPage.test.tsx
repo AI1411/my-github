@@ -23,7 +23,6 @@ describe("SettingsPage", () => {
     localStorage.clear();
     useAuthStore.setState({
       user: { login: "octocat", avatar_url: "" },
-      token: null,
       status: "authenticated",
     });
     useDataStore.setState({

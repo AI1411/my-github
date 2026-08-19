@@ -108,12 +108,7 @@ describe("buildReviewQueue", () => {
       now,
     });
 
-    expect(queue.map((e) => e.item.id)).toEqual([
-      "stale-fail",
-      "fail",
-      "stale",
-      "fresh",
-    ]);
+    expect(queue.map((e) => e.item.id)).toEqual(["stale-fail", "fail", "stale", "fresh"]);
     expect(queue[0].ciFailing).toBe(true);
     expect(queue[0].stale).toBe(true);
     expect(queue[1].ciFailing).toBe(true);
@@ -138,10 +133,7 @@ describe("buildReviewQueue", () => {
 
     const queue = buildReviewQueue({
       reviewRequests: [newerFail, olderFail],
-      pulls: [
-        pull({ number: 1, ciState: "failure" }),
-        pull({ number: 2, ciState: "failure" }),
-      ],
+      pulls: [pull({ number: 1, ciState: "failure" }), pull({ number: 2, ciState: "failure" })],
       thresholds: DEFAULT_STALE_THRESHOLDS,
       now,
     });

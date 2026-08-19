@@ -4,13 +4,16 @@ import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppRouter } from "./router";
 
-const createBrowserRouterMock = vi.fn(() => ({ id: Math.random() }));
+const createBrowserRouterMock = vi.fn((_routes?: unknown, _opts?: unknown) => ({
+  id: Math.random(),
+}));
 
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual<typeof import("react-router-dom")>("react-router-dom");
   return {
     ...actual,
-    createBrowserRouter: (...args: unknown[]) => createBrowserRouterMock(...args),
+    createBrowserRouter: ((routes: unknown, opts?: unknown) =>
+      createBrowserRouterMock(routes, opts)) as unknown as typeof actual.createBrowserRouter,
     RouterProvider: ({ router }: { router: { id: number } }) => (
       <div data-testid="router-provider" data-router-id={String(router.id)} />
     ),

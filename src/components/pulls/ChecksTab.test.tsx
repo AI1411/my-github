@@ -1,12 +1,11 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { invoke } from "@tauri-apps/api/core";
 import { ChecksTab } from "./ChecksTab";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
 }));
-
-import { invoke } from "@tauri-apps/api/core";
 
 const invokeMock = vi.mocked(invoke);
 

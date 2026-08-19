@@ -54,8 +54,7 @@ export function summarizeUnitDashboard(params: {
   issues: IssueSummary[];
   repos?: string[] | null;
 }): UnitDashboardCounts {
-  const repoFilter =
-    params.repos && params.repos.length > 0 ? new Set(params.repos) : null;
+  const repoFilter = params.repos && params.repos.length > 0 ? new Set(params.repos) : null;
 
   let openPrs = 0;
   let ciFailures = 0;

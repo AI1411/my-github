@@ -49,7 +49,7 @@ export function normalizeGithubApiBaseUrl(input: string): string {
     return DEFAULT_GITHUB_API_BASE;
   }
 
-  let pathname = url.pathname.replace(/\/+$/, "");
+  const pathname = url.pathname.replace(/\/+$/, "");
   if (pathname === "/api/v3" || pathname.endsWith("/api/v3")) {
     return `${url.protocol}//${url.host}${pathname === "/api/v3" ? "/api/v3" : pathname}`;
   }

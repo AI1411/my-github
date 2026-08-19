@@ -33,7 +33,13 @@ pub fn upsert_account(
             host = excluded.host,
             avatar_url = excluded.avatar_url,
             is_active = 1",
-        params![account_id, user.login, host_label, user.avatar_url, created_at],
+        params![
+            account_id,
+            user.login,
+            host_label,
+            user.avatar_url,
+            created_at
+        ],
     )?;
     tx.commit()?;
     Ok(account_id)
@@ -140,7 +146,8 @@ mod tests {
     fn upsert_repo_preserves_existing_watch_choice() {
         let pool = test_pool();
         let user = sample_pat_user();
-        let account_id = upsert_account(&pool, &user, "2026-04-30T00:00:00Z", "github.com").unwrap();
+        let account_id =
+            upsert_account(&pool, &user, "2026-04-30T00:00:00Z", "github.com").unwrap();
         upsert_repo(
             &pool,
             account_id,

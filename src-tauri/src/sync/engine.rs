@@ -27,11 +27,7 @@ impl<'a> SyncEngine<'a> {
             Some(base) if !base.is_empty() => GithubClient::with_base_url(token, base),
             _ => GithubClient::new(token),
         };
-        Self {
-            pool,
-            client,
-            user,
-        }
+        Self { pool, client, user }
     }
 
     pub async fn sync_now(&self, scopes: &[SyncScope]) -> Result<SyncReport, String> {

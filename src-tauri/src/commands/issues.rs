@@ -213,9 +213,7 @@ struct CachedRow {
     repo_full_name: String,
 }
 
-fn issue_fields_from_raw_json(
-    raw: &str,
-) -> (
+type IssueFieldsFromRawJson = (
     Option<String>,
     Option<String>,
     Vec<LabelInfo>,
@@ -223,7 +221,9 @@ fn issue_fields_from_raw_json(
     Option<String>,
     u32,
     Vec<ReactionInfo>,
-) {
+);
+
+fn issue_fields_from_raw_json(raw: &str) -> IssueFieldsFromRawJson {
     let value: serde_json::Value = match serde_json::from_str(raw) {
         Ok(v) => v,
         Err(_) => {
@@ -242,10 +242,7 @@ fn issue_fields_from_raw_json(
         .get("html_url")
         .and_then(|v| v.as_str())
         .map(String::from);
-    let body = value
-        .get("body")
-        .and_then(|v| v.as_str())
-        .map(String::from);
+    let body = value.get("body").and_then(|v| v.as_str()).map(String::from);
     let labels = value
         .get("labels")
         .and_then(|v| v.as_array())
@@ -291,10 +288,7 @@ fn issue_fields_from_raw_json(
         .and_then(|m| m.get("title"))
         .and_then(|t| t.as_str())
         .map(String::from);
-    let comments = value
-        .get("comments")
-        .and_then(|c| c.as_u64())
-        .unwrap_or(0) as u32;
+    let comments = value.get("comments").and_then(|c| c.as_u64()).unwrap_or(0) as u32;
     let reactions = value
         .get("reactions")
         .and_then(|r| serde_json::from_value(r.clone()).ok())
@@ -302,7 +296,9 @@ fn issue_fields_from_raw_json(
             reaction_infos_from_counts(Some(&counts))
         })
         .unwrap_or_else(|| reaction_infos_from_counts(None));
-    (html_url, body, labels, assignees, milestone, comments, reactions)
+    (
+        html_url, body, labels, assignees, milestone, comments, reactions,
+    )
 }
 
 fn row_to_summary(r: CachedRow) -> IssueSummary {
@@ -559,14 +555,16 @@ pub async fn cmd_toggle_issue_reaction(
     let reacted = if let Some(reaction) = mine {
         if let Some(cid) = comment_id {
             crate::github::rest::delete_issue_comment_reaction(
-                &client, &owner, &repo, cid, reaction.id,
+                &client,
+                &owner,
+                &repo,
+                cid,
+                reaction.id,
             )
             .await
         } else {
-            crate::github::rest::delete_issue_reaction(
-                &client, &owner, &repo, number, reaction.id,
-            )
-            .await
+            crate::github::rest::delete_issue_reaction(&client, &owner, &repo, number, reaction.id)
+                .await
         }
         .map_err(format_issue_mutation_error)?;
         false
@@ -603,7 +601,10 @@ fn format_issue_mutation_error(err: crate::github::client::ClientError) -> Strin
         crate::github::client::ClientError::Api { status: 403, .. } => {
             "Permission denied (403). You may lack write access.".to_string()
         }
-        crate::github::client::ClientError::Api { status: 422, message } => {
+        crate::github::client::ClientError::Api {
+            status: 422,
+            message,
+        } => {
             format!("Rejected (422): {message}")
         }
         other => other.to_string(),

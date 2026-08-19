@@ -15,9 +15,8 @@ pub async fn sync_repositories(
     match list_repos_for_authenticated_user(client).await {
         Ok(repos) => {
             let host = crate::github::host::host_label_from_api_base(client.base_url());
-            persist_repositories(pool, user, &repos, now, &host).unwrap_or_else(|message| {
-                repository_persistence_error_report(repos.len(), message)
-            })
+            persist_repositories(pool, user, &repos, now, &host)
+                .unwrap_or_else(|message| repository_persistence_error_report(repos.len(), message))
         }
         Err(err) => SyncStepReport::from_errors(
             SyncScope::Repositories,

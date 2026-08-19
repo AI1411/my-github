@@ -114,8 +114,7 @@ describe("CommandPalette", () => {
 
   it("closes backdrop click", () => {
     renderPalette();
-    const backdrop = screen.getByRole("dialog");
-    fireEvent.click(backdrop);
+    fireEvent.click(screen.getByTestId("command-palette-backdrop"));
     expect(useUiStore.getState().commandPaletteOpen).toBe(false);
   });
 
@@ -132,7 +131,6 @@ describe("CommandPalette", () => {
   it("lists recent pulls when the query is empty", () => {
     useAuthStore.setState({
       user: { login: "octocat", avatar_url: "" },
-      token: null,
       status: "authenticated",
     });
     useSettingsStore.setState({

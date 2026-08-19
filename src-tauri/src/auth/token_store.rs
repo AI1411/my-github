@@ -212,7 +212,7 @@ mod dev_file_store {
                 .open(path)?;
             file.write_all(contents)?;
             file.sync_all()?;
-            return Ok(());
+            Ok(())
         }
         #[cfg(not(unix))]
         {

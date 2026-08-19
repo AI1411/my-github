@@ -122,11 +122,7 @@ fn review_requests_since(
     notifications_since(pool, account_id, since, "review_requested")
 }
 
-fn mentions_since(
-    pool: &SqlitePool,
-    account_id: i64,
-    since: &str,
-) -> Vec<DigestNotificationItem> {
+fn mentions_since(pool: &SqlitePool, account_id: i64, since: &str) -> Vec<DigestNotificationItem> {
     notifications_since(pool, account_id, since, "mention")
 }
 

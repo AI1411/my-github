@@ -85,7 +85,9 @@ export function InboxItemRow({
       {(onTogglePin || onSnooze) && (
         <div
           className={`flex items-center gap-1 flex-shrink-0 transition-opacity ${
-            selected ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+            selected
+              ? "opacity-100"
+              : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
           }`}
           onClick={(e) => e.stopPropagation()}
           onKeyDown={(e) => e.stopPropagation()}

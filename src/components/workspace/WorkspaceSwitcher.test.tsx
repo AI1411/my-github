@@ -31,7 +31,6 @@ describe("WorkspaceSwitcher", () => {
     useUiStore.setState({ workspaceSwitcherOpen: false, commandPaletteOpen: false });
     useAuthStore.setState({
       user: { login: "octocat", avatar_url: "" },
-      token: null,
       status: "authenticated",
     });
     useDataStore.getState().reset();
