@@ -234,7 +234,7 @@ CREATE TABLE sync_meta (
     - Viewed チェックボックス (localStorageに永続化)
     - インラインコメントはread only表示
 - 右サイドバー: reviewers (承認状態pill) / assignees / labels / milestone / linked issues / CI checks
-- フッター: Merge / Approve / Request changes (v0.1は表示のみ、クリックでブラウザへ) / Open in editor (ローカルcheckout & エディタ起動)
+- フッター: Merge / Approve / Request changes はアプリ内から GitHub API 経由で実行（オフライン時は write queue が再試行）/ Open in editor (ローカルcheckout & エディタ起動)
 
 ### 8.4 Issues
 
@@ -247,9 +247,9 @@ CREATE TABLE sync_meta (
 **詳細**:
 - 元投稿 + コメントスレッド + イベント区切り (label追加 / assign / milestone / cross-reference)
 - Markdown レンダリング (GFM、コードブロック syntax highlight)
-- リアクション絵文字ピル (クリックでトグル、v0.1はUI のみでAPIは叩かない)
+- リアクション絵文字ピル (クリックでトグル、GitHub API 経由)
 - 右サイドバー: Assignees / Labels / Milestone (進捗バー) / Linked PRs / Participants / Subscription状態
-- フッター: Comment (v0.1 は disabled) / Close / Open in browser
+- フッター: Comment / Close issue など主要な更新はアプリ内から実行（未実装アクションは Open in browser）
 
 ### 8.5 CI Status
 
