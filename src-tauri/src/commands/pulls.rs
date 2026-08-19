@@ -84,7 +84,7 @@ fn read_cached_pulls(pool: &SqlitePool, filter: &PullFilter) -> Result<Vec<PullS
         sql.push_str(" AND p.author_login = ?");
         args.push(Box::new(author.clone()));
     }
-    sql.push_str(" ORDER BY p.updated_at DESC");
+    sql.push_str(" ORDER BY p.updated_at DESC LIMIT 200");
 
     let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
     let params = rusqlite::params_from_iter(args.iter().map(|b| b.as_ref()));
