@@ -1,6 +1,7 @@
 use serde::Serialize;
 use tauri::{AppHandle, Manager, Runtime};
 
+use crate::commands::limits::validate_inbox_first;
 use crate::db::SqlitePool;
 use crate::github::graphql::{fetch_inbox, inbox_query};
 use crate::github::rest::list_notifications;
@@ -304,12 +305,16 @@ pub async fn cmd_get_account_attention_summaries<R: Runtime>(
 }
 
 #[tauri::command]
-pub async fn cmd_get_inbox<R: Runtime>(app: AppHandle<R>) -> Result<InboxData, String> {
+pub async fn cmd_get_inbox<R: Runtime>(
+    app: AppHandle<R>,
+    first: Option<i64>,
+) -> Result<InboxData, String> {
+    let first = validate_inbox_first(first)?;
     let client = crate::github::client::client_for_active_account()?;
     let pool = app
         .try_state::<SqlitePool>()
         .ok_or_else(|| "db not initialized".to_string())?;
-    let inbox = fetch_inbox(&client, 50).await.map_err(|e| e.to_string())?;
+    let inbox = fetch_inbox(&client, first).await.map_err(|e| e.to_string())?;
     let review_requests = review_requests_from_graphql(&inbox);
     let mentions = mentions_from_graphql(&inbox);
     let ci_failures = read_ci_failures(pool.inner()).unwrap_or_default();

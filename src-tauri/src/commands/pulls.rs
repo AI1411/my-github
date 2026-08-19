@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 
+use crate::commands::limits::validate_label_list;
 use crate::commands::sync::run_sync_for_scopes;
 use crate::cache::pulls::upsert_pull;
 use crate::db::SqlitePool;
@@ -179,6 +180,7 @@ pub async fn cmd_list_pulls<R: Runtime>(
     app: AppHandle<R>,
     filter: PullFilter,
 ) -> Result<Vec<PullSummary>, String> {
+    validate_label_list(&filter.labels, "pull filter")?;
     let pool = app
         .try_state::<SqlitePool>()
         .ok_or_else(|| "sqlite pool not initialized".to_string())?;
