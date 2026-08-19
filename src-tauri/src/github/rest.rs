@@ -777,15 +777,32 @@ pub async fn list_pull_request_reviews(
     Ok(reviews)
 }
 
+/// A single inline line comment attached to a review (`comments[]` in the
+/// create-review request body).
+#[derive(Debug, Clone, Serialize)]
+pub struct CreateReviewCommentBody<'a> {
+    pub path: &'a str,
+    pub body: &'a str,
+    pub line: u64,
+    /// "LEFT" | "RIGHT"
+    pub side: &'a str,
+}
+
 #[derive(Debug, Clone, Serialize)]
 struct CreateReviewBody<'a> {
     event: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
     body: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    commit_id: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    comments: Option<&'a [CreateReviewCommentBody<'a>]>,
 }
 
 /// Submit a pull request review.
 /// `event` must be one of: `APPROVE`, `REQUEST_CHANGES`, `COMMENT`.
+/// `comments` accumulates client-side pending line comments into the same
+/// review, submitted in a single `POST .../pulls/{n}/reviews` call.
 pub async fn create_pull_request_review(
     client: &GithubClient,
     owner: &str,
@@ -793,13 +810,20 @@ pub async fn create_pull_request_review(
     number: u32,
     event: &str,
     body: Option<&str>,
+    commit_id: Option<&str>,
+    comments: Option<&[CreateReviewCommentBody<'_>]>,
 ) -> Result<Review, ClientError> {
     let resp = client
         .post(&format!(
             "/repos/{}/{}/pulls/{}/reviews",
             owner, repo, number
         ))
-        .json(&CreateReviewBody { event, body })
+        .json(&CreateReviewBody {
+            event,
+            body,
+            commit_id,
+            comments,
+        })
         .send()
         .await?;
     let status = resp.status();
@@ -1540,6 +1564,54 @@ mod tests {
     fn create_review_builds_path() {
         let path = format!("/repos/{}/{}/pulls/{}/reviews", "o", "r", 7);
         assert_eq!(path, "/repos/o/r/pulls/7/reviews");
+    }
+
+    #[test]
+    fn create_review_body_omits_absent_optional_fields() {
+        let body = CreateReviewBody {
+            event: "APPROVE",
+            body: None,
+            commit_id: None,
+            comments: None,
+        };
+        let json = serde_json::to_value(&body).unwrap();
+        assert_eq!(json, serde_json::json!({ "event": "APPROVE" }));
+    }
+
+    #[test]
+    fn create_review_body_serializes_comments_and_commit_id() {
+        let comments = vec![
+            CreateReviewCommentBody {
+                path: "src/lib.rs",
+                body: "nit: rename",
+                line: 42,
+                side: "RIGHT",
+            },
+            CreateReviewCommentBody {
+                path: "src/lib.rs",
+                body: "why remove this?",
+                line: 10,
+                side: "LEFT",
+            },
+        ];
+        let request = CreateReviewBody {
+            event: "COMMENT",
+            body: None,
+            commit_id: Some("abc123"),
+            comments: Some(&comments),
+        };
+        let json = serde_json::to_value(&request).unwrap();
+        assert_eq!(
+            json,
+            serde_json::json!({
+                "event": "COMMENT",
+                "commit_id": "abc123",
+                "comments": [
+                    { "path": "src/lib.rs", "body": "nit: rename", "line": 42, "side": "RIGHT" },
+                    { "path": "src/lib.rs", "body": "why remove this?", "line": 10, "side": "LEFT" },
+                ]
+            })
+        );
     }
 
     #[test]

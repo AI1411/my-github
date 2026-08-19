@@ -9,7 +9,7 @@ use crate::github::rest::{
     convert_pull_to_draft, create_pull_request_review, get_check_runs, get_pull_request,
     get_pull_request_files, list_pull_request_reviews, mark_pull_ready_for_review,
     merge_pull_request, remove_pull_reviewers, request_pull_reviewers, review_state_for_event,
-    update_issue,
+    update_issue, CreateReviewCommentBody,
 };
 use crate::github::types::{CheckRun, PullRequest, PullRequestFile, Review};
 use crate::sync::types::{SyncReport, SyncScope, SyncStepStatus};
@@ -52,6 +52,9 @@ pub struct PullSummary {
     pub changed_files: Option<i64>,
     #[serde(default)]
     pub labels: Vec<String>,
+    /// Head commit SHA (`head.sha`), used as `commit_id` when submitting
+    /// reviews with inline line comments.
+    pub head_sha: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -139,10 +142,11 @@ fn pull_fields_from_raw_json(
     Option<String>,
     Vec<ReviewerInfo>,
     Vec<String>,
+    Option<String>,
 ) {
     let value: serde_json::Value = match serde_json::from_str(raw) {
         Ok(v) => v,
-        Err(_) => return (None, None, Vec::new(), Vec::new()),
+        Err(_) => return (None, None, Vec::new(), Vec::new(), None),
     };
     let html_url = value
         .get("html_url")
@@ -150,6 +154,11 @@ fn pull_fields_from_raw_json(
         .map(String::from);
     let merged_at = value
         .get("merged_at")
+        .and_then(|v| v.as_str())
+        .map(String::from);
+    let head_sha = value
+        .get("head")
+        .and_then(|h| h.get("sha"))
         .and_then(|v| v.as_str())
         .map(String::from);
     let reviewers = value
@@ -181,11 +190,11 @@ fn pull_fields_from_raw_json(
                 .collect()
         })
         .unwrap_or_default();
-    (html_url, merged_at, reviewers, labels)
+    (html_url, merged_at, reviewers, labels, head_sha)
 }
 
 fn row_to_summary(r: CachedRow) -> PullSummary {
-    let (html_url, merged_at, reviewers, labels) = pull_fields_from_raw_json(&r.raw_json);
+    let (html_url, merged_at, reviewers, labels, head_sha) = pull_fields_from_raw_json(&r.raw_json);
     PullSummary {
         id: r.number,
         number: r.number,
@@ -207,6 +216,7 @@ fn row_to_summary(r: CachedRow) -> PullSummary {
         deletions: None,
         changed_files: None,
         labels,
+        head_sha,
     }
 }
 
@@ -276,6 +286,7 @@ fn pr_to_summary(pr: &PullRequest, full_name: &str) -> PullSummary {
         deletions: None,
         changed_files: None,
         labels: pr.labels.iter().map(|label| label.name.clone()).collect(),
+        head_sha: Some(pr.head.sha.clone()),
     }
 }
 
@@ -682,7 +693,19 @@ pub struct SubmitReviewResult {
     pub html_url: Option<String>,
 }
 
-/// Submit an in-app PR review (`APPROVE` | `REQUEST_CHANGES` | `COMMENT`).
+/// A pending inline line comment submitted alongside a review.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReviewCommentInput {
+    pub path: String,
+    pub body: String,
+    pub line: u64,
+    /// "LEFT" | "RIGHT"
+    pub side: String,
+}
+
+/// Submit an in-app PR review (`APPROVE` | `REQUEST_CHANGES` | `COMMENT`),
+/// optionally attaching client-accumulated pending diff line comments.
 #[tauri::command]
 pub async fn cmd_submit_pull_review<R: Runtime>(
     app: AppHandle<R>,
@@ -691,25 +714,76 @@ pub async fn cmd_submit_pull_review<R: Runtime>(
     number: u32,
     event: String,
     body: Option<String>,
+    commit_id: Option<String>,
+    comments: Option<Vec<ReviewCommentInput>>,
 ) -> Result<SubmitReviewResult, String> {
     let event = event.trim().to_uppercase();
     if !matches!(event.as_str(), "APPROVE" | "REQUEST_CHANGES" | "COMMENT") {
         return Err("event must be APPROVE, REQUEST_CHANGES, or COMMENT".to_string());
     }
+    let comments = comments.filter(|c| !c.is_empty());
+    for comment in comments.iter().flatten() {
+        if comment.body.trim().is_empty() {
+            return Err("each pending line comment requires a body".to_string());
+        }
+        if !matches!(comment.side.as_str(), "LEFT" | "RIGHT") {
+            return Err("comment side must be LEFT or RIGHT".to_string());
+        }
+    }
+    let trimmed_body = body.as_deref().map(str::trim).filter(|s| !s.is_empty());
+    // Line comments count as the review's body; only require a top-level
+    // body when there are no pending comments to carry the review.
     if matches!(event.as_str(), "REQUEST_CHANGES" | "COMMENT")
-        && body.as_ref().map(|b| b.trim().is_empty()).unwrap_or(true)
+        && trimmed_body.is_none()
+        && comments.is_none()
     {
         return Err("a review body is required for Request changes and Comment".to_string());
     }
 
     let client = crate::github::client::client_for_active_account()?;
+
+    let commit_id = if comments.is_some() {
+        match commit_id
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
+            Some(sha) => Some(sha.to_string()),
+            None => {
+                let pr = get_pull_request(&client, &owner, &repo, number)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                Some(pr.head.sha)
+            }
+        }
+    } else {
+        commit_id
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)
+    };
+
+    let review_comments: Option<Vec<CreateReviewCommentBody>> = comments.as_ref().map(|list| {
+        list.iter()
+            .map(|c| CreateReviewCommentBody {
+                path: &c.path,
+                body: &c.body,
+                line: c.line,
+                side: &c.side,
+            })
+            .collect()
+    });
+
     let review = create_pull_request_review(
         &client,
         &owner,
         &repo,
         number,
         &event,
-        body.as_deref().map(str::trim).filter(|s| !s.is_empty()),
+        trimmed_body,
+        commit_id.as_deref(),
+        review_comments.as_deref(),
     )
     .await
     .map_err(format_review_api_error)?;
