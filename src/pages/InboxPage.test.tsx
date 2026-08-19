@@ -267,6 +267,21 @@ describe("InboxPage snooze shortcuts", () => {
     expect(screen.getByText("You were mentioned")).toBeInTheDocument();
   });
 
+  it("clears list search on Escape without closing the detail preview", async () => {
+    renderInbox();
+    await waitFor(() => expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0));
+    fireEvent.click(screen.getAllByText("Needs review")[0]);
+    expect(await screen.findByRole("button", { name: "Open in Browser" })).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "f", metaKey: true });
+    const input = await screen.findByRole("searchbox", { name: "List search" });
+    fireEvent.change(input, { target: { value: "mentioned" } });
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() => {
+      expect(screen.queryByRole("searchbox", { name: "List search" })).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: "Open in Browser" })).toBeInTheDocument();
+  });
+
   it("surfaces pin failures to the user", async () => {
     (invoke as ReturnType<typeof vi.fn>).mockImplementation(async (cmd: string) => {
       if (cmd === "cmd_get_inbox") {

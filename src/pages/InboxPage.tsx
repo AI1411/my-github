@@ -266,7 +266,11 @@ export default function InboxPage() {
     { key: "Escape", preventDefault: true },
     () => {
       if (document.querySelector('[role="dialog"][aria-label="Shortcut help"]')) return;
-      if (listSearch.open) return;
+      if (listSearch.open) {
+        listSearch.setQuery("");
+        listSearch.setOpen(false);
+        return;
+      }
       if (pickerOpen) {
         setPickerOpen(false);
         return;
