@@ -89,6 +89,17 @@ pnpm exec tsc --noEmit
 pnpm lint
 ```
 
+## Performance
+
+Targets from product requirements: **&lt;800ms** cold start (cached), **&lt;200MB** idle memory, **&lt;30MB** macOS dmg.
+
+After a release build, measure binary and bundle sizes:
+
+```bash
+pnpm tauri build
+./scripts/measure-size.sh
+```
+
 ## Recommended IDE Setup
 
 - [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
