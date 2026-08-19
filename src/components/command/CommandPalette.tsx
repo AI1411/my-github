@@ -4,7 +4,6 @@ import { invoke } from "@tauri-apps/api/core";
 import {
   defaultSavedSearchName,
   isAdvancedSearchQuery,
-  shouldRunGithubSearch,
 } from "../../lib/advancedSearch";
 import { useAuthStore } from "../../stores/authStore";
 import { useSettingsStore, type RecentPullRef } from "../../stores/settingsStore";
@@ -12,19 +11,10 @@ import { useUiStore } from "../../stores/uiStore";
 import { useDataStore } from "../../stores/dataStore";
 import { useSettingsShortcut } from "../../hooks/useSettingsShortcut";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { type CommandItem, KIND_LABEL } from "./commandPaletteTypes";
+import { useCommandPaletteSearch } from "./useCommandPaletteSearch";
 
 const EMPTY_RECENT: RecentPullRef[] = [];
-
-interface CommandItem {
-  id: string;
-  label: string;
-  subtitle?: string;
-  kind: "nav" | "pr" | "issue" | "search" | "next" | "saved" | "action" | "recent" | "mode";
-  href?: string;
-  /** When true, selecting fills the query and keeps the palette open. */
-  keepOpen?: boolean;
-  action?: () => void;
-}
 
 const NAV_COMMANDS: CommandItem[] = [
   { id: "nav-inbox", label: "Go to Inbox", kind: "nav", href: "/inbox" },
@@ -40,17 +30,6 @@ const NAV_COMMANDS: CommandItem[] = [
   { id: "nav-ci", label: "Go to CI Status", kind: "nav", href: "/ci" },
   { id: "nav-settings", label: "Go to Settings", kind: "nav", href: "/settings" },
 ];
-const KIND_LABEL: Record<CommandItem["kind"], string> = {
-  nav: "→",
-  pr: "PR",
-  issue: "ISS",
-  search: "GH",
-  next: "!",
-  saved: "★",
-  action: "+",
-  recent: "R",
-  mode: "M",
-};
 
 function fuzzyMatch(query: string, target: string): boolean {
   return target.toLowerCase().includes(query.toLowerCase());
@@ -75,14 +54,11 @@ export function CommandPalette() {
   const [query, setQuery] = useState("");
   const [searchMode, setSearchMode] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [remoteResults, setRemoteResults] = useState<CommandItem[]>([]);
-  const [searching, setSearching] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const searchSeqRef = useRef(0);
 
   const advanced = searchMode || isAdvancedSearchQuery(query);
+  const { remoteResults, searching } = useCommandPaletteSearch(query, searchMode, advanced);
 
   useSettingsShortcut("commandPalette", toggle, {
     allowInInputs: true,
@@ -95,7 +71,6 @@ export function CommandPalette() {
       setQuery("");
       setSearchMode(false);
       setSelectedIndex(0);
-      setRemoteResults([]);
       setTimeout(() => inputRef.current?.focus(), 0);
     }
   }, [isOpen]);
@@ -321,58 +296,6 @@ export function CommandPalette() {
   useEffect(() => {
     setSelectedIndex(0);
   }, [allItems.length]);
-
-  useEffect(() => {
-    if (!shouldRunGithubSearch(query, searchMode)) {
-      setRemoteResults([]);
-      setSearching(false);
-      return;
-    }
-    const seq = ++searchSeqRef.current;
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      setSearching(true);
-      const trimmed = query.trim();
-      invoke<
-        {
-          id: number;
-          number: number;
-          title: string;
-          state: string;
-          htmlUrl: string;
-          repo: string;
-          kind: string;
-        }[]
-      >("cmd_search_github", { query: trimmed })
-        .then((results) => {
-          if (searchSeqRef.current !== seq) return;
-          const limit = advanced ? 10 : 5;
-          setRemoteResults(
-            results.slice(0, limit).map((r) => ({
-              id: `gh-${r.id}`,
-              label: r.title,
-              subtitle: `#${r.number} · ${r.repo} · GitHub`,
-              kind: "search" as const,
-              href:
-                r.kind === "pull"
-                  ? `/pulls/${r.repo}/${r.number}`
-                  : `/issues/${r.repo}/${r.number}`,
-            })),
-          );
-        })
-        .catch(() => {
-          if (searchSeqRef.current !== seq) return;
-          setRemoteResults([]);
-        })
-        .finally(() => {
-          if (searchSeqRef.current !== seq) return;
-          setSearching(false);
-        });
-    }, 300);
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [query, searchMode, advanced]);
 
   const handleSelect = (item: CommandItem) => {
     item.action?.();
