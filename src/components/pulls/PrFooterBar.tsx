@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Button } from "../common/Button";
 import { checkoutCommand, copyToClipboard } from "../../lib/checkout";
+import { openInBrowser } from "../../lib/openInBrowser";
 
 export type ReviewEvent = "APPROVE" | "REQUEST_CHANGES" | "COMMENT";
 
@@ -23,17 +24,6 @@ export interface PrFooterBarProps {
   onMerged?: () => void;
   onStateChanged?: (state: "open" | "closed") => void;
   onDraftChanged?: (draft: boolean) => void;
-}
-
-async function openBrowser(url: string) {
-  try {
-    const opener = await import("@tauri-apps/plugin-opener");
-    await opener.openUrl(url);
-  } catch {
-    if (typeof window !== "undefined") {
-      window.open(url, "_blank");
-    }
-  }
 }
 
 export function PrFooterBar({
@@ -165,7 +155,7 @@ export function PrFooterBar({
               <button
                 type="button"
                 className="underline"
-                onClick={() => void openBrowser(`${htmlUrl}#review`)}
+                onClick={() => void openInBrowser(`${htmlUrl}#review`)}
               >
                 Open on GitHub
               </button>

@@ -6,6 +6,7 @@ import { Spinner } from "../components/common/Spinner";
 import { EmptyState } from "../components/common/EmptyState";
 import { digestSince, loadDigestLastSeen, saveDigestLastSeen } from "../lib/digest";
 import { formatRelativeTime } from "../lib/relativeTime";
+import { openInBrowser } from "../lib/openInBrowser";
 import type { ReleaseSummary } from "../stores/dataStore";
 
 interface DigestPullItem {
@@ -28,15 +29,6 @@ interface DigestData {
   reviewRequests: DigestNotificationItem[];
   mentions: DigestNotificationItem[];
   releases: ReleaseSummary[];
-}
-
-async function openBrowser(url: string) {
-  try {
-    const opener = await import("@tauri-apps/plugin-opener");
-    await opener.openUrl(url);
-  } catch {
-    if (typeof window !== "undefined") window.open(url, "_blank");
-  }
 }
 
 function SectionHeading({ title, count }: { title: string; count: number }) {
@@ -187,7 +179,7 @@ export default function DigestPage() {
                   key={`ci-${item.repo}-${item.number}`}
                   primary={item.title}
                   secondary={`${item.repo} #${item.number} · ${formatRelativeTime(item.updatedAt)}`}
-                  onOpen={item.htmlUrl ? () => void openBrowser(item.htmlUrl!) : undefined}
+                  onOpen={item.htmlUrl ? () => void openInBrowser(item.htmlUrl!) : undefined}
                 />
               ))}
             </>
@@ -200,7 +192,7 @@ export default function DigestPage() {
                   key={`merged-${item.repo}-${item.number}`}
                   primary={item.title}
                   secondary={`${item.repo} #${item.number} · ${formatRelativeTime(item.updatedAt)}`}
-                  onOpen={item.htmlUrl ? () => void openBrowser(item.htmlUrl!) : undefined}
+                  onOpen={item.htmlUrl ? () => void openInBrowser(item.htmlUrl!) : undefined}
                 />
               ))}
             </>
@@ -213,7 +205,7 @@ export default function DigestPage() {
                   key={`release-${release.id}`}
                   primary={release.name ?? release.tagName}
                   secondary={`${release.repo} · ${release.tagName}`}
-                  onOpen={() => void openBrowser(release.htmlUrl)}
+                  onOpen={() => void openInBrowser(release.htmlUrl)}
                 />
               ))}
             </>

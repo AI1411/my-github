@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { copyToClipboard } from "../../lib/checkout";
 import { formatReviewComment, REVIEW_PREFIXES, type ReviewPrefixId } from "../../lib/reviewPrefix";
+import { openInBrowser } from "../../lib/openInBrowser";
 
 interface CommentDraftPanelProps {
   owner: string;
@@ -11,15 +12,6 @@ interface CommentDraftPanelProps {
   canComment?: boolean;
   disabledReason?: string | null;
   onSubmitted?: () => void;
-}
-
-async function openBrowser(url: string) {
-  try {
-    const opener = await import("@tauri-apps/plugin-opener");
-    await opener.openUrl(url);
-  } catch {
-    if (typeof window !== "undefined") window.open(url, "_blank");
-  }
 }
 
 /**
@@ -161,7 +153,7 @@ export function CommentDraftPanel({
           {htmlUrl && (
             <button
               type="button"
-              onClick={() => void openBrowser(htmlUrl)}
+              onClick={() => void openInBrowser(htmlUrl)}
               className="rounded-md px-2.5 py-1.5 text-xs font-medium"
               style={{
                 backgroundColor: "var(--bg-tertiary)",
