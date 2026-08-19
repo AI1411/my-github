@@ -37,6 +37,10 @@ export type ShortcutId =
   | "goInbox"
   | "goPulls"
   | "goSettings"
+  | "goActivity"
+  | "goCi"
+  | "goReviewQueue"
+  | "goBlockers"
   | "shortcutHelp"
   | "listSearch"
   | "snooze"
@@ -120,6 +124,10 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutSetting> = {
   goInbox: { label: "Go to Inbox", keys: "G then I" },
   goPulls: { label: "Go to Pulls", keys: "G then P" },
   goSettings: { label: "Go to Settings", keys: "G then S" },
+  goActivity: { label: "Go to Activity", keys: "G then A" },
+  goCi: { label: "Go to CI Status", keys: "G then C" },
+  goReviewQueue: { label: "Go to Review queue", keys: "G then R" },
+  goBlockers: { label: "Go to My blockers", keys: "G then B" },
   shortcutHelp: { label: "Shortcut help", keys: "?" },
   listSearch: { label: "Find in list", keys: "Cmd+F" },
   snooze: { label: "Snooze", keys: "H" },

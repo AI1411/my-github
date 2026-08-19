@@ -17,6 +17,18 @@ export function GlobalShortcuts() {
   useSettingsShortcut("goSettings", () => {
     navigate("/settings");
   });
+  useSettingsShortcut("goActivity", () => {
+    navigate("/activity");
+  });
+  useSettingsShortcut("goCi", () => {
+    navigate("/ci");
+  });
+  useSettingsShortcut("goReviewQueue", () => {
+    navigate("/review-queue");
+  });
+  useSettingsShortcut("goBlockers", () => {
+    navigate("/my-blockers");
+  });
   useSettingsShortcut("syncNow", () => {
     void invoke("cmd_sync_now").then(() => markLastSynced());
   });
