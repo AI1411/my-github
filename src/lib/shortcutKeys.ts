@@ -173,6 +173,20 @@ export function normalizeShortcutKeyString(raw: string): string {
   return raw.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+/** True on macOS, iOS, and iPadOS — used for Cmd vs Ctrl shortcut labels. */
+export function isApplePlatform(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const platform = navigator.platform ?? "";
+  const ua = navigator.userAgent ?? "";
+  return /Mac|iPhone|iPad|iPod/i.test(platform) || /Mac OS X|iPhone|iPad|iPod/i.test(ua);
+}
+
+/** OS-specific shortcut label for read-only UI (matching still treats Cmd/Ctrl the same). */
+export function displayShortcutKeys(raw: string): string {
+  if (isApplePlatform()) return raw;
+  return raw.replace(/\bCmd\b/g, "Ctrl");
+}
+
 export interface ShortcutConflict {
   id: ShortcutId;
   otherId: ShortcutId;
