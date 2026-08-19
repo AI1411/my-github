@@ -31,6 +31,7 @@ struct RawUser {
 }
 
 const REQUIRED_SCOPES: &[&str] = &["repo", "read:user", "notifications"];
+// Keep in sync with PATTab help text and docs/pat-scopes.md.
 
 /// Checks that all required OAuth scopes are present on classic PATs.
 /// Returns Ok if scopes is empty (fine-grained PAT passes through).
