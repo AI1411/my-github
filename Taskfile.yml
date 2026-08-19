@@ -34,6 +34,10 @@ tasks:
     desc: oxfmt でフォーマットをチェック（変更なし）
     cmd: pnpm format:check
 
+  test:
+    desc: Vitest でフロントエンドテストを実行
+    cmd: pnpm test
+
   typecheck:
     desc: tsc で型チェックを実行
     cmd: pnpm typecheck
@@ -64,4 +68,4 @@ tasks:
 
   ci:
     desc: CI で実行する全チェック（frontend + rust）
-    deps: [check, rust:lint, rust:format:check]
+    deps: [check, test, rust:lint, rust:format:check]
