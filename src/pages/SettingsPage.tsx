@@ -19,6 +19,7 @@ import {
   type AppearanceTheme,
   type AppearanceLayout,
 } from "../stores/settingsStore";
+import { AboutLicensesSection } from "../components/settings/AboutLicensesSection";
 import { PATTab } from "./components/PATTab";
 
 type SettingsTab =
@@ -1172,6 +1173,8 @@ export default function SettingsPage() {
             </Row>
           </Section>
         )}
+
+        {activeTab === "about" && <AboutLicensesSection />}
 
         {activeTab === "about" && (
           <Section title="Local LLM">
