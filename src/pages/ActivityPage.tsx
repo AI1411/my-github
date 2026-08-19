@@ -19,6 +19,7 @@ import { useAuthStore } from "../stores/authStore";
 import { useDataStore, type NotificationSummary } from "../stores/dataStore";
 import { useSettingsStore } from "../stores/settingsStore";
 import { listRowHeight } from "../lib/appearance";
+import { openInBrowser } from "../lib/openInBrowser";
 
 type TabKey = "all" | "unread" | "participating" | "mentions" | "review";
 type TypeFilter = "all" | "pulls" | "issues" | "comments" | "ci" | "releases";
@@ -61,15 +62,6 @@ type VirtualActivityRow =
   | { kind: "header"; id: string; title: string }
   | { kind: "item"; id: string; notification: NotificationSummary };
 
-async function openBrowser(url: string) {
-  try {
-    const opener = await import("@tauri-apps/plugin-opener");
-    await opener.openUrl(url);
-  } catch {
-    if (typeof window !== "undefined") window.open(url, "_blank");
-  }
-}
-
 export default function ActivityPage() {
   const notifications = useDataStore((state) => state.notifications);
   const { loading, error, refetch } = useNotificationPollingContext();
@@ -90,7 +82,7 @@ export default function ActivityPage() {
 
   const handleSelectNotification = async (notification: NotificationSummary) => {
     if (notification.reason === "release") {
-      if (notification.htmlUrl) await openBrowser(notification.htmlUrl);
+      if (notification.htmlUrl) await openInBrowser(notification.htmlUrl);
       return;
     }
     if (notification.unread) {

@@ -4,6 +4,7 @@ import { EmptyState } from "../components/common/EmptyState";
 import { Spinner } from "../components/common/Spinner";
 import { Toolbar } from "../components/common/Toolbar";
 import { buildFileJumpUrl } from "../lib/codeSearch";
+import { openInBrowser } from "../lib/openInBrowser";
 import { useSettingsStore } from "../stores/settingsStore";
 
 export interface CodeSearchHit {
@@ -14,24 +15,15 @@ export interface CodeSearchHit {
   snippet: string;
 }
 
-async function openBrowser(url: string) {
-  try {
-    const opener = await import("@tauri-apps/plugin-opener");
-    await opener.openUrl(url);
-  } catch {
-    if (typeof window !== "undefined") window.open(url, "_blank");
-  }
-}
-
 function ResultRow({ hit }: { hit: CodeSearchHit }) {
   return (
     <div
       role="row"
       tabIndex={0}
       data-testid={`code-hit-${hit.sha}`}
-      onClick={() => void openBrowser(hit.htmlUrl)}
+      onClick={() => void openInBrowser(hit.htmlUrl)}
       onKeyDown={(e) => {
-        if (e.key === "Enter") void openBrowser(hit.htmlUrl);
+        if (e.key === "Enter") void openInBrowser(hit.htmlUrl);
       }}
       className="px-4 py-3 border-b outline-none"
       style={{
@@ -95,7 +87,7 @@ export default function CodeSearchPage() {
       return;
     }
     setError(null);
-    void openBrowser(url);
+    void openInBrowser(url);
   }
 
   const inputStyle = {

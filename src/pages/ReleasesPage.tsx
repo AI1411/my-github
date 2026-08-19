@@ -3,16 +3,8 @@ import { Spinner } from "../components/common/Spinner";
 import { EmptyState } from "../components/common/EmptyState";
 import { useReleasesQuery } from "../features/activity/useReleasesQuery";
 import { formatRelativeTime } from "../lib/relativeTime";
+import { openInBrowser } from "../lib/openInBrowser";
 import type { ReleaseSummary } from "../stores/dataStore";
-
-async function openBrowser(url: string) {
-  try {
-    const opener = await import("@tauri-apps/plugin-opener");
-    await opener.openUrl(url);
-  } catch {
-    if (typeof window !== "undefined") window.open(url, "_blank");
-  }
-}
 
 function releaseTitle(release: ReleaseSummary): string {
   if (release.name && release.name.trim().length > 0) return release.name;
@@ -26,9 +18,9 @@ function ReleaseRow({ release }: { release: ReleaseSummary }) {
       role="row"
       tabIndex={0}
       data-testid={`release-row-${release.id}`}
-      onClick={() => void openBrowser(release.htmlUrl)}
+      onClick={() => void openInBrowser(release.htmlUrl)}
       onKeyDown={(e) => {
-        if (e.key === "Enter") void openBrowser(release.htmlUrl);
+        if (e.key === "Enter") void openInBrowser(release.htmlUrl);
       }}
       className="px-4 py-3 border-b outline-none"
       style={{
