@@ -68,6 +68,18 @@ Sign in with a GitHub Personal Access Token (PAT).
 
 Periodic GitHub sync is driven by the **frontend** (`useNotificationPolling` + `cmd_sync_now` on focus). The Rust backend does not spawn a background poller at startup.
 
+### Debug token storage
+
+Production builds store PATs in the OS keychain. **Debug builds** (`pnpm tauri dev`) write tokens to a plaintext JSON file instead:
+
+```
+${XDG_DATA_HOME:-~/.local/share}/my-github-dev/tokens.json
+```
+
+On macOS without `XDG_DATA_HOME`, use `~/Library/Application Support/my-github-dev/tokens.json`.
+
+To reset login state during development, quit the app and delete `tokens.json` (or remove the account in Settings → Accounts).
+
 ## Build
 
 ```bash
