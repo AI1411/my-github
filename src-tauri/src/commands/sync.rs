@@ -2,8 +2,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 
 use crate::auth::pat::validate_pat;
-use crate::auth::token_store::{load_last_account_id, load_token};
-use crate::db::SqlitePool;
+use crate::commands::helpers::{get_pool, require_active_token};
 use crate::github::client::RateLimitInfo;
 use crate::sync::engine::SyncEngine;
 use crate::sync::status::get_sync_status;
@@ -72,12 +71,8 @@ pub async fn run_sync_for_scopes<R: Runtime>(
     scopes: &[SyncScope],
 ) -> Result<SyncReport, String> {
     crate::sync::account_lock::with_sync_account_lock(|| async {
-        let pool = app
-            .try_state::<SqlitePool>()
-            .ok_or_else(|| "sqlite pool not initialized".to_string())?;
-        let account_id =
-            load_last_account_id().ok_or_else(|| "no signed-in account".to_string())?;
-        let token = load_token(&account_id).ok_or_else(|| "no token for account".to_string())?;
+        let pool = get_pool(app)?;
+        let (account_id, token) = require_active_token()?;
         let api_base = crate::auth::token_store::load_host(&account_id);
         let client = reqwest::Client::new();
         let (user, _) = validate_pat(&client, &token, api_base.as_deref())
@@ -125,9 +120,7 @@ pub async fn cmd_sync_now<R: Runtime>(app: AppHandle<R>) -> Result<SyncNowResult
 
 #[tauri::command]
 pub fn cmd_get_sync_status<R: Runtime>(app: AppHandle<R>) -> Result<SyncStatus, String> {
-    let pool = app
-        .try_state::<SqlitePool>()
-        .ok_or_else(|| "sqlite pool not initialized".to_string())?;
+    let pool = get_pool(&app)?;
     get_sync_status(pool.inner()).map_err(|err| err.to_string())
 }
 
