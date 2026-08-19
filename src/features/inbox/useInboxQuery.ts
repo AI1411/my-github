@@ -1,30 +1,23 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { InboxData } from "../../stores/dataStore";
 import { reportAuthFailure } from "../../stores/authStore";
+import { useSequencedRequest } from "../../hooks/useSequencedRequest";
 
-interface UseInboxQueryResult {
-  data: InboxData | null;
-  loading: boolean;
-  error: string | null;
-  refetch: () => void;
-}
-
-export function useInboxQuery(): UseInboxQueryResult {
+export function useInboxQuery() {
   const [data, setData] = useState<InboxData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const requestIdRef = useRef(0);
+  const { nextRequestId, isCurrentRequest } = useSequencedRequest();
 
   const fetchInbox = useCallback(() => {
-    const requestId = ++requestIdRef.current;
+    const requestId = nextRequestId();
     setLoading(true);
     setError(null);
     invoke<InboxData>("cmd_get_inbox")
       .then((d) => {
-        if (requestId !== requestIdRef.current) return;
+        if (!isCurrentRequest(requestId)) return;
         setData(d);
-        // トレイのミニInboxサマリを更新（失敗しても致命的ではない）
         invoke("cmd_update_tray_summary", {
           reviewRequests: d.reviewRequests.length,
           ciFailures: d.ciFailures.length,
@@ -33,14 +26,14 @@ export function useInboxQuery(): UseInboxQueryResult {
       })
       .catch((e: unknown) => {
         reportAuthFailure(e);
-        if (requestId !== requestIdRef.current) return;
+        if (!isCurrentRequest(requestId)) return;
         setError(String(e));
       })
       .finally(() => {
-        if (requestId !== requestIdRef.current) return;
+        if (!isCurrentRequest(requestId)) return;
         setLoading(false);
       });
-  }, []);
+  }, [nextRequestId, isCurrentRequest]);
 
   useEffect(() => {
     fetchInbox();
