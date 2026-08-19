@@ -2,6 +2,12 @@
 
 > GitHub cross-repository dashboard desktop app — view PRs, Issues, CI status, and Notifications across multiple repos in one keyboard-driven window.
 
+## Screenshot
+
+![my-github inbox placeholder](docs/screenshots/placeholder.svg)
+
+_Note: replace with a real capture after UI polish._
+
 <!-- Screenshot placeholder — add after first UI milestone -->
 <!--
 ![my-github screenshot](docs/screenshots/my-github-inbox.png)
