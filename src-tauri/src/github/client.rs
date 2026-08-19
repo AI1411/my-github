@@ -61,13 +61,30 @@ impl RateLimitInfo {
     }
 }
 
+/// Redact bearer tokens and PAT-like secrets from strings that may appear in logs.
+pub fn redact_secrets(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(start) = rest.find("Bearer ") {
+        out.push_str(&rest[..start + 7]);
+        rest = &rest[start + 7..];
+        let end = rest
+            .find(|c: char| c.is_whitespace() || c == '"' || c == '\'' || c == ')')
+            .unwrap_or(rest.len());
+        out.push_str("<redacted>");
+        rest = &rest[end..];
+    }
+    out.push_str(rest);
+    out
+}
+
 /// HTTP client for GitHub REST/GraphQL.
 ///
 /// Default base is `https://api.github.com`. For GHES, construct with
 /// [`GithubClient::with_base_url`] (typically `https://host/api/v3`).
 /// Call sites that load the active account token should pass the stored
 /// per-account API base when set so requests route to the correct host.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct GithubClient {
     inner: reqwest::Client,
     token: String,
@@ -160,6 +177,15 @@ impl GithubClient {
     }
 }
 
+impl std::fmt::Debug for GithubClient {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("GithubClient")
+            .field("base_url", &self.base_url)
+            .field("token", &"<redacted>")
+            .finish()
+    }
+}
+
 /// Build a [`GithubClient`] for the given account login using its stored token
 /// and optional GHES API base (`token_store::load_host`).
 pub fn client_for_account(account_id: &str) -> Result<GithubClient, String> {
@@ -181,6 +207,23 @@ pub fn client_for_active_account() -> Result<GithubClient, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn debug_does_not_print_token() {
+        let client = GithubClient::new("gho_super_secret_token_value");
+        let debug = format!("{client:?}");
+        assert!(!debug.contains("gho_super_secret_token_value"));
+        assert!(debug.contains("<redacted>"));
+    }
+
+    #[test]
+    fn redact_secrets_masks_bearer_tokens() {
+        let text = "Authorization: Bearer gho_abc123xyz failed";
+        assert_eq!(
+            redact_secrets(text),
+            "Authorization: Bearer <redacted> failed"
+        );
+    }
 
     #[test]
     fn new_stores_token() {
