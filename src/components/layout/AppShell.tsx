@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import { Link, useNavigate } from "react-router-dom";
 import { NotificationPollingContext } from "../../features/activity/NotificationPollingContext";
 import { useNotificationPolling } from "../../features/activity/useNotificationPolling";
@@ -62,24 +62,27 @@ export function AppShell({ sidebar, main, secondary }: AppShellProps) {
 
   // トレイメニューの "Open Inbox" でInboxへ遷移する
   useEffect(() => {
+    if (!isTauri()) return;
     const unlisten = listen("tray-open-inbox", () => navigate("/inbox"));
     return () => {
-      void unlisten.then((dispose) => dispose());
+      void unlisten.then((dispose) => dispose()).catch(() => undefined);
     };
   }, [navigate]);
 
   // Sync 401 / expired PAT → auth expired screen
   useEffect(() => {
+    if (!isTauri()) return;
     const unlisten = listen("auth-expired", () => {
       useAuthStore.getState().setExpired();
     });
     return () => {
-      void unlisten.then((dispose) => dispose());
+      void unlisten.then((dispose) => dispose()).catch(() => undefined);
     };
   }, []);
 
   // レート制限ヒットをバナー表示し、reset 時刻後に消す
   useEffect(() => {
+    if (!isTauri()) return;
     const unlisten = listen<{ remaining: number; reset: number }>("rate-limit-hit", (event) => {
       setRateLimitHit({
         remaining: event.payload.remaining,
@@ -87,7 +90,7 @@ export function AppShell({ sidebar, main, secondary }: AppShellProps) {
       });
     });
     return () => {
-      void unlisten.then((dispose) => dispose());
+      void unlisten.then((dispose) => dispose()).catch(() => undefined);
     };
   }, [setRateLimitHit]);
 
@@ -112,11 +115,14 @@ export function AppShell({ sidebar, main, secondary }: AppShellProps) {
   }, []);
 
   useEffect(() => {
+    if (!isTauri()) return;
+
     let disposed = false;
     let disposeClickHandler: (() => void) | undefined;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
     const register = (attempt: number) => {
+      if (disposed) return;
       void registerAppNotificationClickHandler((route) => navigate(route))
         .then((dispose) => {
           if (disposed) {

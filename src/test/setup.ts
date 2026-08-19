@@ -3,10 +3,11 @@ import { vi } from "vitest";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(() => Promise.resolve(null)),
+  isTauri: vi.fn(() => true),
 }));
 
 vi.mock("@tauri-apps/api/event", () => ({
-  listen: vi.fn(() => Promise.resolve(() => {})),
+  listen: vi.fn().mockResolvedValue(() => {}),
 }));
 
 /** Render all rows in tests (jsdom has no real scroll metrics). */

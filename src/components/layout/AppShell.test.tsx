@@ -55,6 +55,7 @@ vi.mock("@tauri-apps/api/event", () => ({
 }));
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn().mockResolvedValue({ lastRateLimit: null }),
+  isTauri: vi.fn(() => true),
 }));
 
 function LocationProbe() {

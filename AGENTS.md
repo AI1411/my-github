@@ -98,23 +98,19 @@ only refreshes JS deps (`pnpm install --frozen-lockfile`). Standard commands are
 `README.md` / `Taskfile.yml` / `package.json`. Notes below are the non-obvious gotchas.
 
 ### Toolchain / system deps (baked into the base image)
-- Rust: **stable ≥ 1.85 is required** even though README says 1.82+. A transitive Linux dep
-  (`dlopen2_derive`) needs the `edition2024` cargo feature. Use `rustup default stable`.
+- Rust: **stable ≥ 1.85** is required. A transitive Linux dep (`dlopen2_derive`) needs the
+  `edition2024` cargo feature. Use `rustup default stable`.
 - Linux build needs these apt packages (for `webkit2gtk`, tray icon, and OpenSSL):
   `libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf
   libsoup-3.0-dev libjavascriptcoregtk-4.1-dev libssl-dev pkg-config`. If `cargo build`
   fails with a missing `webkit2gtk-4.1` or `openssl` pkg-config error, reinstall these.
 
 ### Frontend gotchas
-- `pnpm typecheck` invokes `tsgo` (`@typescript/native-preview`), which is **not declared in
-  `package.json`** and is absent on the VM. Use `pnpm exec tsc --noEmit` for typechecking
-  (documented in `README.md`); `typescript` is installed and passes clean.
-- `pnpm test` (vitest): all 247 tests pass, but the run currently **exits non-zero** because
-  `AppShell` registers Tauri event listeners (`@tauri-apps/api` `listen` / notification retry
-  loop) that reject in jsdom after teardown (`window.__TAURI_INTERNALS__` is undefined). These
-  are unhandled-rejection "Errors", not test failures — treat 247/247 passing as success.
+- `pnpm typecheck` runs `tsc --noEmit` (see `package.json`).
+- `pnpm test` (vitest): global Tauri mocks in `src/test/setup.ts` plus `AppShell` guards when
+  `isTauri()` is false keep the run clean; expect exit code 0.
 - `pnpm build` and `pnpm dev` (Vite) both work; Vite dev server runs on **port 1430**
-  (not 1420 as in `.env.example`/README). `pnpm approve-builds` (esbuild) can be skipped —
+  (not 1420 as in `.env.example`). `pnpm approve-builds` (esbuild) can be skipped —
   esbuild works via its platform optional-dep binary.
 
 ### Running the desktop app on Linux (v0.1 targets macOS/Windows; Linux is unofficial)
