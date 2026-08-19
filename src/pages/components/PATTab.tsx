@@ -74,7 +74,10 @@ export function PATTab({ onSuccess, showHostField = true }: Props) {
         >
           notifications
         </code>{" "}
-        scopes. For GitHub Enterprise Server, enter the host URL below.
+        scopes. Fine-grained tokens with repository access may omit the classic scope
+        header — those are accepted when GitHub returns an empty{" "}
+        <code className="text-[11px]">X-OAuth-Scopes</code> list. For GitHub Enterprise
+        Server, enter the host URL below.
       </p>
 
       {showHostField && (
