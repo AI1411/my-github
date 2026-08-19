@@ -43,6 +43,34 @@ describe("GlobalShortcuts", () => {
     expect(navigate).toHaveBeenCalledWith("/settings");
   });
 
+  it("navigates to Activity on G then A", () => {
+    render(<GlobalShortcuts />);
+    fireEvent.keyDown(window, { key: "g" });
+    fireEvent.keyDown(window, { key: "a" });
+    expect(navigate).toHaveBeenCalledWith("/activity");
+  });
+
+  it("navigates to CI Status on G then C", () => {
+    render(<GlobalShortcuts />);
+    fireEvent.keyDown(window, { key: "g" });
+    fireEvent.keyDown(window, { key: "c" });
+    expect(navigate).toHaveBeenCalledWith("/ci");
+  });
+
+  it("navigates to Review queue on G then R", () => {
+    render(<GlobalShortcuts />);
+    fireEvent.keyDown(window, { key: "g" });
+    fireEvent.keyDown(window, { key: "r" });
+    expect(navigate).toHaveBeenCalledWith("/review-queue");
+  });
+
+  it("navigates to My blockers on G then B", () => {
+    render(<GlobalShortcuts />);
+    fireEvent.keyDown(window, { key: "g" });
+    fireEvent.keyDown(window, { key: "b" });
+    expect(navigate).toHaveBeenCalledWith("/my-blockers");
+  });
+
   it("syncs on Cmd+R", async () => {
     const { invoke } = await import("@tauri-apps/api/core");
     render(<GlobalShortcuts />);
