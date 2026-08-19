@@ -43,9 +43,7 @@ jobs:
         run: pnpm exec tsc --noEmit
 
       - name: Vitest
-        # jsdom teardown rejects Tauri event listeners after tests pass (247/247)
         run: pnpm test
-        continue-on-error: true
 
   rust:
     name: Rust
