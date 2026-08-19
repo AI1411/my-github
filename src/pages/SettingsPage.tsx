@@ -16,10 +16,10 @@ import {
   type NotificationRuleKind,
   type PollingInterval,
   type ShortcutId,
-  type AppearanceTheme,
-  type AppearanceLayout,
 } from "../stores/settingsStore";
 import { AboutLicensesSection } from "../components/settings/AboutLicensesSection";
+import { AppearanceSettingsSection } from "../components/settings/AppearanceSettingsSection";
+import { InlineButton, Row, Section, Toggle, sectionStyle } from "../components/settings/settingsUi";
 import { PATTab } from "./components/PATTab";
 
 type SettingsTab =
@@ -58,111 +58,6 @@ const POLLING_OPTIONS: { id: PollingInterval; label: string }[] = [
 
 const SHORTCUT_IDS = Object.keys(DEFAULT_SHORTCUTS) as ShortcutId[];
 
-function sectionStyle() {
-  return {
-    borderColor: "var(--border-subtle)",
-  };
-}
-
-function Section({
-  title,
-  children,
-  action,
-}: {
-  title: string;
-  children: ReactNode;
-  action?: ReactNode;
-}) {
-  return (
-    <section className="border-b px-6 py-5" style={{ borderColor: "var(--border-subtle)" }}>
-      <div className="mb-4 flex items-center justify-between gap-4">
-        <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-          {title}
-        </h2>
-        {action}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function Row({
-  label,
-  value,
-  children,
-}: {
-  label: string;
-  value?: ReactNode;
-  children?: ReactNode;
-}) {
-  return (
-    <div
-      className="grid min-h-11 grid-cols-[220px_1fr] items-center gap-4 border-t py-2 first:border-t-0"
-      style={sectionStyle()}
-    >
-      <div className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
-        {label}
-      </div>
-      <div className="min-w-0 text-sm" style={{ color: "var(--text-primary)" }}>
-        {children ?? value}
-      </div>
-    </div>
-  );
-}
-
-function InlineButton({
-  children,
-  onClick,
-  active = false,
-  disabled = false,
-  ariaLabel,
-}: {
-  children: ReactNode;
-  onClick?: () => void;
-  active?: boolean;
-  disabled?: boolean;
-  ariaLabel?: string;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={ariaLabel}
-      onClick={onClick}
-      disabled={disabled}
-      className="rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors disabled:opacity-50"
-      style={{
-        backgroundColor: active ? "var(--accent-blue)" : "var(--bg-tertiary)",
-        border: "1px solid var(--border-default)",
-        color: active ? "#ffffff" : "var(--text-secondary)",
-        cursor: disabled ? "not-allowed" : "pointer",
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
-function Toggle({
-  checked,
-  onChange,
-  label,
-}: {
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-  label: string;
-}) {
-  return (
-    <label className="inline-flex items-center gap-2 text-sm">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(event) => onChange(event.currentTarget.checked)}
-      />
-      <span>{label}</span>
-    </label>
-  );
-}
-
 function formatReset(epochSeconds: number): string {
   if (!epochSeconds) return "unknown";
   return new Date(epochSeconds * 1000).toLocaleTimeString([], {
@@ -195,9 +90,6 @@ export default function SettingsPage() {
   const pushSyncEnabled = useSettingsStore((state) => state.pushSyncEnabled);
   const setPushSyncEnabled = useSettingsStore((state) => state.setPushSyncEnabled);
   const dockBadgeEnabled = useSettingsStore((state) => state.dockBadgeEnabled);
-  const density = useSettingsStore((state) => state.density);
-  const theme = useSettingsStore((state) => state.theme);
-  const layout = useSettingsStore((state) => state.layout);
   const shortcuts = useSettingsStore((state) => state.shortcuts);
   const addWatchedRepository = useSettingsStore((state) => state.addWatchedRepository);
   const removeWatchedRepository = useSettingsStore((state) => state.removeWatchedRepository);
@@ -221,9 +113,6 @@ export default function SettingsPage() {
   const setDigestAutoShowEnabled = useSettingsStore((state) => state.setDigestAutoShowEnabled);
   const setPollingInterval = useSettingsStore((state) => state.setPollingInterval);
   const setDockBadgeEnabled = useSettingsStore((state) => state.setDockBadgeEnabled);
-  const setDensity = useSettingsStore((state) => state.setDensity);
-  const setTheme = useSettingsStore((state) => state.setTheme);
-  const setLayout = useSettingsStore((state) => state.setLayout);
   const setShortcut = useSettingsStore((state) => state.setShortcut);
   const resetShortcuts = useSettingsStore((state) => state.resetShortcuts);
   const shortcutChipsEnabled = useSettingsStore((state) => state.shortcutChipsEnabled);
@@ -1026,52 +915,7 @@ export default function SettingsPage() {
           </Section>
         )}
 
-        {activeTab === "appearance" && (
-          <Section title="Appearance">
-            <Row label="Theme">
-              <div className="flex flex-wrap gap-2">
-                {(
-                  [
-                    ["dark", "Dark"],
-                    ["light", "Light"],
-                    ["system", "System"],
-                  ] as [AppearanceTheme, string][]
-                ).map(([id, label]) => (
-                  <InlineButton key={id} active={theme === id} onClick={() => setTheme(id)}>
-                    {label}
-                  </InlineButton>
-                ))}
-              </div>
-            </Row>
-            <Row label="Density">
-              <div className="flex flex-wrap gap-2">
-                <InlineButton
-                  active={density === "comfortable"}
-                  onClick={() => setDensity("comfortable")}
-                >
-                  Comfortable
-                </InlineButton>
-                <InlineButton active={density === "compact"} onClick={() => setDensity("compact")}>
-                  Compact
-                </InlineButton>
-              </div>
-            </Row>
-            <Row label="Home layout">
-              <div className="flex flex-wrap gap-2">
-                {(
-                  [
-                    ["inbox-first", "Inbox first"],
-                    ["pulls-first", "Pulls first"],
-                  ] as [AppearanceLayout, string][]
-                ).map(([id, label]) => (
-                  <InlineButton key={id} active={layout === id} onClick={() => setLayout(id)}>
-                    {label}
-                  </InlineButton>
-                ))}
-              </div>
-            </Row>
-          </Section>
-        )}
+        {activeTab === "appearance" && <AppearanceSettingsSection />}
 
         {activeTab === "shortcuts" && (
           <Section
