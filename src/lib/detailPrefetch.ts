@@ -31,6 +31,16 @@ export function clearPrefetchCache(): void {
   cache.clear();
 }
 
+export function getPrefetchPromise<T>(
+  kind: PrefetchKind,
+  owner: string,
+  repo: string,
+  number: number,
+): Promise<T> | undefined {
+  const cached = cache.get(key(kind, owner, repo, number));
+  return cached as Promise<T> | undefined;
+}
+
 export function hasPrefetch(kind: PrefetchKind, owner: string, repo: string, number: number): boolean {
   return cache.has(key(kind, owner, repo, number));
 }
