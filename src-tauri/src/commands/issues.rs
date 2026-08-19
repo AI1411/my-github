@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 
 use crate::cache::issues::upsert_issue;
+use crate::commands::limits::validate_label_list;
 use crate::commands::sync::run_sync_for_scopes;
 use crate::db::SqlitePool;
 use crate::github::types::{Issue, IssueComment};
@@ -305,6 +306,7 @@ pub async fn cmd_list_issues<R: Runtime>(
     app: AppHandle<R>,
     filter: IssueFilter,
 ) -> Result<Vec<IssueSummary>, String> {
+    validate_label_list(&filter.labels, "issue filter")?;
     let pool = app
         .try_state::<SqlitePool>()
         .ok_or_else(|| "sqlite pool not initialized".to_string())?;

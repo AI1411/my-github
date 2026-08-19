@@ -4,6 +4,7 @@ pub mod digest;
 pub mod editor;
 pub mod inbox;
 pub mod issues;
+pub mod limits;
 pub mod pulls;
 pub mod releases;
 pub mod search;
