@@ -39,14 +39,14 @@ sudo apt-get install libwebkit2gtk-4.1-dev libgtk-3-dev \
 | Layer | Technology |
 |-------|-----------|
 | Framework | Tauri 2 |
-| Backend | Rust 1.82+ (reqwest + tokio, octocrab, graphql_client) |
+| Backend | Rust stable ≥ 1.85 (reqwest + tokio, graphql_client) |
 | Local DB | SQLite (rusqlite + r2d2) |
 | Token Storage | keyring (OS keychain) |
 | Frontend | React 19 + TypeScript 5.x |
 | Build | Vite |
 | Styling | Tailwind CSS v4 (dark theme) |
 | State | Zustand |
-| Routing | TanStack Router |
+| Routing | react-router-dom |
 
 ## Development
 

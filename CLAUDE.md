@@ -14,14 +14,14 @@ Full requirements: `docs/requirments.md` | Task breakdown: `docs/tasks.md`
 | Layer | Technology |
 |-------|-----------|
 | Framework | Tauri 2 |
-| Backend | Rust 1.82+ (reqwest + tokio, octocrab, graphql_client) |
+| Backend | Rust stable ≥ 1.85 (reqwest + tokio, graphql_client) |
 | Local DB | SQLite (rusqlite + r2d2) |
 | Token Storage | keyring crate (OS keychain; PAT) |
 | Frontend | React 19 + TypeScript 5.x |
 | Build | Vite |
 | Styling | Tailwind CSS v4 (dark theme only in v0.1) |
 | State | Zustand (3 stores: auth / data / ui) |
-| Routing | TanStack Router |
+| Routing | react-router-dom |
 
 ## Architecture
 
