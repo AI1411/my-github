@@ -55,11 +55,16 @@ export default function InboxPage() {
   const { data, loading, error, refetch } = useInboxQuery();
   const [selected, setSelected] = useState<InboxItem | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const pulls = useDataStore((state) => state.pulls);
   const currentUser = useAuthStore((state) => state.user?.login ?? null);
   const staleThresholds = useSettingsStore((state) => state.staleThresholds);
   const accountId = useAuthStore((state) => state.user?.login ?? "");
   const listSearch = useListSearch(accountId, "inbox");
+
+  const reportActionError = (cause: unknown) => {
+    setActionError(cause instanceof Error ? cause.message : String(cause));
+  };
 
   const staleItems = useMemo(
     () =>
@@ -129,9 +134,10 @@ export default function InboxPage() {
         itemId: target.id,
         pinned: !target.pinned,
       });
+      setActionError(null);
       refetch();
-    } catch {
-      // 失敗時は次回の同期で状態が復元されるため黙って無視する
+    } catch (cause) {
+      reportActionError(cause);
     }
   }
 
@@ -146,10 +152,11 @@ export default function InboxPage() {
       });
       saveLastSnoozeOption(option);
       setPickerOpen(false);
+      setActionError(null);
       if (selected?.id === item.id || selected?.id === target.id) setSelected(null);
       refetch();
-    } catch {
-      // 失敗時は項目が残るだけなので黙って無視する
+    } catch (cause) {
+      reportActionError(cause);
     }
   }
 
@@ -165,6 +172,7 @@ export default function InboxPage() {
     try {
       await invoke("cmd_dismiss_inbox_item", { itemId: target.id });
       setPickerOpen(false);
+      setActionError(null);
       if (nextId) {
         setActiveId(nextId);
         setSelected(flatItems.find((entry) => entry.id === nextId) ?? null);
@@ -172,8 +180,8 @@ export default function InboxPage() {
         setSelected(null);
       }
       refetch();
-    } catch {
-      // 失敗時は項目が残るだけなので黙って無視する
+    } catch (cause) {
+      reportActionError(cause);
     }
   }
 
@@ -187,10 +195,11 @@ export default function InboxPage() {
     try {
       await invoke("cmd_dismiss_inbox_items", { itemIds: [...targets] });
       setPickerOpen(false);
+      setActionError(null);
       setSelected(null);
       refetch();
-    } catch {
-      // 失敗時は項目が残るだけなので黙って無視する
+    } catch (cause) {
+      reportActionError(cause);
     }
   }
 
@@ -276,6 +285,19 @@ export default function InboxPage() {
         inputRef={listSearch.inputRef}
         placeholder="Filter inbox…"
       />
+      {actionError && (
+        <div
+          role="alert"
+          className="px-4 py-2 text-xs border-b"
+          style={{
+            color: "var(--accent-red)",
+            borderColor: "var(--border-subtle)",
+            backgroundColor: "color-mix(in srgb, var(--accent-red) 8%, transparent)",
+          }}
+        >
+          {actionError}
+        </div>
+      )}
       {loading && !data && <ListSkeleton />}
       {error && <EmptyState title="Failed to load inbox" subtitle={error} />}
       {data && (

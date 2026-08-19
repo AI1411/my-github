@@ -266,4 +266,28 @@ describe("InboxPage snooze shortcuts", () => {
     });
     expect(screen.getByText("You were mentioned")).toBeInTheDocument();
   });
+
+  it("surfaces pin failures to the user", async () => {
+    (invoke as ReturnType<typeof vi.fn>).mockImplementation(async (cmd: string) => {
+      if (cmd === "cmd_get_inbox") {
+        return {
+          reviewRequests: [reviewItem],
+          ciFailures: [],
+          mentions: [],
+        };
+      }
+      if (cmd === "cmd_pin_inbox_item") {
+        throw new Error("pin failed");
+      }
+      return null;
+    });
+
+    renderInbox();
+    await waitFor(() => expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0));
+    fireEvent.click(screen.getAllByText("Needs review")[0]);
+    fireEvent.keyDown(window, { key: "p" });
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent("pin failed");
+    });
+  });
 });
