@@ -306,7 +306,7 @@ export default function InboxPage() {
           style={{ gridTemplateColumns: selected ? "1fr 1fr" : "1fr" }}
         >
           <div
-            className="overflow-y-auto border-r"
+            className="min-h-0 border-r"
             style={{ borderColor: selected ? "var(--border-default)" : "transparent" }}
           >
             <InboxList
