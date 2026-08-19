@@ -68,6 +68,15 @@ Sign in with a GitHub Personal Access Token (PAT).
 
 Periodic GitHub sync is driven by the **frontend** (`useNotificationPolling` + `cmd_sync_now` on focus). The Rust backend does not spawn a background poller at startup.
 
+### Push-assisted sync (not webhooks)
+
+Settings → Notifications → **Push-assisted sync** does **not** register GitHub webhooks. Desktop builds cannot host a durable public webhook endpoint. Enabling the toggle means:
+
+1. Revalidate on window focus / resume
+2. Optionally poll more often (capped at 30s) while focused
+
+Real webhook / push delivery remains a future (v0.2+) item.
+
 ### Debug token storage
 
 Production builds store PATs in the OS keychain. **Debug builds** (`pnpm tauri dev`) write tokens to a plaintext JSON file instead:
