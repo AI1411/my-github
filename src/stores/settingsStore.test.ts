@@ -109,6 +109,19 @@ describe("settingsStore", () => {
     expect(useSettingsStore.getState().hideBotReviewRequests).toBe(false);
   });
 
+  it("adds and removes repo root directories", () => {
+    expect(useSettingsStore.getState().repoRootDirs).toEqual([]);
+    useSettingsStore.getState().addRepoRootDir("/Users/me/src/");
+    useSettingsStore.getState().addRepoRootDir("/Users/me/src");
+    useSettingsStore.getState().addRepoRootDir("/Users/me/code");
+    expect(useSettingsStore.getState().repoRootDirs).toEqual([
+      "/Users/me/code",
+      "/Users/me/src",
+    ]);
+    useSettingsStore.getState().removeRepoRootDir("/Users/me/src");
+    expect(useSettingsStore.getState().repoRootDirs).toEqual(["/Users/me/code"]);
+  });
+
   it("migrates legacy boolean notification settings", () => {
     expect(
       normalizeNotificationSettings({

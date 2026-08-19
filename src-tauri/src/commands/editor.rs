@@ -53,6 +53,45 @@ fn open_with_editor(editor: &str, path: &Path) -> Result<(), String> {
     Ok(())
 }
 
+fn is_git_repo(path: &Path) -> bool {
+    path.join(".git").exists()
+}
+
+fn repo_path_candidates(roots: &[String], full_name: &str) -> Vec<PathBuf> {
+    let full_name = full_name.trim();
+    let Some((owner, repo)) = full_name.split_once('/') else {
+        return Vec::new();
+    };
+    let owner = owner.trim();
+    let repo = repo.trim();
+    if owner.is_empty() || repo.is_empty() {
+        return Vec::new();
+    }
+
+    let mut candidates = Vec::new();
+    for root in roots {
+        let root = root.trim().trim_end_matches(['/', '\\']);
+        if root.is_empty() {
+            continue;
+        }
+        let root = PathBuf::from(root);
+        candidates.push(root.join(repo));
+        candidates.push(root.join(owner).join(repo));
+    }
+    candidates
+}
+
+/// Find a local git clone for `full_name` (owner/repo) under configured root directories.
+#[tauri::command]
+pub fn cmd_resolve_repo_path(roots: Vec<String>, full_name: String) -> Option<String> {
+    for candidate in repo_path_candidates(&roots, &full_name) {
+        if is_git_repo(&candidate) {
+            return Some(candidate.display().to_string());
+        }
+    }
+    None
+}
+
 /// Checkout (or create a worktree for) a PR head ref under a mapped local repo path,
 /// then open the working tree in the configured editor.
 #[tauri::command]
@@ -140,5 +179,20 @@ mod tests {
     fn editor_bin_defaults_to_code() {
         assert_eq!(editor_bin("vscode"), "code");
         assert_eq!(editor_bin("cursor"), "cursor");
+    }
+
+    #[test]
+    fn repo_path_candidates_flat_and_nested() {
+        let roots = vec!["/src".to_string()];
+        let paths = repo_path_candidates(&roots, "acme/widget");
+        assert_eq!(paths.len(), 2);
+        assert_eq!(paths[0], PathBuf::from("/src/widget"));
+        assert_eq!(paths[1], PathBuf::from("/src/acme/widget"));
+    }
+
+    #[test]
+    fn repo_path_candidates_rejects_invalid_full_name() {
+        assert!(repo_path_candidates(&["/src".to_string()], "nope").is_empty());
+        assert!(repo_path_candidates(&["/src".to_string()], "/repo").is_empty());
     }
 }
